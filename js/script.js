@@ -476,7 +476,7 @@ async function initializeApp() {
             logoutBtn.dataset.bound = '1';
         }
 
-        const view = EMBED_PAGE_ROUTES[LEGACY_VIEW] ? LEGACY_VIEW : 'dashboard';
+        const view = LEGACY_VIEW && ['dashboard','chamados','pessoas','configuracoes'].includes(LEGACY_VIEW) ? LEGACY_VIEW : 'dashboard';
         navigateTo(view);
         return;
     }

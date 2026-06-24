@@ -1,6 +1,6 @@
 {
   "name": "movidesk-dashboard",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Dashboard de chamados do Movidesk com integração de SLA",
   "main": "server/server.js",
   "scripts": {

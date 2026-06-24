@@ -1221,7 +1221,7 @@ function navigateTo(view) {
 }
 
 function isCurrentUserAdmin() {
-    return _currentUser?.role === 'admin';
+    return String(_currentUser?.role || '').toLowerCase() === 'admin';
 }
 
 async function loadCurrentUser() {

@@ -17,7 +17,7 @@ function authHeaders(extra = {}) {
 // Função para buscar tickets da API local
 
 function isCurrentUserAdmin() {
-    return _currentUser?.role === 'admin';
+    return String(_currentUser?.role || '').toLowerCase() === 'admin';
 }
 
 async function loadCurrentUser() {
