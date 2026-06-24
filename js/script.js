@@ -42,7 +42,14 @@ function loadEmbeddedPage(view) {
 
     host.style.display = 'block';
 
-    const src = EMBED_PAGE_ROUTES[view] || EMBED_PAGE_ROUTES.dashboard;
+    // Normaliza a view para evitar fallback silencioso (ex: acentos, espaços)
+    const normalizedView = (view || '').trim().toLowerCase();
+
+    if (!EMBED_PAGE_ROUTES[normalizedView]) {
+        console.warn(`[loadEmbeddedPage] View desconhecida: "${view}". Redirecionando para dashboard.`);
+    }
+
+    const src = EMBED_PAGE_ROUTES[normalizedView] || EMBED_PAGE_ROUTES.dashboard;
     if (frame.getAttribute('src') !== src) {
         frame.setAttribute('src', src);
     }
@@ -135,17 +142,20 @@ let _cachedTickets = [];
 
 // ─── Navegação entre Views ────────────────────────────────────────
 function navigateTo(view) {
+    // Normaliza para evitar bugs com acentos ou espaços vindos de data-view
+    const normalizedView = (view || '').trim().toLowerCase();
+
     if (EMBED_MODE) {
-        if (view === 'configuracoes' && !isCurrentUserAdmin()) {
+        if (normalizedView === 'configuracoes' && !isCurrentUserAdmin()) {
             return;
         }
 
         document.querySelectorAll('.sidebar-btn[data-view]').forEach(b => b.classList.remove('active'));
-        const activeBtn = document.querySelector(`.sidebar-btn[data-view="${view}"]`);
+        const activeBtn = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"]`);
         if (activeBtn) activeBtn.classList.add('active');
 
-        loadEmbeddedPage(view);
-        localStorage.setItem('activeEmbeddedView', view);
+        loadEmbeddedPage(normalizedView);
+        localStorage.setItem('activeEmbeddedView', normalizedView);
         return;
     }
 
@@ -156,7 +166,7 @@ function navigateTo(view) {
         configuracoes: document.getElementById('configuracoesView'),
     };
 
-    if (view === 'configuracoes' && !isCurrentUserAdmin()) {
+    if (normalizedView === 'configuracoes' && !isCurrentUserAdmin()) {
         const denied = document.getElementById('configAccessDenied');
         if (denied) denied.style.display = 'block';
         return;
@@ -168,19 +178,19 @@ function navigateTo(view) {
     document.querySelectorAll('.sidebar-btn[data-view]').forEach(b => b.classList.remove('active'));
     Object.values(views).forEach(v => { if (v) v.style.display = 'none'; });
 
-    if (views[view]) views[view].style.display = 'block';
-    const activeBtn = document.querySelector(`.sidebar-btn[data-view="${view}"]`);
+    if (views[normalizedView]) views[normalizedView].style.display = 'block';
+    const activeBtn = document.querySelector(`.sidebar-btn[data-view="${normalizedView}"]`);
     if (activeBtn) activeBtn.classList.add('active');
 
-    if (view === 'dashboard') {
+    if (normalizedView === 'dashboard') {
         fetchOpenTickets();
         startDashboardRefreshLoop();
     } else {
         stopDashboardRefreshLoop();
     }
-    if (view === 'pessoas') pessoasLoad();
-    if (view === 'chamados') loadCuradoria();
-    if (view === 'configuracoes') {
+    if (normalizedView === 'pessoas') pessoasLoad();
+    if (normalizedView === 'chamados') loadCuradoria();
+    if (normalizedView === 'configuracoes') {
         loadMovideskTokenStatus();
         loadAdminStats();
         loadGptStatus();
