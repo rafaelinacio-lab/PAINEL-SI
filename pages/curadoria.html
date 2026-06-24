@@ -361,31 +361,91 @@ function photoByName(name) { return `https://api.dicebear.com/7.x/avataaars/svg?
 
 /* ── Categorias ───────────────────────────────────────────────── */
 const DEFAULT_PERF_CATEGORIES = [
-    {key:'comunicacao_clara',    label:'Comunicação clara',        regex:/clar(a|o|eza)|objetiv|cordial|formal|cort[eê]s|educad/i,              icon:'forum',        description:'Clareza e cordialidade nas interações',   isNegative:false},
-    {key:'detalhamento',         label:'Detalhamento',             regex:/detalh|explic|diverg[eê]n|causa|pormenor/i,                           icon:'manage_search',description:'Profundidade na análise e explicação',    isNegative:false},
-    {key:'fechamento',           label:'Fechamento',               regex:/encerr|fecha|conclus|conclu/i,                                        icon:'task_alt',     description:'Conclusão adequada dos atendimentos',    isNegative:false},
-    {key:'acompanhamento',       label:'Acompanhamento',           regex:/follow|acompan|atualiz|frequên|continu|status/i,                      icon:'update',       description:'Follow-up e atualização de status',      isNegative:false},
-    {key:'solucao_tecnica',      label:'Solução técnica',          regex:/soluc|solucion|ajust|resolv|resolu[çc]|an[áa]lise t[eé]cn/i,          icon:'build_circle', description:'Resolução e ajustes técnicos',            isNegative:false},
-    {key:'transparencia',        label:'Transparência',            regex:/prazo|reconhec|limita[çc]|transparên/i,                               icon:'visibility',   description:'Reconhecimento de prazos e limitações',  isNegative:false},
-    {key:'dificuldade_resolucao',label:'Dificuldade de resolução', regex:/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu/i, icon:'warning_amber',description:'Ocorrências sem solução registrada',     isNegative:true},
+    {key:'comunicacao_clara',    label:'Comunicação clara',        icon:'forum',        description:'Clareza e cordialidade nas interações',   isNegative:false,
+     prompt:'O atendente se comunicou de forma clara, objetiva e cordial? Avalie se as respostas são fáceis de entender, sem jargão excessivo, e se o tom foi respeitoso e profissional.'},
+    {key:'detalhamento',         label:'Detalhamento',             icon:'manage_search',description:'Profundidade na análise e explicação',    isNegative:false,
+     prompt:'O atendente detalhou adequadamente o problema e a solução? Avalie se houve explicação da causa raiz, descrição técnica suficiente e informações que ajudem o cliente a entender o que ocorreu.'},
+    {key:'fechamento',           label:'Fechamento',               icon:'task_alt',     description:'Conclusão adequada dos atendimentos',    isNegative:false,
+     prompt:'O atendente encerrou o chamado de forma adequada? Avalie se houve confirmação com o cliente, resumo da solução aplicada e fechamento formal do ticket.'},
+    {key:'acompanhamento',       label:'Acompanhamento',           icon:'update',       description:'Follow-up e atualização de status',      isNegative:false,
+     prompt:'O atendente realizou acompanhamento proativo? Avalie se houve retorno ao cliente sem ele precisar cobrar, atualizações de status e follow-up para verificar se o problema foi resolvido.'},
+    {key:'solucao_tecnica',      label:'Solução técnica',          icon:'build_circle', description:'Resolução e ajustes técnicos',            isNegative:false,
+     prompt:'O atendente demonstrou competência técnica na resolução? Avalie se a solução foi adequada ao problema, se houve análise técnica e se os ajustes realizados resolveram o issue.'},
+    {key:'transparencia',        label:'Transparência',            icon:'visibility',   description:'Reconhecimento de prazos e limitações',  isNegative:false,
+     prompt:'O atendente foi transparente sobre prazos, limitações e o andamento do chamado? Avalie se ele reconheceu quando não sabia algo, informou prazos realistas e foi honesto sobre restrições.'},
+    {key:'dificuldade_resolucao',label:'Dificuldade de resolução', icon:'warning_amber',description:'Ocorrências sem solução registrada',     isNegative:true,
+     prompt:'O chamado ficou sem solução, com falta de retorno ou foi encerrado sem resolver o problema do cliente? Identifique se houve abandono, falta de follow-up ou encerramento indevido.'},
 ];
 let PERF_CATEGORIES = DEFAULT_PERF_CATEGORIES.map(c=>({...c}));
 async function loadPerfCategories() {
     try {
-        const data=await apiCall('/config/curadoria-categories');
-        if(data.categories&&data.categories.length>0)
-            PERF_CATEGORIES=data.categories.map(c=>({key:c.key,label:c.label,regex:new RegExp(c.regex,'i'),icon:c.icon||'star',description:c.description||'',isNegative:!!c.isNegative}));
+        const [catData, gptData] = await Promise.all([
+            apiCall('/config/curadoria-categories'),
+            apiCall('/config/gpt-key').catch(()=>({configured:false}))
+        ]);
+        if(catData.categories&&catData.categories.length>0)
+            PERF_CATEGORIES=catData.categories.map(c=>({
+                key:c.key, label:c.label, prompt:c.prompt||'', icon:c.icon||'star',
+                description:c.description||'', isNegative:!!c.isNegative
+            }));
+        // Carrega a chave GPT descriptografada via endpoint de proxy interno
+        if(gptData.configured) {
+            try {
+                const keyData = await apiCall('/config/gpt-key-for-client');
+                if(keyData.apiKey) window._gptApiKey = keyData.apiKey;
+            } catch(_) {}
+        }
     } catch{ /* defaults */ }
 }
 
 /* ── Análise ──────────────────────────────────────────────────── */
+/* ── Análise de competências via IA ────────────────────────────── */
+async function analyseCompetenciasWithAI(ownerRows, owner) {
+    const gptKey = window._gptApiKey || null;
+    if (!gptKey || !ownerRows.length) return null;
+
+    const ownerNorm = normalizeOwnerName(owner), ownerFirst = ownerNorm.split(' ')[0];
+    const ticketsSummary = ownerRows.map(row => {
+        let perf; try { perf = typeof row.performance_suporte === 'object' ? row.performance_suporte : JSON.parse(row.performance_suporte||'{}')); } catch { perf = {}; }
+        const items = Array.isArray(perf?.items) ? perf.items : [];
+        const ownerItem = items.find(item => { const n = normalizeOwnerName(item.nome||'')); return n===ownerNorm||n.includes(ownerFirst)||ownerNorm.includes(n.split(' ')[0]); });
+        const pontos = ownerItem ? (ownerItem.pontos||[]).join(' | ') : '';
+        return `Chamado #${row.ticket_id} (${row.urgencia||'sem urgência'}): ${row.analise_fato||row.fato||''} ${pontos ? '| Pontos: '+pontos : ''}`.trim();
+    }).filter(Boolean).join('\n');
+
+    if (!ticketsSummary) return null;
+
+    const competenciasPrompt = PERF_CATEGORIES.map((cat, i) =>
+        `${i+1}. key="${cat.key}" label="${cat.label}" isNegative=${cat.isNegative}\n   Critério: ${cat.prompt}`
+    ).join('\n\n');
+
+    const systemPrompt = `Você é um avaliador de desempenho de atendentes de suporte. Analise os chamados e avalie cada competência. Para cada competência retorne "count" (número de chamados onde foi observada), "evidence" (array com até 3 exemplos curtos), "ticketIds" (IDs dos chamados). Responda APENAS em JSON válido sem markdown: {"competencias":{"key":{"count":0,"evidence":["..."],"ticketIds":[]}}}`;
+
+    const userMsg = `Atendente: ${owner}\nTotal: ${ownerRows.length} chamados\n\nChamados:\n${ticketsSummary}\n\nCompetências:\n${competenciasPrompt}`;
+
+    try {
+        const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
+            body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, max_tokens: 1500,
+                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }] })
+        });
+        const data = await resp.json();
+        const text = data.choices?.[0]?.message?.content?.trim() || '{}';
+        const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+        return parsed.competencias || null;
+    } catch(e) {
+        console.warn('analyseCompetenciasWithAI falhou:', e.message);
+        return null;
+    }
+}
+
 function analysePerformance(rows,owner) {
     const ownerNorm=normalizeOwnerName(owner), ownerFirst=ownerNorm.split(' ')[0];
     let totalTickets=0,totalAcoes=0,maxAcoes=0;
     const urgenciaCount={},urgenciaTickets={},catCount={};
     PERF_CATEGORIES.forEach(c=>catCount[c.key]=0); catCount.outros=0;
-    const positivos=[],negativos=[],positiveByTicket=new Map(),gapByTicket=new Map();
-    const negRegex=/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n|falta|sem \w/i;
+    const positiveByTicket=new Map(),gapByTicket=new Map();
     const addEv=(map,tid,label,reason)=>{
         const key=String(tid||'—');
         if(!map.has(key)) map.set(key,{ticketId:key,categories:new Set(),reasons:[],reasonKeys:new Set()});
@@ -393,6 +453,7 @@ function analysePerformance(rows,owner) {
         const rk=String(reason||'').toLowerCase().trim();
         if(rk&&!e.reasonKeys.has(rk)&&e.reasons.length<3){e.reasonKeys.add(rk);e.reasons.push(String(reason||'').trim());}
     };
+    const ownerRows=[];
     rows.forEach(row=>{
         const raw=row.performance_suporte; if(!raw) return;
         let perf; try{perf=typeof raw==='object'?raw:JSON.parse(raw);}catch(_){return;}
@@ -404,26 +465,46 @@ function analysePerformance(rows,owner) {
         urgenciaCount[urg]=(urgenciaCount[urg]||0)+1;
         if(!urgenciaTickets[urg]) urgenciaTickets[urg]=[];
         urgenciaTickets[urg].push({id:row.ticket_id,row});
+        ownerRows.push({...row,_ownerItem:ownerItem});
         (ownerItem.pontos||[]).forEach(ponto=>{
-            let matched=false,ml='Outros';
-            for(const cat of PERF_CATEGORIES){if(cat.regex.test(ponto)){catCount[cat.key]++;matched=true;ml=cat.label;break;}}
-            if(!matched) catCount.outros++;
-            if(negRegex.test(ponto)){negativos.push(ponto);addEv(gapByTicket,row.ticket_id,ml,ponto);}
-            else{positivos.push(ponto);addEv(positiveByTicket,row.ticket_id,ml,ponto);}
+            const isNeg=/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(ponto);
+            if(isNeg){addEv(gapByTicket,row.ticket_id,'',ponto);}
+            else{addEv(positiveByTicket,row.ticket_id,'',ponto);}
         });
     });
     const norm=(map,limit=5)=>[...map.values()].map(item=>({ticketId:item.ticketId,categories:[...item.categories],reasons:item.reasons,score:item.reasons.length+item.categories.length})).sort((a,b)=>b.score-a.score).slice(0,limit);
     const positiveEvidence=norm(positiveByTicket,5),gapEvidence=norm(gapByTicket,5);
-    const techScore=catCount.solucao_tecnica+catCount.detalhamento,softScore=catCount.comunicacao_clara+catCount.acompanhamento+catCount.transparencia,diffScore=catCount.dificuldade_resolucao;
+    const diffScore=PERF_CATEGORIES.filter(c=>c.isNegative).reduce((s,c)=>s+(catCount[c.key]||0),0);
+    const totalPositive=PERF_CATEGORIES.filter(c=>!c.isNegative).reduce((s,c)=>s+(catCount[c.key]||0),0);
     let verdictLabel='',verdict='';
     if(totalTickets===0){verdictLabel='Sem dados';verdict='Nenhum registro encontrado';}
-    else if(diffScore>=3){verdictLabel='Júnior em desenvolvimento';verdict=`${owner} apresenta dificuldades recorrentes identificadas em ${diffScore} ocorrências.`;}
-    else if(techScore>=5&&softScore<3){verdictLabel='Sênior com lacunas';verdict=`${owner} demonstra forte domínio técnico com ${techScore} ocorrências.`;}
-    else if(techScore>=4&&softScore>=3){verdictLabel='Sênior';verdict=`${owner} demonstra maturidade técnica e comunicativa consistente.`;}
-    else if(totalTickets>=3){verdictLabel='Pleno';verdict=`${owner} mantém boa execução nos atendimentos.`;}
+    else if(diffScore>=3){verdictLabel='Júnior em desenvolvimento';verdict=`${owner} apresenta dificuldades recorrentes em ${diffScore} ocorrências.`;}
+    else if(totalPositive>=7&&diffScore===0){verdictLabel='Sênior';verdict=`${owner} demonstra maturidade técnica e comunicativa consistente.`;}
+    else if(totalPositive>=4){verdictLabel='Pleno';verdict=`${owner} mantém boa execução nos atendimentos.`;}
     else{verdictLabel='Em avaliação';verdict=`${owner} possui registros para avaliação em progresso.`;}
-    return{totalTickets,totalAcoes,mediaAcoes:totalTickets?(totalAcoes/totalTickets).toFixed(1):'0',maxAcoes,urgenciaCount,urgenciaTickets,catCount,positiveEvidence,gapEvidence,verdictLabel,verdict};
+    return{totalTickets,totalAcoes,mediaAcoes:totalTickets?(totalAcoes/totalTickets).toFixed(1):'0',maxAcoes,urgenciaCount,urgenciaTickets,catCount,positiveEvidence,gapEvidence,verdictLabel,verdict,ownerRows};
 }
+
+// Enriquece o card com dados da IA após renderização inicial
+async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCount) {
+    const aiResult = await analyseCompetenciasWithAI(ownerRows, owner);
+    if (!aiResult) return;
+    PERF_CATEGORIES.forEach(c=>{ const r=aiResult[c.key]; if(r) catCount[c.key]=r.count||0; });
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const barsEl = container.querySelector('.perf-competencia-bars');
+    if (!barsEl) return;
+    const maxCat=Math.max(...PERF_CATEGORIES.map(c=>catCount[c.key]||0),1);
+    const positiveCats=PERF_CATEGORIES.filter(c=>!c.isNegative&&(catCount[c.key]||0)>0).sort((x,y)=>(catCount[y.key]||0)-(catCount[x.key]||0));
+    if(positiveCats.length===0){barsEl.innerHTML='<span style="color:var(--text-secondary);font-size:12px">Nenhuma competência identificada pela IA</span>';return;}
+    barsEl.innerHTML=positiveCats.map(c=>{
+        const count=catCount[c.key]||0,pct=Math.round((count/maxCat)*100);
+        const aiData=aiResult[c.key];
+        const ev=aiData?.evidence?.[0]?`<span class="perf-bar-evidence" title="${escapeHtml(aiData.evidence.join(' | '))}">${escapeHtml(aiData.evidence[0])}</span>`:'';
+        return `<div class="perf-bar-row"><span class="perf-bar-label" title="${escapeHtml(c.description)}"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle">${c.icon||'star'}</span> ${escapeHtml(c.label)}</span><div class="perf-bar-track"><div class="perf-bar-fill" style="width:${pct}%"></div></div><span class="perf-bar-count">${count}</span>${ev}</div>`;
+    }).join('');
+}
+
 
 /* ── Owner Strip ──────────────────────────────────────────────── */
 function uniqueOwners(rows) {
@@ -541,7 +622,7 @@ function renderAnalysisCard(owner, rows) {
     const diffPct=Math.round((diffCount/Math.max(totalPositive,1))*100);
     const posHtml=a.positiveEvidence.length?a.positiveEvidence.map(ev=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-green-600">check_circle</span><span>${escapeHtml(ev.reasons[0]||'Evidência positiva identificada')}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem evidências positivas registradas</li>';
     const gapHtml=a.gapEvidence.length?a.gapEvidence.map(ev=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-red-600">warning</span><span>${escapeHtml(ev.reasons[0]||'Lacuna identificada')}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem lacunas identificadas</li>';
-    return `<div class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+    return `<div id="curadoria-analysis-card" class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
         <div class="flex justify-between items-center mb-8"><h3 class="font-headline-lg text-headline-lg text-primary">Análise de Padrão de Atendimento</h3></div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
             <div class="bg-surface-container-low p-4 rounded-lg cursor-pointer hover:bg-surface-container transition-colors" onclick="showTicketsByUrgencyModal(${JSON.stringify(a.urgenciaTickets).replace(/"/g,'&quot;')})">
@@ -555,7 +636,7 @@ function renderAnalysisCard(owner, rows) {
                 <h4 class="font-label-md text-label-md text-primary font-bold uppercase tracking-wide">Competências em Destaque</h4>
                 <span class="text-xs text-on-surface-variant">${totalPositive} menções analisadas</span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">${compCards||'<p class="text-on-surface-variant text-sm col-span-2">Sem dados de competências para este período.</p>'}</div>
+            <div class="perf-competencia-bars grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">${compCards||'<p class="text-on-surface-variant text-sm col-span-2">Sem dados de competências para este período.</p>'}</div>
             ${diffCount>=0?`<div class="flex items-center gap-3 p-4 rounded-xl border ${diffCount===0?'border-green-800 bg-green-950':diffCount<=2?'border-yellow-800 bg-yellow-950':'border-red-800 bg-red-950'}">
                 <span class="material-symbols-outlined text-[22px] ${diffCount===0?'text-green-400':diffCount<=2?'text-yellow-400':'text-red-400'}">warning_amber</span>
                 <div class="flex-1"><div class="flex items-center gap-2 mb-0.5"><span class="font-label-md text-label-md text-on-surface">Dificuldade de resolução</span>${diffBadge}</div>
@@ -627,6 +708,15 @@ function renderCards() {
         mount.querySelectorAll('[data-score-target]').forEach(el=>{animateCount(el,0,parseInt(el.dataset.scoreTarget,10),1000);});
         mount.querySelectorAll('[data-count-target]').forEach(el=>{animateCount(el,0,parseFloat(el.dataset.countTarget),900);});
     }, 820);
+
+    /* Enriquece competências via IA de forma assíncrona (não bloqueia o render) */
+    const ownerRowsForAI = ownerRows;
+    const ownerForAI = currentOwner;
+    const catCountForAI = {};
+    PERF_CATEGORIES.forEach(c => catCountForAI[c.key] = 0);
+    setTimeout(() => {
+        enrichPerformanceCardWithAI('curadoria-analysis-card', ownerRowsForAI, ownerForAI, catCountForAI);
+    }, 1000);
 }
 
 /* ── selectOwner ──────────────────────────────────────────────── */

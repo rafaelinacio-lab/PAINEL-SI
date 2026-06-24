@@ -136,36 +136,45 @@ function refreshAutoSyncLoop() {
 // ============================================================
 
 const DEFAULT_CURADORIA_CATEGORIES = [
-    { key: 'comunicacao_clara',     label: 'Comunicação clara',        keywords: ['claro', 'clara', 'clareza', 'objetivo', 'cordial', 'formal', 'cortês', 'educado'],                              regex: 'clar(a|o|eza)|objetiv|cordial|formal|cort[eê]s|educad',           icon: 'forum',         description: 'Clareza e cordialidade nas interações',      isNegative: false },
-    { key: 'detalhamento',          label: 'Detalhamento',             keywords: ['detalhamento', 'detalhou', 'explicação', 'explicou', 'divergência', 'causa', 'pormenor'],                       regex: 'detalh|explic|diverg[eê]n|causa|pormenor',                        icon: 'manage_search', description: 'Profundidade na análise e explicação',       isNegative: false },
-    { key: 'fechamento',            label: 'Fechamento',               keywords: ['encerramento', 'encerrou', 'fechamento', 'fechou', 'conclusão', 'concluiu'],                                   regex: 'encerr|fecha|conclus|conclu',                                     icon: 'task_alt',      description: 'Conclusão adequada dos atendimentos',        isNegative: false },
-    { key: 'acompanhamento',        label: 'Acompanhamento',           keywords: ['follow-up', 'acompanhamento', 'acompanhou', 'atualização', 'atualizou', 'continuação', 'status'],              regex: 'follow|acompan|atualiz|frequên|continu|status',                   icon: 'update',        description: 'Follow-up e atualização de status',          isNegative: false },
-    { key: 'solucao_tecnica',       label: 'Solução técnica',          keywords: ['solução', 'solucionado', 'ajuste', 'ajustou', 'resolvido', 'resolução', 'análise técnica'],                   regex: 'soluc|solucion|ajust|resolv|resolu[çc]|an[áa]lise t[eé]cn',      icon: 'build_circle',  description: 'Resolução e ajustes técnicos',               isNegative: false },
-    { key: 'transparencia',         label: 'Transparência',            keywords: ['prazo', 'reconhece', 'reconheceu', 'limitação', 'transparência'],                                              regex: 'prazo|reconhec|limita[çc]|transparên',                            icon: 'visibility',    description: 'Reconhecimento de prazos e limitações',      isNegative: false },
-    { key: 'dificuldade_resolucao', label: 'Dificuldade de resolução', keywords: ['não consegui', 'falta de retorno', 'sem solução', 'encerrou sem', 'não resolveu'],                             regex: 'não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu', icon: 'warning_amber', description: 'Ocorrências sem solução registrada',          isNegative: true  },
+    {
+        key: 'comunicacao_clara', label: 'Comunicação clara', icon: 'forum',
+        description: 'Clareza e cordialidade nas interações', isNegative: false,
+        prompt: 'O atendente se comunicou de forma clara, objetiva e cordial? Avalie se as respostas são fáceis de entender, sem jargão excessivo, e se o tom foi respeitoso e profissional.'
+    },
+    {
+        key: 'detalhamento', label: 'Detalhamento', icon: 'manage_search',
+        description: 'Profundidade na análise e explicação', isNegative: false,
+        prompt: 'O atendente detalhou adequadamente o problema e a solução? Avalie se houve explicação da causa raiz, descrição técnica suficiente e informações que ajudem o cliente a entender o que ocorreu.'
+    },
+    {
+        key: 'fechamento', label: 'Fechamento', icon: 'task_alt',
+        description: 'Conclusão adequada dos atendimentos', isNegative: false,
+        prompt: 'O atendente encerrou o chamado de forma adequada? Avalie se houve confirmação com o cliente, resumo da solução aplicada e fechamento formal do ticket.'
+    },
+    {
+        key: 'acompanhamento', label: 'Acompanhamento', icon: 'update',
+        description: 'Follow-up e atualização de status', isNegative: false,
+        prompt: 'O atendente realizou acompanhamento proativo? Avalie se houve retorno ao cliente sem ele precisar cobrar, atualizações de status e follow-up para verificar se o problema foi resolvido.'
+    },
+    {
+        key: 'solucao_tecnica', label: 'Solução técnica', icon: 'build_circle',
+        description: 'Resolução e ajustes técnicos', isNegative: false,
+        prompt: 'O atendente demonstrou competência técnica na resolução? Avalie se a solução foi adequada ao problema, se houve análise técnica e se os ajustes realizados resolveram o issue.'
+    },
+    {
+        key: 'transparencia', label: 'Transparência', icon: 'visibility',
+        description: 'Reconhecimento de prazos e limitações', isNegative: false,
+        prompt: 'O atendente foi transparente sobre prazos, limitações e o andamento do chamado? Avalie se ele reconheceu quando não sabia algo, informou prazos realistas e foi honesto sobre restrições.'
+    },
+    {
+        key: 'dificuldade_resolucao', label: 'Dificuldade de resolução', icon: 'warning_amber',
+        description: 'Ocorrências sem solução registrada', isNegative: true,
+        prompt: 'O chamado ficou sem solução, com falta de retorno ou foi encerrado sem resolver o problema do cliente? Identifique se houve abandono, falta de follow-up ou encerramento indevido.'
+    },
 ];
 
-// Converte lista de palavras-chave em regex (une com | escapando caracteres especiais)
-function cfgKeywordsToRegex(keywords) {
-    return keywords
-        .map(k => k.trim())
-        .filter(Boolean)
-        .map(k => k.replace(/[.*+?^${}()\[\]\\]/g, '\\$&'))
-        .join('|');
-}
-
-// Tenta converter uma regex em lista de palavras-chave simples (split no | de nível top)
-function cfgRegexToKeywords(regex) {
-    let depth = 0, current = '';
-    const parts = [];
-    for (const ch of (regex || '')) {
-        if (ch === '(') depth++;
-        else if (ch === ')') depth--;
-        else if (ch === '|' && depth === 0) { parts.push(current.trim()); current = ''; continue; }
-        current += ch;
-    }
-    if (current.trim()) parts.push(current.trim());
-    return parts.filter(Boolean);
+function _escCfg(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 async function loadCategoriesConfig() {
@@ -181,18 +190,11 @@ async function loadCategoriesConfig() {
     }
 }
 
-function _escCfg(str) {
-    return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 function renderCategoriesEditor(categories) {
     const container = document.getElementById('cfgCategoriesList');
     if (!container) return;
     container.innerHTML = categories.map((cat) => {
-        const keywords = cat.keywords && cat.keywords.length
-            ? cat.keywords
-            : cfgRegexToKeywords(cat.regex);
-        const kwText = keywords.join('\n');
+        const prompt = cat.prompt || '';
         const negBadge = cat.isNegative
             ? `<span class="cfg-cat-badge cfg-cat-badge-neg">⚠ Negativa</span>`
             : `<span class="cfg-cat-badge cfg-cat-badge-pos">✅ Positiva</span>`;
@@ -213,9 +215,9 @@ function renderCategoriesEditor(categories) {
                     <input class="config-input cfg-cat-desc" type="text" placeholder="Ex: Clareza e cordialidade nas interações" value="${_escCfg(cat.description)}">
                 </div>
                 <div class="cfg-field-group">
-                    <label class="cfg-field-label">Palavras e frases que identificam esta competência <span class="cfg-field-hint">(uma por linha)</span></label>
-                    <p class="cfg-help-text">💡 O sistema vai procurar essas palavras nas respostas dos atendentes. Não precisa ser exato — se o texto <em>contiver</em> a palavra, já conta.</p>
-                    <textarea class="config-input cfg-cat-keywords" rows="4" placeholder="Ex:&#10;claro&#10;objetivo&#10;cordial">${_escCfg(kwText)}</textarea>
+                    <label class="cfg-field-label">Prompt de avaliação <span class="cfg-field-hint">(instrução para a IA identificar esta competência nos chamados)</span></label>
+                    <p class="cfg-help-text">💡 Descreva em linguagem natural o que a IA deve observar nos chamados para identificar esta competência. Seja específico sobre comportamentos e evidências esperados.</p>
+                    <textarea class="config-input cfg-cat-prompt" rows="4" placeholder="Ex: O atendente se comunicou de forma clara e objetiva? Avalie se as respostas são fáceis de entender e o tom foi profissional.">${_escCfg(prompt)}</textarea>
                 </div>
                 <div class="cfg-field-group">
                     <label class="config-checkbox-label cfg-neg-toggle">
@@ -255,9 +257,9 @@ function cfgAddCategoryRow() {
                 <input class="config-input cfg-cat-desc" type="text" placeholder="Ex: Atitude proativa do atendente" value="">
             </div>
             <div class="cfg-field-group">
-                <label class="cfg-field-label">Palavras e frases que identificam esta competência <span class="cfg-field-hint">(uma por linha)</span></label>
-                <p class="cfg-help-text">💡 O sistema vai procurar essas palavras nas respostas dos atendentes. Não precisa ser exato — se o texto <em>contiver</em> a palavra, já conta.</p>
-                <textarea class="config-input cfg-cat-keywords" rows="4" placeholder="Ex:&#10;proativo&#10;antecipou&#10;iniciativa"></textarea>
+                <label class="cfg-field-label">Prompt de avaliação <span class="cfg-field-hint">(instrução para a IA identificar esta competência nos chamados)</span></label>
+                <p class="cfg-help-text">💡 Descreva o que a IA deve observar para identificar esta competência. Seja específico sobre comportamentos e evidências esperados.</p>
+                <textarea class="config-input cfg-cat-prompt" rows="4" placeholder="Ex: O atendente demonstrou proatividade? Identifique se ele antecipou problemas, tomou iniciativa sem esperar o cliente cobrar e sugeriu soluções além do solicitado."></textarea>
             </div>
             <div class="cfg-field-group">
                 <label class="config-checkbox-label cfg-neg-toggle">
@@ -283,17 +285,15 @@ function cfgReadCategoriesFromEditor() {
     const categories = [];
     for (const row of rows) {
         const label = row.querySelector('.cfg-cat-label')?.value?.trim();
-        const kwRaw = row.querySelector('.cfg-cat-keywords')?.value || '';
-        const keywords = kwRaw.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
-        if (!label || keywords.length === 0) continue;
+        const prompt = row.querySelector('.cfg-cat-prompt')?.value?.trim() || '';
+        if (!label || !prompt) continue;
         const description = row.querySelector('.cfg-cat-desc')?.value?.trim() || '';
         const isNegative  = row.querySelector('.cfg-cat-negative')?.checked || false;
         const icon = row.dataset.icon || (isNegative ? 'warning_amber' : 'check_circle');
         const key = label.toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-        const regex = cfgKeywordsToRegex(keywords);
-        categories.push({ key, label, keywords, regex, icon, description, isNegative });
+        categories.push({ key, label, prompt, icon, description, isNegative });
     }
     return categories;
 }
@@ -301,7 +301,7 @@ function cfgReadCategoriesFromEditor() {
 async function saveCategoriesConfig() {
     const categories = cfgReadCategoriesFromEditor();
     if (categories.length === 0) {
-        setCfgStatus('cfgCategoriesStatus', 'Adicione pelo menos uma competência com nome e palavras-chave antes de salvar.', 'error');
+        setCfgStatus('cfgCategoriesStatus', 'Adicione pelo menos uma competência com nome e prompt antes de salvar.', 'error');
         return;
     }
     try {

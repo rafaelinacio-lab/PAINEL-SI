@@ -72,6 +72,21 @@ router.get('/gpt-key', authMiddleware, requireRole('admin'), (req, res) => {
   });
 });
 
+// GET - Retorna chave GPT descriptografada para uso no frontend (qualquer usuário autenticado)
+// A chave é usada para chamadas diretas à OpenAI a partir do browser
+router.get('/gpt-key-for-client', authMiddleware, (req, res) => {
+  getConfigValue('openai_api_key', (err, row) => {
+    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
+    if (!row) return res.json({ configured: false, apiKey: null });
+    try {
+      const apiKey = decryptToken(row.value);
+      res.json({ configured: true, apiKey });
+    } catch {
+      res.json({ configured: false, apiKey: null });
+    }
+  });
+});
+
 // POST - Salvar chave GPT criptografada (somente admin)
 router.post('/gpt-key', authMiddleware, requireRole('admin'), (req, res) => {
   const { apiKey } = req.body;
@@ -431,11 +446,11 @@ router.post('/curadoria-categories', authMiddleware, requireRole('admin'), (req,
     return res.status(400).json({ error: 'Lista de categorias inválida' });
   }
   for (const cat of categories) {
-    if (!cat.key || !cat.label || !cat.regex) {
-      return res.status(400).json({ error: `Categoria inválida: todos os campos obrigatórios (key, label, regex)` });
+    if (!cat.key || !cat.label || !cat.prompt) {
+      return res.status(400).json({ error: `Categoria inválida: campos obrigatórios são key, label e prompt` });
     }
-    try { new RegExp(cat.regex, 'i'); } catch (e) {
-      return res.status(400).json({ error: `Regex inválida em "${cat.label}": ${e.message}` });
+    if (typeof cat.prompt !== 'string' || cat.prompt.trim().length < 10) {
+      return res.status(400).json({ error: `Prompt muito curto em "${cat.label}": descreva melhor o critério de avaliação` });
     }
   }
   saveConfigValue('curadoria_categories', JSON.stringify(categories), (err) => {
