@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flux — Entrar</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script>
+        (function() {
+            const t = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+</head>
+<body>
+
+<div id="loginScreen" class="login-screen" style="display:flex;">
+    <div class="login-card">
+
+        <!-- Marca -->
+        <div class="login-brand">
+            <div class="login-logo">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="white"/>
+                </svg>
+            </div>
+            <div>
+                <h1>Flux</h1>
+                <p>Acesso ao painel de chamados</p>
+            </div>
+        </div>
+
+        <!-- Etapa 1: Credenciais -->
+        <form id="loginForm" class="login-form" novalidate>
+            <label for="loginEmail">E-mail</label>
+            <input id="loginEmail" type="email" autocomplete="username" placeholder="voce@viasoft.com.br">
+
+            <label for="loginPassword">Senha</label>
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Sua senha">
+
+            <button type="submit" class="login-btn" id="loginSubmit">Entrar</button>
+            <div id="loginError" class="login-error" style="display:none;"></div>
+        </form>
+
+        <!-- Etapa 2: Primeiro acesso -->
+        <form id="firstAccessForm" class="login-form" novalidate style="display:none;">
+            <p style="font-size:13px; color:var(--muted); margin-bottom:12px;">
+                Este é seu primeiro acesso. Defina uma nova senha para continuar.
+            </p>
+            <label for="faCurrentPassword">Senha inicial (recebida por e-mail)</label>
+            <input id="faCurrentPassword" type="password" autocomplete="current-password" placeholder="Senha inicial">
+
+            <label for="faNewPassword">Nova senha</label>
+            <input id="faNewPassword" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+
+            <label for="faConfirmPassword">Confirmar nova senha</label>
+            <input id="faConfirmPassword" type="password" autocomplete="new-password" placeholder="Repita a nova senha">
+
+            <button type="submit" class="login-btn" id="faSubmit">Definir senha</button>
+            <div id="faError" class="login-error" style="display:none;"></div>
+        </form>
+
+        <!-- Etapa 3: MFA -->
+        <form id="mfaForm" class="login-form" novalidate style="display:none;">
+            <p style="font-size:13px; color:var(--muted); margin-bottom:12px;">
+                Insira o código de 6 dígitos do seu aplicativo autenticador.
+            </p>
+            <label for="mfaCode">Código MFA</label>
+            <input id="mfaCode" type="text" inputmode="numeric" maxlength="8"
+                   autocomplete="one-time-code" placeholder="000000">
+
+            <button type="submit" class="login-btn" id="mfaSubmit">Verificar</button>
+            <button type="button" class="login-btn" id="mfaBack"
+                    style="background:transparent; color:var(--muted); margin-top:4px; border:1px solid var(--border);">
+                Voltar
+            </button>
+            <div id="mfaError" class="login-error" style="display:none;"></div>
+        </form>
+
+    </div>
+</div>
+
+<script>
+const API_BASE = window.location.origin + '/api';
+const TOKEN_KEY = 'token';
+
+let _tempToken  = null;
+let _firstEmail = null;
+
+function showStep(step) {
+    document.getElementById('loginForm').style.display       = step === 'credentials'  ? '' : 'none';
+    document.getElementById('firstAccessForm').style.display = step === 'first-access' ? '' : 'none';
+    document.getElementById('mfaForm').style.display         = step === 'mfa'          ? '' : 'none';
+}
+
+function setError(id, msg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+    el.style.color = '';
+}
+
+function setLoading(btnId, loading, defaultLabel) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled    = loading;
+    btn.textContent = loading ? 'Aguarde...' : defaultLabel;
+}
+
+// Verifica sessão existente
+(async function() {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+    try {
+        const res = await fetch(API_BASE + '/auth/me', {
+            headers: { Authorization: 'Bearer ' + token }
+        });
+        if (res.ok) window.location.replace('/');
+    } catch {}
+})();
+
+// Etapa 1: login
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    setError('loginError', '');
+
+    const email    = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!email || !password) { setError('loginError', 'Informe e-mail e senha.'); return; }
+
+    setLoading('loginSubmit', true, 'Entrar');
+    try {
+        const res  = await fetch(API_BASE + '/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha no login');
+
+        if (data.requiresMFA) {
+            _tempToken = data.tempToken;
+            showStep('mfa');
+            document.getElementById('mfaCode').focus();
+            return;
+        }
+
+        localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        if (data.user && data.user.firstAccess) {
+            _firstEmail = email;
+            showStep('first-access');
+            document.getElementById('faCurrentPassword').focus();
+            return;
+        }
+
+        window.location.replace('/');
+    } catch (err) {
+        setError('loginError', err.message || 'Erro ao entrar.');
+    } finally {
+        setLoading('loginSubmit', false, 'Entrar');
+    }
+});
+
+// Etapa 2: primeiro acesso
+document.getElementById('firstAccessForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    setError('faError', '');
+
+    const initialPassword = document.getElementById('faCurrentPassword').value;
+    const newPassword     = document.getElementById('faNewPassword').value;
+    const confirmPassword = document.getElementById('faConfirmPassword').value;
+
+    if (!initialPassword || !newPassword || !confirmPassword) { setError('faError', 'Preencha todos os campos.'); return; }
+    if (newPassword !== confirmPassword) { setError('faError', 'As senhas não coincidem.'); return; }
+    if (newPassword.length < 8) { setError('faError', 'A nova senha deve ter pelo menos 8 caracteres.'); return; }
+
+    setLoading('faSubmit', true, 'Definir senha');
+    try {
+        const res  = await fetch(API_BASE + '/auth/first-access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: _firstEmail, initialPassword, newPassword })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha ao definir senha');
+
+        _firstEmail = null;
+        showStep('credentials');
+
+        const err = document.getElementById('loginError');
+        err.textContent  = 'Senha definida com sucesso. Faça login com sua nova senha.';
+        err.style.color  = 'var(--success, #22c55e)';
+        err.style.display = 'block';
+
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('loginEmail').focus();
+    } catch (err) {
+        setError('faError', err.message || 'Erro ao definir senha.');
+    } finally {
+        setLoading('faSubmit', false, 'Definir senha');
+    }
+});
+
+// Etapa 3: MFA
+document.getElementById('mfaForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    setError('mfaError', '');
+
+    const code = document.getElementById('mfaCode').value.trim();
+    if (!code) { setError('mfaError', 'Informe o código MFA.'); return; }
+
+    setLoading('mfaSubmit', true, 'Verificar');
+    try {
+        const res  = await fetch(API_BASE + '/auth/verify-mfa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tempToken: _tempToken, code })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Código inválido');
+
+        localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.location.replace('/');
+    } catch (err) {
+        setError('mfaError', err.message || 'Erro ao verificar código.');
+    } finally {
+        setLoading('mfaSubmit', false, 'Verificar');
+    }
+});
+
+document.getElementById('mfaBack').addEventListener('click', function() {
+    _tempToken = null;
+    document.getElementById('mfaCode').value = '';
+    showStep('credentials');
+});
+
+document.getElementById('loginEmail').focus();
+</script>
+
+</body>
+</html>

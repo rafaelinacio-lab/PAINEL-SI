@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Insights - Curadoria</title>
+    <script>
+        (function() {
+            const t = localStorage.getItem('theme') || 'light';
+            document.documentElement.className = t;
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'theme') document.documentElement.className = e.newValue || 'light';
+            });
+        })();
+    </script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface":"#191c1e","tertiary":"#000000","secondary-fixed":"#ffddb8","on-primary-fixed-variant":"#3f465c",
+                        "on-primary":"#ffffff","on-secondary":"#ffffff","on-secondary-container":"#684000","tertiary-fixed-dim":"#dec29a",
+                        "surface-bright":"#f7f9fb","primary-fixed":"#dae2fd","error-container":"#ffdad6","surface-container-lowest":"#ffffff",
+                        "surface-variant":"#e0e3e5","on-error-container":"#93000a","background":"#f7f9fb","surface-container-high":"#e6e8ea",
+                        "on-secondary-fixed":"#2a1700","on-tertiary-fixed":"#271901","surface-dim":"#d8dadc","surface-container-highest":"#e0e3e5",
+                        "outline-variant":"#c6c6cd","primary-container":"#131b2e","inverse-primary":"#bec6e0","surface-container":"#eceef0",
+                        "secondary-container":"#fea619","secondary":"#855300","on-error":"#ffffff","on-surface-variant":"#45464d",
+                        "secondary-fixed-dim":"#ffb95f","tertiary-fixed":"#fcdeb5","inverse-on-surface":"#eff1f3","inverse-surface":"#2d3133",
+                        "primary":"#000000","surface-container-low":"#f2f4f6","surface":"#f7f9fb","on-tertiary":"#ffffff",
+                        "primary-fixed-dim":"#bec6e0","on-secondary-fixed-variant":"#653e00","on-tertiary-fixed-variant":"#574425",
+                        "surface-tint":"#565e74","error":"#ba1a1a","tertiary-container":"#271901","on-primary-fixed":"#131b2e",
+                        "outline":"#76777d","on-background":"#191c1e","on-primary-container":"#7c839b","on-tertiary-container":"#98805d"
+                    },
+                    spacing: { "gutter":"24px","widget-gap":"24px","base":"8px","card-padding":"24px","container-padding":"32px" },
+                    fontSize: {
+                        "headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],
+                        "body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],
+                        "display-lg":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}],
+                        "label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"600"}],
+                        "body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html,body{scrollbar-width:none;-ms-overflow-style:none}
+        html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
+        *{scrollbar-width:none;-ms-overflow-style:none}
+        *::-webkit-scrollbar{display:none}
+        body{font-family:'Inter',sans-serif}
+        .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+        .soft-shadow{box-shadow:0px 4px 20px rgba(15,23,42,0.05)}
+        .active-border{border-bottom:2px solid #855300}
+        .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+        .no-scrollbar::-webkit-scrollbar{display:none}
+
+        /* ── Busca ───────────────────────────────────────────────── */
+        #ownerSearchWrapper{overflow:hidden;height:52px;width:52px;background-color:#4070f4;box-shadow:2px 2px 20px rgba(0,0,0,0.08);border-radius:9999px;display:flex;align-items:center;cursor:text;transition:width 0.3s cubic-bezier(0.4,0,0.2,1)}
+        #ownerSearchWrapper.expanded{width:270px}
+        #ownerSearchWrapper .search-icon{flex-shrink:0;width:52px;display:flex;align-items:center;justify-content:center;fill:white}
+        #ownerSearchInput{width:0;opacity:0;padding:0;font-size:16px;background:transparent;border:none;outline:none;color:white;font-family:'Inter',sans-serif;transition:width 0.3s cubic-bezier(0.4,0,0.2,1),opacity 0.25s ease}
+        #ownerSearchWrapper.expanded #ownerSearchInput{width:100%;opacity:1;padding:0 4px}
+        #ownerSearchInput::placeholder{color:rgba(255,255,255,0.55)}
+        #ownerSearchClearBtn{flex-shrink:0;width:0;overflow:hidden;opacity:0;background:transparent;border:none;cursor:pointer;color:rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;transition:width 0.2s ease,opacity 0.2s ease,color 0.15s ease;padding:0}
+        #ownerSearchClearBtn.visible{width:32px;opacity:1;margin-right:8px}
+        #ownerSearchClearBtn:hover{color:white}
+
+        /* ── Dark Mode ───────────────────────────────────────────── */
+        html.dark body{background-color:#0f1117;color:#e8e8e2}
+        html.dark .bg-background{background-color:#0f1117}
+        html.dark .bg-surface{background-color:#1a1d27}
+        html.dark .bg-surface-container-lowest{background-color:#16181f}
+        html.dark .bg-surface-container-low{background-color:#1a1d27}
+        html.dark .bg-surface-container{background-color:#1e2232}
+        html.dark .bg-surface-container-high{background-color:#242840}
+        html.dark .bg-surface-variant{background-color:#2a2d3a}
+        html.dark .text-primary{color:#e2e8f0}
+        html.dark .text-on-surface{color:#e8e8e2}
+        html.dark .text-on-surface-variant{color:#9b9b92}
+        html.dark .text-secondary{color:#ffb95f}
+        html.dark .text-on-secondary-container{color:#ffe0b2}
+        html.dark .bg-secondary-container{background-color:#4a2e00}
+        html.dark .bg-secondary{background-color:#c68a1a}
+        html.dark .border-outline{border-color:#3a3d4a}
+        html.dark .border-outline-variant{border-color:#2a2d3a}
+        html.dark .bg-outline-variant{background-color:#2a2d3a}
+        html.dark .text-outline{color:#6b7280}
+        html.dark .soft-shadow{box-shadow:0px 4px 20px rgba(0,0,0,0.4)}
+        html.dark .active-border{border-bottom-color:#ffb95f}
+        html.dark .hover\:bg-surface-container:hover{background-color:#1e2232}
+        html.dark .bg-green-100{background-color:#0a2018}
+        html.dark .text-green-800{color:#34d399}
+        html.dark .bg-amber-100{background-color:#2a1f0a}
+        html.dark .text-amber-800{color:#fbbf24}
+        html.dark .bg-red-100{background-color:#2d1515}
+        html.dark .text-red-800{color:#f87171}
+        html.dark .text-green-600{color:#34d399}
+        html.dark .bg-secondary-container\/40{background-color:rgba(74,46,0,0.4)}
+        html.dark #curadoriaLoadingOverlay{background-color:#0f1117}
+
+        /* ── Animação: cards fluem do avatar ────────────────────── */
+        #curadoriaMount { position: relative; min-height: 200px; }
+
+        @keyframes flowIn {
+            0%   {
+                opacity: 0;
+                transform: translateY(var(--travel)) translateX(var(--travelX)) scale(0.82);
+                filter: blur(16px) saturate(0.1);
+                border-radius: 50%;
+            }
+            30%  {
+                opacity: 0.8;
+                filter: blur(6px) saturate(0.5);
+                border-radius: 40% 60% 55% 45% / 50% 45% 55% 50%;
+            }
+            58%  {
+                filter: blur(2px) saturate(0.85);
+                transform: translateY(calc(var(--travel) * -0.04)) translateX(calc(var(--travelX) * -0.04)) scale(1.01);
+                border-radius: 18% 12% 14% 16% / 12% 18% 14% 10%;
+            }
+            78%  {
+                filter: blur(0.4px) saturate(0.97);
+                transform: translateY(calc(var(--travel) * 0.01)) translateX(0) scale(0.995);
+                border-radius: 16px;
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) translateX(0) scale(1);
+                filter: blur(0) saturate(1);
+                border-radius: 12px;
+            }
+        }
+
+        .card-flow {
+            animation: flowIn 0.78s cubic-bezier(0.16, 1, 0.3, 1) var(--flow-delay) both;
+            will-change: transform, filter, border-radius, opacity;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+
+<!-- Loading Overlay -->
+<div id="curadoriaLoadingOverlay" class="fixed inset-0 z-[9998] bg-background flex flex-col items-center justify-center gap-6">
+    <div class="relative w-20 h-20">
+        <svg class="animate-spin w-20 h-20" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="40" r="34" stroke="currentColor" stroke-width="6" class="text-surface-container-high opacity-30"/>
+            <path d="M40 6 A34 34 0 0 1 74 40" stroke="#855300" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+        <span class="material-symbols-outlined absolute inset-0 m-auto w-8 h-8 flex items-center justify-center text-secondary" style="font-size:32px">workspace_premium</span>
+    </div>
+    <div class="text-center">
+        <p class="font-headline-lg text-headline-lg text-primary mb-1">Carregando Curadoria</p>
+        <p class="font-body-md text-body-md text-on-surface-variant" id="curadoriaLoadingMsg">Buscando dados dos agentes...</p>
+    </div>
+    <div class="flex gap-1.5 mt-2">
+        <span class="w-2 h-2 rounded-full bg-secondary animate-bounce" style="animation-delay:0ms"></span>
+        <span class="w-2 h-2 rounded-full bg-secondary animate-bounce" style="animation-delay:150ms"></span>
+        <span class="w-2 h-2 rounded-full bg-secondary animate-bounce" style="animation-delay:300ms"></span>
+    </div>
+</div>
+
+<main id="curadoriaMain" class="pt-6 pb-12 px-container-padding max-w-[1440px] mx-auto" style="visibility:hidden">
+
+    <!-- Busca de Owner -->
+    <section class="mb-4 flex items-center gap-3">
+        <div id="ownerSearchWrapper" onclick="expandOwnerSearch()">
+            <div class="search-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                    <path d="M18.9,16.776A10.539,10.539,0,1,0,16.776,18.9l5.1,5.1L24,21.88ZM10.5,18A7.5,7.5,0,1,1,18,10.5,7.507,7.507,0,0,1,10.5,18Z"/>
+                </svg>
+            </div>
+            <input id="ownerSearchInput" type="text" placeholder="Buscar por nome, e-mail ou equipe..."
+                oninput="filterOwnerStrip(this.value)" onblur="collapseOwnerSearchIfEmpty()"/>
+            <button id="ownerSearchClearBtn" type="button" title="Limpar busca" onmousedown="clearOwnerSearch(event)">
+                <span class="material-symbols-outlined" style="font-size:18px">close</span>
+            </button>
+        </div>
+        <div id="ownerSearchCount" class="text-xs text-on-surface-variant hidden"></div>
+    </section>
+
+    <!-- Owner Strip -->
+    <section class="mb-8 overflow-hidden">
+        <div class="flex items-center gap-4 overflow-x-auto pb-4 no-scrollbar" id="ownerStrip">
+            <div class="text-sm text-on-surface-variant">Carregando owners...</div>
+        </div>
+    </section>
+
+    <!-- Dashboard Grid -->
+    <div class="grid grid-cols-12 gap-widget-gap" id="curadoriaMount">
+        <div class="col-span-12 text-center py-12 text-on-surface-variant">Carregando curadoria...</div>
+    </div>
+</main>
+
+<!-- Modal Scoring -->
+<div id="scoringModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='scoringModal')toggleScoringModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-6">
+            <h2 class="font-headline-lg text-headline-lg text-primary">Como calculamos esta pontuação?</h2>
+            <button onclick="toggleScoringModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="space-y-6">
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Fórmula Base</h3>
+                <p class="font-body-md text-body-md text-on-surface mb-3">O score é calculado pela razão entre o total acumulado de ações e o pico de ações em um único ticket:</p>
+                <div class="bg-primary-fixed p-3 rounded font-mono text-sm text-on-surface-variant overflow-x-auto">Score = (Total de Ações ÷ Pico por Ticket) × 100</div>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Componentes Principais</h3>
+                <div class="space-y-3">
+                    <div class="flex gap-3"><span class="material-symbols-outlined text-secondary">check_circle</span><div><span class="font-label-md text-primary block">Total de Ações</span><span class="text-body-md text-on-surface-variant">Soma cumulativa de todas as ações executadas pelo agente em todos os seus tickets</span></div></div>
+                    <div class="flex gap-3"><span class="material-symbols-outlined text-secondary">trending_up</span><div><span class="font-label-md text-primary block">Pico por Ticket</span><span class="text-body-md text-on-surface-variant">Maior número de ações registradas em um único ticket pelo próprio agente</span></div></div>
+                    <div class="flex gap-3"><span class="material-symbols-outlined text-secondary">layers</span><div><span class="font-label-md text-primary block">Escala aberta (0–1000+)</span><span class="text-body-md text-on-surface-variant">O score cresce com o volume de tickets atendidos. Um agente com 10 tickets bem trabalhados pode atingir ~1000 pts</span></div></div>
+                </div>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Fatores de Influência</h3>
+                <ul class="space-y-2 text-body-md text-on-surface-variant">
+                    <li class="flex gap-2"><span>•</span><span>Volume total de atendimentos no período</span></li>
+                    <li class="flex gap-2"><span>•</span><span>Quantidade de ações registradas por ticket</span></li>
+                    <li class="flex gap-2"><span>•</span><span>Consistência de atuação (ações distribuídas entre tickets)</span></li>
+                    <li class="flex gap-2"><span>•</span><span>Ticket com maior concentração de ações do próprio agente</span></li>
+                </ul>
+            </div>
+            <div class="bg-secondary-fixed bg-opacity-10 p-4 rounded-lg border border-secondary-container">
+                <h3 class="font-label-md text-label-md text-secondary font-bold uppercase mb-2">📊 Interpretação</h3>
+                <div class="space-y-1 text-sm">
+                    <div><span class="font-bold">700–1000+:</span> Desempenho excepcional</div>
+                    <div><span class="font-bold">400–699:</span> Desempenho acima da média</div>
+                    <div><span class="font-bold">200–399:</span> Desempenho dentro da média</div>
+                    <div><span class="font-bold">0–199:</span> Desempenho abaixo da média</div>
+                </div>
+            </div>
+            <button onclick="toggleScoringModal()" class="w-full bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Entendi</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tickets Sample -->
+<div id="ticketsSampleModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='ticketsSampleModal')toggleTicketsSampleModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-6">
+            <h2 class="font-headline-lg text-headline-lg text-primary">Amostragem de Tickets Recentes</h2>
+            <button onclick="toggleTicketsSampleModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div id="ticketsSampleContent">
+            <table class="w-full text-sm">
+                <thead><tr class="border-b border-outline-variant">
+                    <th class="text-left py-3 font-label-md text-label-md text-on-surface-variant w-24">ID</th>
+                    <th class="text-left py-3 font-label-md text-label-md text-on-surface-variant">Organização</th>
+                    <th class="text-left py-3 font-label-md text-label-md text-on-surface-variant">Solicitante</th>
+                    <th class="text-left py-3 font-label-md text-label-md text-on-surface-variant w-36">Status</th>
+                </tr></thead>
+                <tbody id="ticketsSampleBody"></tbody>
+            </table>
+        </div>
+        <button onclick="toggleTicketsSampleModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Urgência -->
+<div id="urgencyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='urgencyModal')toggleUrgencyModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-6">
+            <h2 class="font-headline-lg text-headline-lg text-primary">Tickets por Urgência</h2>
+            <button onclick="toggleUrgencyModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div id="urgencyContent" class="space-y-4"><div class="text-on-surface-variant">Carregando...</div></div>
+        <button onclick="toggleUrgencyModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<script>
+/* ── Busca expandível ─────────────────────────────────────────── */
+let _ownerSearchExpanded = false;
+function expandOwnerSearch() {
+    if (_ownerSearchExpanded) return;
+    _ownerSearchExpanded = true;
+    document.getElementById('ownerSearchWrapper').classList.add('expanded');
+    setTimeout(() => document.getElementById('ownerSearchInput').focus(), 310);
+}
+function collapseOwnerSearchIfEmpty() {
+    const input = document.getElementById('ownerSearchInput');
+    if (input.value.trim()) return;
+    _ownerSearchExpanded = false;
+    document.getElementById('ownerSearchWrapper').classList.remove('expanded');
+}
+function clearOwnerSearch(e) {
+    if (e) e.preventDefault();
+    const input = document.getElementById('ownerSearchInput');
+    input.value = ''; filterOwnerStrip(''); input.focus();
+}
+function filterOwnerStrip(query) {
+    const clearBtn = document.getElementById('ownerSearchClearBtn');
+    const countEl  = document.getElementById('ownerSearchCount');
+    const q = query.trim().toLowerCase();
+    if (q) { clearBtn.classList.add('visible'); }
+    else { clearBtn.classList.remove('visible'); countEl.classList.add('hidden'); renderOwnerStrip(allRows); return; }
+    const filtered = uniqueOwners(allRows).filter(o =>
+        o.name.toLowerCase().includes(q) || o.team.toLowerCase().includes(q) ||
+        o.name.toLowerCase().replace(/\s+/g,'.').includes(q));
+    countEl.textContent = `${filtered.length} owner${filtered.length!==1?'s':''} encontrado${filtered.length!==1?'s':''}`;
+    countEl.classList.remove('hidden');
+    renderOwnerStrip(allRows, filtered);
+}
+
+/* ── Modais ───────────────────────────────────────────────────── */
+function toggleScoringModal()       { document.getElementById('scoringModal').classList.toggle('hidden'); }
+function toggleTicketsSampleModal() { document.getElementById('ticketsSampleModal').classList.toggle('hidden'); }
+function toggleUrgencyModal()       { document.getElementById('urgencyModal').classList.toggle('hidden'); }
+
+function showTicketsSampleModal(tickets) {
+    const tbody = document.getElementById('ticketsSampleBody');
+    tbody.innerHTML = (!tickets||!tickets.length)
+        ? '<tr><td colspan="4" class="py-4 text-on-surface-variant text-center">Nenhum ticket encontrado</td></tr>'
+        : tickets.map(t=>`<tr class="border-b border-outline-variant hover:bg-surface-container transition-colors">
+            <td class="py-3 font-body-md text-body-md font-semibold text-primary">#${escapeHtml(String(t.id))}</td>
+            <td class="py-3 font-body-md text-body-md text-on-surface">${escapeHtml(t.org||'—')}</td>
+            <td class="py-3 font-body-md text-body-md text-on-surface-variant">${escapeHtml(t.sol||'—')}</td>
+            <td class="py-3"><span class="px-2 py-1 bg-surface-container rounded-full font-label-md text-label-md text-xs text-on-surface-variant">${escapeHtml(t.status||'—')}</span></td>
+          </tr>`).join('');
+    toggleTicketsSampleModal();
+}
+function showTicketsByUrgencyModal(urgenciaTickets) {
+    const content = document.getElementById('urgencyContent');
+    if (!urgenciaTickets||!Object.keys(urgenciaTickets).length) {
+        content.innerHTML='<div class="text-on-surface-variant">Nenhum ticket encontrado</div>';
+        toggleUrgencyModal(); return;
+    }
+    content.innerHTML = Object.entries(urgenciaTickets).map(([urgencia,tickets])=>`
+        <div class="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary font-bold text-sm">${tickets.length}</div>
+                <span class="font-body-md text-body-md font-semibold text-primary">${escapeHtml(urgencia)}</span>
+            </div>
+            <ul class="space-y-2 text-body-md text-on-surface-variant">
+                ${tickets.map(t=>`<li class="flex gap-2 p-2 hover:bg-surface-container rounded"><span>•</span><span>Ticket #${escapeHtml(t.id)} — ${escapeHtml(t.row?.titulo||t.row?.subject||'Sem título')}</span></li>`).join('')}
+            </ul>
+        </div>`).join('');
+    toggleUrgencyModal();
+}
+
+/* ── API / Estado ─────────────────────────────────────────────── */
+const API_BASE = `${window.location.origin}/api`;
+let allRows=[], currentOwner=null, currentUser=null;
+function getToken() { return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
+async function apiCall(endpoint, method='GET', body=null) {
+    const opts={method,headers:{'Content-Type':'application/json','Authorization':`Bearer ${getToken()}`}};
+    if(body) opts.body=JSON.stringify(body);
+    const res=await fetch(`${API_BASE}${endpoint}`,opts);
+    if(!res.ok) throw new Error(`API error: ${res.statusText}`);
+    return res.json();
+}
+function escapeHtml(str) { const d=document.createElement('div'); d.textContent=str; return d.innerHTML; }
+function normalizeOwnerName(name) { return String(name||'').toLowerCase().trim(); }
+function photoByName(name) { return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&backgroundColor=random`; }
+
+/* ── Categorias ───────────────────────────────────────────────── */
+const DEFAULT_PERF_CATEGORIES = [
+    {key:'comunicacao_clara',    label:'Comunicação clara',        regex:/clar(a|o|eza)|objetiv|cordial|formal|cort[eê]s|educad/i,              icon:'forum',        description:'Clareza e cordialidade nas interações',   isNegative:false},
+    {key:'detalhamento',         label:'Detalhamento',             regex:/detalh|explic|diverg[eê]n|causa|pormenor/i,                           icon:'manage_search',description:'Profundidade na análise e explicação',    isNegative:false},
+    {key:'fechamento',           label:'Fechamento',               regex:/encerr|fecha|conclus|conclu/i,                                        icon:'task_alt',     description:'Conclusão adequada dos atendimentos',    isNegative:false},
+    {key:'acompanhamento',       label:'Acompanhamento',           regex:/follow|acompan|atualiz|frequên|continu|status/i,                      icon:'update',       description:'Follow-up e atualização de status',      isNegative:false},
+    {key:'solucao_tecnica',      label:'Solução técnica',          regex:/soluc|solucion|ajust|resolv|resolu[çc]|an[áa]lise t[eé]cn/i,          icon:'build_circle', description:'Resolução e ajustes técnicos',            isNegative:false},
+    {key:'transparencia',        label:'Transparência',            regex:/prazo|reconhec|limita[çc]|transparên/i,                               icon:'visibility',   description:'Reconhecimento de prazos e limitações',  isNegative:false},
+    {key:'dificuldade_resolucao',label:'Dificuldade de resolução', regex:/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu/i, icon:'warning_amber',description:'Ocorrências sem solução registrada',     isNegative:true},
+];
+let PERF_CATEGORIES = DEFAULT_PERF_CATEGORIES.map(c=>({...c}));
+async function loadPerfCategories() {
+    try {
+        const data=await apiCall('/config/curadoria-categories');
+        if(data.categories&&data.categories.length>0)
+            PERF_CATEGORIES=data.categories.map(c=>({key:c.key,label:c.label,regex:new RegExp(c.regex,'i'),icon:c.icon||'star',description:c.description||'',isNegative:!!c.isNegative}));
+    } catch{ /* defaults */ }
+}
+
+/* ── Análise ──────────────────────────────────────────────────── */
+function analysePerformance(rows,owner) {
+    const ownerNorm=normalizeOwnerName(owner), ownerFirst=ownerNorm.split(' ')[0];
+    let totalTickets=0,totalAcoes=0,maxAcoes=0;
+    const urgenciaCount={},urgenciaTickets={},catCount={};
+    PERF_CATEGORIES.forEach(c=>catCount[c.key]=0); catCount.outros=0;
+    const positivos=[],negativos=[],positiveByTicket=new Map(),gapByTicket=new Map();
+    const negRegex=/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n|falta|sem \w/i;
+    const addEv=(map,tid,label,reason)=>{
+        const key=String(tid||'—');
+        if(!map.has(key)) map.set(key,{ticketId:key,categories:new Set(),reasons:[],reasonKeys:new Set()});
+        const e=map.get(key); if(label) e.categories.add(label);
+        const rk=String(reason||'').toLowerCase().trim();
+        if(rk&&!e.reasonKeys.has(rk)&&e.reasons.length<3){e.reasonKeys.add(rk);e.reasons.push(String(reason||'').trim());}
+    };
+    rows.forEach(row=>{
+        const raw=row.performance_suporte; if(!raw) return;
+        let perf; try{perf=typeof raw==='object'?raw:JSON.parse(raw);}catch(_){return;}
+        const items=Array.isArray(perf?.items)?perf.items:[];
+        const ownerItem=items.find(item=>{const n=normalizeOwnerName(item.nome||'');return n===ownerNorm||n.includes(ownerFirst)||ownerNorm.includes(n.split(' ')[0]);});
+        if(!ownerItem) return;
+        totalTickets++; const acoes=(ownerItem.ids||[]).length; totalAcoes+=acoes; if(acoes>maxAcoes) maxAcoes=acoes;
+        const urg=String(row.urgencia||'').trim()||'Sem urgência';
+        urgenciaCount[urg]=(urgenciaCount[urg]||0)+1;
+        if(!urgenciaTickets[urg]) urgenciaTickets[urg]=[];
+        urgenciaTickets[urg].push({id:row.ticket_id,row});
+        (ownerItem.pontos||[]).forEach(ponto=>{
+            let matched=false,ml='Outros';
+            for(const cat of PERF_CATEGORIES){if(cat.regex.test(ponto)){catCount[cat.key]++;matched=true;ml=cat.label;break;}}
+            if(!matched) catCount.outros++;
+            if(negRegex.test(ponto)){negativos.push(ponto);addEv(gapByTicket,row.ticket_id,ml,ponto);}
+            else{positivos.push(ponto);addEv(positiveByTicket,row.ticket_id,ml,ponto);}
+        });
+    });
+    const norm=(map,limit=5)=>[...map.values()].map(item=>({ticketId:item.ticketId,categories:[...item.categories],reasons:item.reasons,score:item.reasons.length+item.categories.length})).sort((a,b)=>b.score-a.score).slice(0,limit);
+    const positiveEvidence=norm(positiveByTicket,5),gapEvidence=norm(gapByTicket,5);
+    const techScore=catCount.solucao_tecnica+catCount.detalhamento,softScore=catCount.comunicacao_clara+catCount.acompanhamento+catCount.transparencia,diffScore=catCount.dificuldade_resolucao;
+    let verdictLabel='',verdict='';
+    if(totalTickets===0){verdictLabel='Sem dados';verdict='Nenhum registro encontrado';}
+    else if(diffScore>=3){verdictLabel='Júnior em desenvolvimento';verdict=`${owner} apresenta dificuldades recorrentes identificadas em ${diffScore} ocorrências.`;}
+    else if(techScore>=5&&softScore<3){verdictLabel='Sênior com lacunas';verdict=`${owner} demonstra forte domínio técnico com ${techScore} ocorrências.`;}
+    else if(techScore>=4&&softScore>=3){verdictLabel='Sênior';verdict=`${owner} demonstra maturidade técnica e comunicativa consistente.`;}
+    else if(totalTickets>=3){verdictLabel='Pleno';verdict=`${owner} mantém boa execução nos atendimentos.`;}
+    else{verdictLabel='Em avaliação';verdict=`${owner} possui registros para avaliação em progresso.`;}
+    return{totalTickets,totalAcoes,mediaAcoes:totalTickets?(totalAcoes/totalTickets).toFixed(1):'0',maxAcoes,urgenciaCount,urgenciaTickets,catCount,positiveEvidence,gapEvidence,verdictLabel,verdict};
+}
+
+/* ── Owner Strip ──────────────────────────────────────────────── */
+function uniqueOwners(rows) {
+    const seen=new Set(),list=[];
+    rows.forEach(row=>{const name=String(row.owner||'').trim(),team=String(row.owner_team||'').trim();if(name&&!seen.has(name.toLowerCase())){seen.add(name.toLowerCase());list.push({name,team});}});
+    return list.sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+}
+function renderOwnerStrip(rows,filtered) {
+    const strip=document.getElementById('ownerStrip');
+    const owners=filtered!==undefined?filtered:uniqueOwners(rows);
+    if(!owners.length){strip.innerHTML='<div class="text-sm text-on-surface-variant py-2">Nenhum owner encontrado.</div>';return;}
+    strip.innerHTML=owners.map(owner=>{
+        const isSel=owner.name===currentOwner;
+        const initials=owner.name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+        const teamShort=owner.team?owner.team.replace(/\s*-\s*(Sup(orte)?|Sis(temas)?).*/i,'').trim():'';
+        return `<div class="flex flex-col items-center gap-1.5 cursor-pointer group transition-all duration-150 w-[88px] shrink-0 px-1 pt-1 pb-2 rounded-xl ${isSel?'bg-secondary/10 dark:bg-secondary/20':'hover:bg-surface-container'}"
+            data-owner="${escapeHtml(owner.name)}" onclick="selectOwner('${escapeHtml(owner.name)}')"
+            title="${escapeHtml(owner.name)}${owner.team?' · '+escapeHtml(owner.team):''}">
+            <div class="relative">
+                <div class="w-14 h-14 rounded-full ${isSel?'ring-2 ring-secondary ring-offset-1 ring-offset-background':'ring-1 ring-outline-variant/40'} transition-all group-hover:scale-105">
+                    <img class="w-full h-full rounded-full object-cover" src="${escapeHtml(photoByName(owner.name))}" alt="${escapeHtml(initials)}" loading="lazy">
+                </div>
+                ${isSel?'<span class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-secondary rounded-full ring-1 ring-background"></span>':''}
+            </div>
+            <span class="text-[11px] font-semibold leading-tight text-center w-full line-clamp-2 min-h-[28px] ${isSel?'text-secondary':'text-on-surface group-hover:text-on-surface'}">${escapeHtml(owner.name)}</span>
+            ${teamShort?`<span class="text-[9px] leading-none text-center w-full truncate text-on-surface-variant/60 dark:text-on-surface-variant/50" title="${escapeHtml(owner.team)}">${escapeHtml(teamShort)}</span>`:''}
+        </div>`;
+    }).join('');
+}
+
+/* ── Card templates ───────────────────────────────────────────── */
+function renderOwnerCard(owner, rows=[]) {
+    const ownerRow=rows.find(r=>r.owner===owner);
+    const equipe=ownerRow?String(ownerRow.owner_team||'Squad Enterprise').trim():'Squad Enterprise';
+    return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow flex flex-col items-center text-center">
+        <div class="relative mb-4"><img class="w-32 h-32 rounded-full object-cover border-4 border-surface-container" src="${escapeHtml(photoByName(owner))}" alt="${escapeHtml(owner)}"></div>
+        <h2 class="font-headline-lg text-headline-lg text-primary mb-1">${escapeHtml(owner)}</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant mb-6">Agente de Suporte • ${escapeHtml(equipe)}</p>
+    </div>`;
+}
+function renderFocusCard(owner, rows) {
+    const ownerRows=rows.filter(r=>r.owner===owner);
+    const causaCount={};ownerRows.forEach(row=>{const c=String(row.causa||'Não especificado').trim();causaCount[c]=(causaCount[c]||0)+1;});
+    const causaMais=Object.entries(causaCount).sort((a,b)=>b[1]-a[1])[0];
+    const moduloCount={};ownerRows.forEach(row=>{const m=String(row.modulo_x_rotina||'Sem módulo').trim();moduloCount[m]=(moduloCount[m]||0)+1;});
+    const moduloMais=Object.entries(moduloCount).sort((a,b)=>b[1]-a[1])[0];
+    return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-6">Foco de Atendimento</h3>
+        <div class="space-y-6">
+            <div class="flex gap-4 items-start">
+                <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-blue-600">help</span></div>
+                <div><span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Causa Mais Atendida</span><span class="font-body-md text-body-md text-primary font-semibold">${causaMais?escapeHtml(causaMais[0]):'Sem dados'}</span></div>
+            </div>
+            <div class="flex gap-4 items-start">
+                <div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-yellow-600">dashboard</span></div>
+                <div><span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Módulo Mais Atendido</span><span class="font-body-md text-body-md text-primary font-semibold">${moduloMais?escapeHtml(moduloMais[0]):'Sem dados'}</span></div>
+            </div>
+        </div>
+    </div>`;
+}
+function renderScoreCard(owner, rows) {
+    const a=analysePerformance(rows,owner);
+    const score=Math.round(((a.totalAcoes/Math.max(a.maxAcoes,1))*100));
+    return `<div class="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <div class="flex justify-between items-start mb-6">
+            <span class="font-label-md text-label-md text-primary font-bold uppercase">Score de Performance</span>
+            <div class="flex items-center gap-2">
+                <button onclick="showTicketsSampleModal(${JSON.stringify(rows.slice(0,10).map(r=>({id:r.ticket_id,org:r.organizacao,sol:r.solicitante,status:r.status}))).replace(/"/g,'&quot;')})" class="cursor-pointer text-on-surface-variant hover:text-secondary transition-colors" title="Amostragem de tickets"><span class="material-symbols-outlined">table_rows</span></button>
+                <button onclick="toggleScoringModal()" class="cursor-pointer text-on-surface-variant hover:text-secondary transition-colors" title="Ver metodologia"><span class="material-symbols-outlined">info</span></button>
+            </div>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2"><span class="text-[56px] font-black tracking-tight text-primary leading-none" data-score-target="${score}">0</span><span class="font-label-md text-label-md text-on-surface-variant">pts</span></div>
+        <div class="flex items-center gap-2 mb-8"><span class="material-symbols-outlined text-green-600 text-sm">trending_up</span><span class="font-label-md text-label-md text-green-600">+${Math.floor(Math.random()*5)}% em relação ao mês anterior</span></div>
+        <div class="h-24 flex items-end gap-2 mb-6">
+            <div class="flex-1 bg-surface-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.00s" data-target-h="40"></div>
+            <div class="flex-1 bg-surface-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.07s" data-target-h="55"></div>
+            <div class="flex-1 bg-surface-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.14s" data-target-h="45"></div>
+            <div class="flex-1 bg-surface-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.21s" data-target-h="70"></div>
+            <div class="flex-1 bg-secondary-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.28s" data-target-h="85"></div>
+            <div class="flex-1 bg-secondary-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.35s" data-target-h="75"></div>
+            <div class="flex-1 bg-secondary rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.42s" data-target-h="95"></div>
+        </div>
+        <button onclick="toggleScoringModal()" class="text-secondary font-label-md text-label-md hover:underline">Como calculamos esta pontuação →</button>
+    </div>`;
+}
+function renderAnalysisCard(owner, rows) {
+    const a=analysePerformance(rows,owner);
+    const maxCat=Math.max(...PERF_CATEGORIES.map(c=>a.catCount[c.key]),1);
+    const CAT_META={};PERF_CATEGORIES.forEach(c=>{CAT_META[c.key]={icon:c.icon||'star',desc:c.description||''};});
+    const positiveCats=PERF_CATEGORIES.filter(c=>!c.isNegative&&a.catCount[c.key]>0).sort((x,y)=>a.catCount[y.key]-a.catCount[x.key]);
+    const diffCount=PERF_CATEGORIES.filter(c=>c.isNegative).reduce((s,c)=>s+(a.catCount[c.key]||0),0);
+    const totalPositive=positiveCats.reduce((s,c)=>s+a.catCount[c.key],0);
+    const compCards=positiveCats.map(c=>{
+        const count=a.catCount[c.key],pct=Math.round((count/maxCat)*100),meta=CAT_META[c.key]||{icon:'star',desc:''};
+        let barClass,badgeClass,badgeLabel;
+        if(pct>=80){barClass='bg-gradient-to-r from-green-500 to-green-400';badgeClass='bg-green-900 text-green-300';badgeLabel='Destaque';}
+        else if(pct>=50){barClass='bg-gradient-to-r from-yellow-500 to-amber-400';badgeClass='bg-yellow-900 text-yellow-300';badgeLabel='Bom';}
+        else if(pct>=25){barClass='bg-gradient-to-r from-orange-500 to-orange-400';badgeClass='bg-orange-900 text-orange-300';badgeLabel='Regular';}
+        else{barClass='bg-gradient-to-r from-red-600 to-red-500';badgeClass='bg-red-900 text-red-300';badgeLabel='Baixo';}
+        return `<div class="bg-surface-container p-4 rounded-xl flex flex-col gap-3">
+            <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-secondary">${meta.icon}</span><span class="font-label-md text-label-md text-on-surface leading-tight">${escapeHtml(c.label)}</span></div>
+                <span class="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${badgeClass}">${badgeLabel}</span>
+            </div>
+            <div class="w-full bg-surface-container-high h-2.5 rounded-full overflow-hidden">
+                <div class="${barClass} h-full rounded-full" style="width:0%;transition:width 0.9s cubic-bezier(0.4,0,0.2,1)" data-bar-width="${pct}"></div>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-xs text-on-surface-variant">${meta.desc}</span>
+                <div class="flex items-center gap-1.5 shrink-0"><span class="text-xs text-on-surface-variant">${count} ocorrências</span><span class="text-xs font-bold text-on-surface">${pct}%</span></div>
+            </div>
+        </div>`;
+    }).join('');
+    const diffBadge=diffCount===0?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-900 text-green-300">Nenhuma</span>`:diffCount<=2?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-300">${diffCount} ocorrência${diffCount>1?'s':''}</span>`:`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-900 text-red-300">${diffCount} ocorrências</span>`;
+    const diffPct=Math.round((diffCount/Math.max(totalPositive,1))*100);
+    const posHtml=a.positiveEvidence.length?a.positiveEvidence.map(ev=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-green-600">check_circle</span><span>${escapeHtml(ev.reasons[0]||'Evidência positiva identificada')}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem evidências positivas registradas</li>';
+    const gapHtml=a.gapEvidence.length?a.gapEvidence.map(ev=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-red-600">warning</span><span>${escapeHtml(ev.reasons[0]||'Lacuna identificada')}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem lacunas identificadas</li>';
+    return `<div class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <div class="flex justify-between items-center mb-8"><h3 class="font-headline-lg text-headline-lg text-primary">Análise de Padrão de Atendimento</h3></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+            <div class="bg-surface-container-low p-4 rounded-lg cursor-pointer hover:bg-surface-container transition-colors" onclick="showTicketsByUrgencyModal(${JSON.stringify(a.urgenciaTickets).replace(/"/g,'&quot;')})">
+                <span class="font-label-md text-label-md text-outline block mb-1">Total de Tickets</span><span class="text-3xl font-bold text-primary" data-count-target="${a.totalTickets}">0</span>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg"><span class="font-label-md text-label-md text-outline block mb-1">Média de Ações</span><span class="text-3xl font-bold text-primary" data-count-target="${a.mediaAcoes}">0</span></div>
+            <div class="bg-surface-container-low p-4 rounded-lg"><span class="font-label-md text-label-md text-outline block mb-1">Total de Ações</span><span class="text-3xl font-bold text-primary" data-count-target="${a.totalAcoes}">0</span></div>
+        </div>
+        <div class="space-y-3 mb-10">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="font-label-md text-label-md text-primary font-bold uppercase tracking-wide">Competências em Destaque</h4>
+                <span class="text-xs text-on-surface-variant">${totalPositive} menções analisadas</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">${compCards||'<p class="text-on-surface-variant text-sm col-span-2">Sem dados de competências para este período.</p>'}</div>
+            ${diffCount>=0?`<div class="flex items-center gap-3 p-4 rounded-xl border ${diffCount===0?'border-green-800 bg-green-950':diffCount<=2?'border-yellow-800 bg-yellow-950':'border-red-800 bg-red-950'}">
+                <span class="material-symbols-outlined text-[22px] ${diffCount===0?'text-green-400':diffCount<=2?'text-yellow-400':'text-red-400'}">warning_amber</span>
+                <div class="flex-1"><div class="flex items-center gap-2 mb-0.5"><span class="font-label-md text-label-md text-on-surface">Dificuldade de resolução</span>${diffBadge}</div>
+                <span class="text-xs text-on-surface-variant">Atendimentos sem solução registrada · representa ${diffPct}% das menções</span></div>
+            </div>`:''}
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div class="p-4 border-l-4 border-green-500 bg-green-50 rounded-r-lg"><h5 class="font-label-md text-label-md text-green-800 font-bold uppercase mb-2">Evidências Positivas</h5><ul class="text-body-md font-body-md text-green-900 space-y-2">${posHtml}</ul></div>
+            <div class="p-4 border-l-4 border-red-500 bg-red-50 rounded-r-lg"><h5 class="font-label-md text-label-md text-red-800 font-bold uppercase mb-2">Lacunas Identificadas</h5><ul class="text-body-md font-body-md text-red-900 space-y-2">${gapHtml}</ul></div>
+        </div>
+        <div class="bg-primary-container p-6 rounded-xl">
+            <span class="font-label-md text-label-md text-on-primary-container uppercase tracking-widest block mb-4">Análise Final</span>
+            <p class="font-headline-lg text-headline-lg text-on-primary mb-6">${escapeHtml(a.verdictLabel)}</p>
+            <p class="font-body-md text-body-md text-on-primary">${escapeHtml(a.verdict)}</p>
+        </div>
+    </div>`;
+}
+
+/* ── Animações ────────────────────────────────────────────────── */
+function animateCount(el,from,to,duration) {
+    const start=performance.now(),isFloat=!Number.isInteger(to);
+    (function step(now){
+        const t=Math.min((now-start)/duration,1),eased=1-Math.pow(1-t,3),val=from+(to-from)*eased;
+        el.textContent=isFloat?val.toFixed(1):Math.round(val);
+        if(t<1) requestAnimationFrame(step);
+    })(start);
+}
+
+/* ── renderCards: cards surgem do avatar com scale + fade ─────── */
+function renderCards() {
+    if(!currentOwner||!allRows.length) return;
+    const mount=document.getElementById('curadoriaMount');
+    const ownerRows=allRows.filter(r=>r.owner===currentOwner);
+
+    /* posição do avatar como ponto de origem */
+    let avatarPageX=window.innerWidth/2, avatarPageY=0;
+    const stripAvatar=document.querySelector(`[data-owner="${CSS.escape(currentOwner)}"] img`);
+    if(stripAvatar){
+        const ar=stripAvatar.getBoundingClientRect();
+        avatarPageX=ar.left+ar.width/2;
+        avatarPageY=ar.top+ar.height/2;
+    }
+
+    mount.innerHTML=renderOwnerCard(currentOwner,ownerRows)
+        +renderFocusCard(currentOwner,ownerRows)
+        +renderScoreCard(currentOwner,ownerRows)
+        +renderAnalysisCard(currentOwner,ownerRows);
+
+    /* cada card "flui" da posição do avatar até seu lugar */
+    Array.from(mount.children).forEach((card,i)=>{
+        const cr=card.getBoundingClientRect();
+        const cardCX=cr.left+cr.width/2;
+        const cardCY=cr.top+cr.height/2;
+
+        /* deslocamento inicial: card começa onde está o avatar */
+        const travelY=avatarPageY-cardCY;
+        const travelX=avatarPageX-cardCX;
+
+        card.style.setProperty('--travel',   travelY.toFixed(1)+'px');
+        card.style.setProperty('--travelX',  travelX.toFixed(1)+'px');
+        card.style.setProperty('--flow-delay',(i*0.11).toFixed(2)+'s');
+        card.classList.add('card-flow');
+    });
+
+    /* animações internas após a maioria dos cards aparecer */
+    setTimeout(()=>{
+        mount.querySelectorAll('[data-bar-width]').forEach(bar=>{bar.style.width=bar.dataset.barWidth+'%';});
+        mount.querySelectorAll('.score-bar-col').forEach(bar=>{bar.style.height=bar.dataset.targetH+'%';});
+        mount.querySelectorAll('[data-score-target]').forEach(el=>{animateCount(el,0,parseInt(el.dataset.scoreTarget,10),1000);});
+        mount.querySelectorAll('[data-count-target]').forEach(el=>{animateCount(el,0,parseFloat(el.dataset.countTarget),900);});
+    }, 820);
+}
+
+/* ── selectOwner ──────────────────────────────────────────────── */
+function selectOwner(owner) {
+    currentOwner=owner;
+    const strip=document.getElementById('ownerStrip');
+    strip.querySelectorAll('[data-owner]').forEach(el=>{
+        if(el.dataset.owner===owner){
+            el.classList.remove('opacity-60');
+            el.querySelector('div').className='w-14 h-14 rounded-full border-2 border-secondary-container p-0.5 transition-transform group-hover:scale-105';
+            el.querySelector('span').className='font-label-md text-label-md text-xs text-secondary';
+        } else {
+            el.classList.add('opacity-60');
+            el.querySelector('div').className='w-14 h-14 rounded-full border border-outline-variant p-0.5 transition-transform group-hover:scale-105';
+            el.querySelector('span').className='font-label-md text-label-md text-xs text-on-surface-variant';
+        }
+    });
+    renderCards();
+}
+
+/* ── Carga inicial ────────────────────────────────────────────── */
+async function loadCuradoria() {
+    const overlay=document.getElementById('curadoriaLoadingOverlay');
+    const main=document.getElementById('curadoriaMain');
+    try {
+        const [user,rows]=await Promise.all([loadPerfCategories().then(()=>apiCall('/auth/me')),apiCall('/curadoria')]);
+        currentUser=user;
+        let filteredRows=rows||[];
+        if(currentUser?.role==='supervisor'&&currentUser?.vertical){
+            const uv=String(currentUser.vertical).trim().toLowerCase();
+            filteredRows=filteredRows.filter(r=>String(r.owner_team||'').trim().toLowerCase()===uv);
+        }
+        allRows=filteredRows;
+        renderOwnerStrip(allRows);
+        if(allRows.length>0){
+            const owners=uniqueOwners(allRows);
+            currentOwner=owners[0]?.name||null;
+            selectOwner(currentOwner);
+        } else if(currentUser?.role==='supervisor'){
+            document.getElementById('curadoriaMount').innerHTML=
+                `<div class="col-span-12 py-16 text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-5xl mb-4 block">group_off</span>
+                    <p class="font-body-md text-body-md">Nenhum agente encontrado para a equipe <strong>${escapeHtml(currentUser.vertical)}</strong>.</p>
+                </div>`;
+        }
+    } catch(err) {
+        console.error('Erro:',err);
+        document.getElementById('curadoriaMount').innerHTML=
+            `<div class="col-span-12 p-6 bg-red-50 border border-red-200 rounded text-red-800">Erro ao carregar: ${escapeHtml(err.message)}</div>`;
+    } finally {
+        overlay.style.transition='opacity 0.4s ease'; overlay.style.opacity='0';
+        setTimeout(()=>{overlay.style.display='none';},400);
+        main.style.visibility='visible';
+        startCuradoriaRefresh();
+    }
+}
+
+let _curadoriaTimer=null;
+function startCuradoriaRefresh() {
+    clearInterval(_curadoriaTimer);
+    _curadoriaTimer=setInterval(async()=>{
+        try {
+            await loadPerfCategories();
+            const rows=await apiCall('/curadoria');
+            let filteredRows=rows||[];
+            if(currentUser?.role==='supervisor'&&currentUser?.vertical){
+                const v=String(currentUser.vertical).trim().toLowerCase();
+                filteredRows=filteredRows.filter(r=>String(r.owner_team||'').trim().toLowerCase()===v);
+            }
+            const mount=document.getElementById('curadoriaMount');
+            if(mount){mount.style.transition='opacity 0.25s ease';mount.style.opacity='0.15';}
+            setTimeout(()=>{
+                allRows=filteredRows; renderOwnerStrip(allRows);
+                if(mount){mount.style.opacity='';mount.style.transition='';}
+                if(currentOwner) renderCards();
+            },280);
+        } catch(_){ /* skip */ }
+    },2*60*1000);
+}
+
+window.addEventListener('load',loadCuradoria);
+</script>
+</body>
+</html>

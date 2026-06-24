@@ -1,0 +1,29 @@
+{
+  "name": "movidesk-dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard de chamados do Movidesk com integração de SLA",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js"
+  },
+  "keywords": [
+    "movidesk",
+    "chamados",
+    "dashboard",
+    "sla"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.11",
+    "pg": "^8.20.0",
+    "qrcode": "^1.5.4",
+    "speakeasy": "^2.0.0",
+    "helmet": "^8.0.0",
+    "bcrypt": "^5.1.1"
+  }
+}

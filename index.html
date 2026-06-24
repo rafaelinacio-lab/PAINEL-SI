@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Movidesk</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <script>
+        (function() {
+            const t = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+
+            // Sincroniza tema quando outro documento (iframe pai) altera o localStorage
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'theme') {
+                    document.documentElement.setAttribute('data-theme', e.newValue || 'light');
+                }
+            });
+        })();
+    </script>
+</head>
+<body>
+<div class="app-wrapper">
+
+        <!-- Left Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-logo">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="white"/>
+                </svg>
+            </div>
+            <div class="sidebar-nav">
+                <button class="sidebar-btn active" title="Dashboard" data-view="dashboard" id="navDashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/>
+                        <rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/>
+                    </svg>
+                </button>
+                <button class="sidebar-btn" title="Curadoria" data-view="chamados" id="navChamados">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4" y="4" width="6" height="6" rx="1.5"/>
+                        <rect x="14" y="4" width="6" height="6" rx="1.5"/>
+                        <rect x="4" y="14" width="6" height="6" rx="1.5"/>
+                        <rect x="14" y="14" width="6" height="6" rx="1.5"/>
+                    </svg>
+                </button>
+                <button class="sidebar-btn" title="Configurações" data-view="configuracoes" id="navConfiguracoes" style="display:none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9.9 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
+                <button class="sidebar-btn" title="Pessoas" data-view="pessoas" id="navPessoas">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="sidebar-bottom">
+                <button class="sidebar-btn" id="logoutBtn" title="Sair">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 17l5-5-5-5"/>
+                        <path d="M15 12H3"/>
+                        <path d="M21 3v18"/>
+                    </svg>
+                </button>
+                <label class="ui-switch" id="darkModeBtn" title="Alternar tema claro e escuro" aria-label="Alternar tema claro e escuro">
+                    <input type="checkbox" id="darkModeToggle" aria-label="Alternar tema claro e escuro">
+                    <div class="slider">
+                        <div class="circle"></div>
+                    </div>
+                </label>
+                <div id="sidebarUser"></div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <div id="embeddedPagesView" class="embedded-pages-view" style="display:none;">
+                <iframe id="embeddedPageFrame" class="embedded-page-frame" title="Conteudo da aba" loading="lazy"></iframe>
+            </div>
+
+            <!-- ===== VIEW: PESSOAS ===== -->
+            <div id="pessoasView" class="app-view" style="display:none;">
+                <div class="pessoas-header">
+                    <div>
+                        <h1 class="pessoas-title">Pessoas</h1>
+                        <p class="pessoas-subtitle">Gerencie quem acessa a plataforma</p>
+                    </div>
+                    <button class="pessoas-btn-novo" id="btnNovaPessoa">+ Novo Usuário</button>
+                </div>
+
+                <!-- Filtros -->
+                <div class="pessoas-filters">
+                    <input type="text" id="pessoasSearch" class="pessoas-filter-input" placeholder="Buscar por nome ou e-mail…" oninput="pessoasApplyFilters()">
+                    <select id="pessoasFilterEquipe" class="pessoas-filter-select" onchange="pessoasApplyFilters()">
+                        <option value="">Todas as equipes</option>
+                    </select>
+                    <button class="pessoas-filter-clear" onclick="pessoasClearFilters()" title="Limpar filtros">✕ Limpar</button>
+                </div>
+
+                <!-- Tabela de usuários -->
+                <div class="pessoas-table-wrap">
+                    <table class="pessoas-table" id="pessoasTable">
+                        <thead>
+                            <tr>
+                                <th>Foto</th>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Perfil</th>
+                                <th>Vertical</th>
+                                <th>Status</th>
+                                <th>Último acesso</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pessoasTbody">
+                            <tr><td colspan="8" class="pessoas-loading">Carregando…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ===== VIEW: CONFIGURAÇÕES ===== -->
+            <div id="configuracoesView" class="app-view" style="display:none;">
+                <div class="config-header">
+                    <div>
+                        <h1 class="config-title">Configurações</h1>
+                        <p class="config-subtitle">Somente administradores podem acessar esta área</p>
+                    </div>
+                </div>
+
+                <!-- Navegação por abas -->
+                <div class="cfg-tabs">
+                    <button class="cfg-tab-btn cfg-tab-active" data-tab="movidesk" onclick="switchConfigTab('movidesk')">
+                        <span class="material-symbols-outlined">sync</span> Movidesk
+                    </button>
+                    <button class="cfg-tab-btn" data-tab="curadoria" onclick="switchConfigTab('curadoria')">
+                        <span class="material-symbols-outlined">manage_search</span> Curadoria
+                    </button>
+                    <button class="cfg-tab-btn" data-tab="ia" onclick="switchConfigTab('ia')">
+                        <span class="material-symbols-outlined">smart_toy</span> Inteligência Artificial
+                    </button>
+                    <button class="cfg-tab-btn" data-tab="sistema" onclick="switchConfigTab('sistema')">
+                        <span class="material-symbols-outlined">settings</span> Sistema
+                    </button>
+                </div>
+
+                <!-- ABA: Movidesk -->
+                <div class="cfg-tab-panel" id="cfgTab-movidesk">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Token da API Movidesk</h3>
+                        <p class="config-card-help">Gerencie o token utilizado para sincronizar os chamados do painel.</p>
+                        <div class="config-form-stack">
+                            <div class="config-status-line">
+                                <span class="config-status-label">Status:</span>
+                                <span id="cfgMovideskTokenStatus" class="config-token-status config-token-status-off">Nao configurado</span>
+                            </div>
+                            <textarea id="cfgMovideskToken" class="config-input config-textarea" placeholder="Cole aqui o token da API Movidesk" autocomplete="off"></textarea>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveMovideskToken" class="config-btn">Salvar token</button>
+                            <button id="cfgSyncTickets" class="config-btn config-btn-muted">Sincronizar agora</button>
+                        </div>
+                        <div id="cfgMovideskStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Estatisticas de Chamados</h3>
+                        <p class="config-card-help">Visao rapida dos chamados sincronizados no banco local.</p>
+                        <div class="config-stats-grid" id="cfgStatsGrid">
+                            <div class="config-stat-item"><span>Total</span><strong>-</strong></div>
+                            <div class="config-stat-item"><span>Novo</span><strong>-</strong></div>
+                            <div class="config-stat-item"><span>Em Atendimento</span><strong>-</strong></div>
+                            <div class="config-stat-item"><span>Parado</span><strong>-</strong></div>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgReloadStats" class="config-btn config-btn-muted">Recarregar estatisticas</button>
+                        </div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Sincronizacao Automatica</h3>
+                        <p class="config-card-help">Controle se o sistema deve sincronizar chamados automaticamente a cada 5 minutos.</p>
+                        <div class="config-status-line">
+                            <span class="config-status-label">Status:</span>
+                            <span id="cfgAutoSyncStatus" class="config-token-status config-token-status-off">Desativado</span>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgToggleAutoSync" class="config-btn">Ativar autosync</button>
+                        </div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Condicoes da Requisicao Movidesk</h3>
+                        <p class="config-card-help">Configure quais chamados devem ser sincronizados definindo os filtros de status e campos customizados.</p>
+                        
+                        <div class="config-form-stack">
+                            <label class="config-form-label"><strong>Filtro de Status</strong></label>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Selecione quais status devem ser sincronizados:</p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                                <label class="config-checkbox-label">
+                                    <input type="checkbox" id="cfgStatusNew" value="New"> Novo (New)
+                                </label>
+                                <label class="config-checkbox-label">
+                                    <input type="checkbox" id="cfgStatusInAttendance" value="InAttendance"> Em Atendimento
+                                </label>
+                                <label class="config-checkbox-label">
+                                    <input type="checkbox" id="cfgStatusStopped" value="Stopped"> Parado (Stopped)
+                                </label>
+                                <label class="config-checkbox-label">
+                                    <input type="checkbox" id="cfgStatusInProgress" value="InProgress"> Em Progresso
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="config-form-stack">
+                            <label class="config-form-label"><strong>Filtro de Serviço</strong></label>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Deixe em branco para sincronizar todos os serviços, ou especifique um serviço:</p>
+                            <input id="cfgServiceFirstLevel" type="text" class="config-input" placeholder="Ex: Agronegócio, Sistemas Internos, etc (deixe vazio para todos)">
+                        </div>
+
+                        <div class="config-form-stack">
+                            <label class="config-form-label"><strong>Filtro de Campo Customizado</strong></label>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Filtre por um campo customizado específico do Movidesk:</p>
+                            <div class="config-form-row">
+                                <input id="cfgCustomFieldId" type="text" class="config-input" placeholder="ID do campo (ex: 23946)">
+                                <input id="cfgCustomFieldValue" type="text" class="config-input" placeholder="Valor a filtrar (ex: Suporte Técnico)">
+                            </div>
+                        </div>
+
+                        <div class="config-form-stack">
+                            <label class="config-form-label"><strong>Limite de Registros</strong></label>
+                            <input id="cfgSyncLimit" type="number" class="config-input" placeholder="Quantidade de chamados a sincronizar por requisição (padrão: 100)" min="1" max="500" value="100">
+                        </div>
+
+                        <div class="config-form-stack">
+                            <label class="config-form-label"><strong>Equipe do Owner (ownerTeam)</strong></label>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Sincronizar apenas tickets atribuídos a esta equipe. Deixe em branco para sincronizar todas:</p>
+                            <input id="cfgOwnerTeam" type="text" class="config-input" placeholder="Ex: VIASOFT - Sistemas Internos">
+                        </div>
+
+                        <div class="config-form-stack">
+                            <label class="config-form-label"><strong>Status Base Excluídos</strong></label>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Quais status base NÃO devem ser sincronizados (máquina está resolvida/fechada/cancelada):</p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                                <label class="config-checkbox-label">
+                                    <input type="checkbox" id="cfgExcludedResolved" value="Resolved"> Resolved
+                                </label>
+                                <label class="config-checkbox-label">
+                                    <input type="checkbox" id="cfgExcludedClosed" value="Closed"> Closed
+                                </label>
+                                <label class="config-checkbox-label">
+                                    <input type="checkbox" id="cfgExcludedCanceled" value="Canceled"> Canceled
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="config-form-stack">
+                            <label class="config-form-label"><strong>Campos a Sincronizar ($select)</strong></label>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Quais campos trazer da API (separados por vírgula). Deixe como está para usar o padrão completo:</p>
+                            <textarea id="cfgSelectFields" class="config-input config-textarea" placeholder="id,subject,status,baseStatus,..." style="font-family: monospace; font-size: 11px;"></textarea>
+                        </div>
+
+                        <div class="config-form-stack">
+                            <label class="config-form-label"><strong>Relações a Expandir ($expand)</strong></label>
+                            <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Quais relações expandir (ex: owner, actions, customFieldValues, clients). Use sintaxe OData:</p>
+                            <textarea id="cfgExpandRelations" class="config-input config-textarea" placeholder="owner,actions(...),customFieldValues(...),clients(...)" style="font-family: monospace; font-size: 11px; height: 80px;"></textarea>
+                        </div>
+
+                        <div class="config-actions">
+                            <button id="cfgSaveMovideskConditions" class="config-btn">Salvar condições</button>
+                            <button id="cfgResetMovideskConditions" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgMovideskConditionsStatus" class="config-status"></div>
+                    </div>
+                </div>
+
+                <!-- ABA: Curadoria -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-curadoria">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Competências de Curadoria</h3>
+                        <p class="config-card-help">Defina quais aspectos do atendimento o sistema deve analisar. Para cada competência, você escolhe um nome e lista as <strong>palavras ou frases</strong> que indicam esse comportamento — o sistema vai identificá-las automaticamente nos registros dos tickets.</p>
+                        <div id="cfgCategoriesList" class="cfg-categories-list"></div>
+                        <div class="config-actions" style="margin-top:8px; justify-content:flex-start;">
+                            <button class="config-btn config-btn-muted" onclick="cfgAddCategoryRow()">+ Adicionar competência</button>
+                        </div>
+                        <div class="config-actions">
+                            <button class="config-btn" onclick="saveCategoriesConfig()">Salvar competências</button>
+                            <button class="config-btn config-btn-muted" onclick="resetCategoriesConfig()">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgCategoriesStatus" class="config-status"></div>
+                    </div>
+                </div>
+
+                <!-- ABA: Inteligência Artificial -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-ia">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Chave da API ChatGPT</h3>
+                        <p class="config-card-help">Preencha e salve a chave para habilitar o resumo executivo com IA usando o prompt ja configurado.</p>
+                        <div class="config-form-row">
+                            <input id="cfgGptApiKey" type="password" class="config-input" placeholder="Cole aqui a chave da API GPT" autocomplete="off">
+                            <button id="cfgSaveGptApiKey" class="config-btn">Salvar chave</button>
+                        </div>
+                        <div id="cfgGptStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Prompt da Análise</h3>
+                        <p class="config-card-help">Edite livremente o prompt usado para gerar a análise executiva dos chamados. Você pode escrever um prompt totalmente novo ou usar placeholders opcionais como <code>{{ticketJson}}</code>, <code>{{actionsJson}}</code>, <code>{{solicitante}}</code>, <code>{{fato}}</code>, <code>{{causa}}</code>, <code>{{ModuloXRotina}}</code>, <code>{{subject}}</code>, <code>{{ownerBusinessName}}</code> e <code>{{ownerEmail}}</code>.</p>
+                        <div class="config-form-stack">
+                            <textarea id="cfgGptPrompt" class="config-input config-textarea" placeholder="Escreva ou cole aqui o prompt da forma que quiser"></textarea>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveGptPrompt" class="config-btn">Salvar prompt</button>
+                            <button id="cfgResetGptPrompt" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgPromptStatus" class="config-status"></div>
+                    </div>
+                </div>
+
+                <!-- ABA: Sistema -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-sistema">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Banco de Dados Remoto</h3>
+                        <p class="config-card-help">Salve aqui os dados de conexão do banco que ficará em outra máquina.</p>
+                        <div class="config-form-grid">
+                            <input id="cfgDbHost" type="text" class="config-input" placeholder="Host">
+                            <input id="cfgDbPort" type="text" class="config-input" placeholder="Porta">
+                            <input id="cfgDbName" type="text" class="config-input" placeholder="Nome do banco">
+                            <input id="cfgDbUser" type="text" class="config-input" placeholder="Usuário">
+                            <input id="cfgDbPassword" type="password" class="config-input" placeholder="Senha">
+                            <select id="cfgDbDialect" class="config-input">
+                                <option value="postgres">PostgreSQL</option>
+                                <option value="mysql">MySQL</option>
+                            </select>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveDbConfig" class="config-btn">Salvar banco</button>
+                            <button id="cfgReloadDbConfig" class="config-btn config-btn-muted">Carregar salvo</button>
+                        </div>
+                        <div id="cfgDbStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Seguranca</h3>
+                        <ul class="config-security-list">
+                            <li>Token Movidesk e chave GPT sao armazenados de forma criptografada no servidor.</li>
+                            <li>Somente perfil admin pode acessar esta area de configuracoes.</li>
+                            <li>A analise executiva utiliza o prompt tecnico ja definido no backend.</li>
+                        </ul>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Administracao Avancada</h3>
+                        <p class="config-card-help">Se quiser manter o fluxo antigo, voce tambem pode abrir a tela de admin legada.</p>
+                        <a href="/admin/" target="_blank" rel="noopener noreferrer" class="config-link-btn">Abrir http://localhost:3000/admin/</a>
+                    </div>
+                </div>
+
+                <div id="configAccessDenied" class="config-access-denied" style="display:none;">
+                    Seu perfil nao possui permissao para acessar Configuracoes.
+                </div>
+            </div>
+            <!-- Modal Pessoa -->
+            <div id="pessoaModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true">
+                <div class="pm-box">
+                    <div class="pm-header">
+                        <span id="pmTitle">Novo Usuário</span>
+                        <button class="pm-close" id="pmClose" aria-label="Fechar">&times;</button>
+                    </div>
+                    <form id="pmForm" class="pm-form" novalidate>
+                        <input type="hidden" id="pmId" value="">
+                        <div class="pm-field">
+                            <label for="pmName">Nome completo</label>
+                            <input type="text" id="pmName" autocomplete="off" required>
+                        </div>
+                        <div class="pm-field" id="pmEmailField">
+                            <label for="pmEmail">E-mail</label>
+                            <input type="email" id="pmEmail" autocomplete="off">
+                        </div>
+                        <div class="pm-field">
+                            <label for="pmRole">Perfil</label>
+                            <select id="pmRole">
+                                <option value="atendente">Atendente</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="pm-field">
+                            <label for="pmVertical">Vertical</label>
+                            <select id="pmVertical">
+                                <option value="">Selecione uma vertical</option>
+                                <option value="Agronegócio">Agronegócio</option>
+                                <option value="Agrotitan Fazendas">Agrotitan Fazendas</option>
+                                <option value="Analytics - B.I">Analytics - B.I</option>
+                                <option value="Automação Comercial">Automação Comercial</option>
+                                <option value="Combustíveis">Combustíveis</option>
+                                <option value="Comitê de IA">Comitê de IA</option>
+                                <option value="Construshow">Construshow</option>
+                                <option value="CRM">CRM</option>
+                                <option value="Filt">Filt</option>
+                                <option value="Fisco Contábil">Fisco Contábil</option>
+                                <option value="GCC">GCC</option>
+                                <option value="Oracle Cloud">Oracle Cloud</option>
+                                <option value="Ouvidoria">Ouvidoria</option>
+                                <option value="Serviços">Serviços</option>
+                                <option value="Sistema para RH">Sistema para RH</option>
+                                <option value="Sistemas Internos">Sistemas Internos</option>
+                                <option value="Supermercados">Supermercados</option>
+                                <option value="Tecnologia">Tecnologia</option>
+                                <option value="Viabot">Viabot</option>
+                                <option value="Voors">Voors</option>
+                            </select>
+                        </div>
+                        <div class="pm-field" id="pmActiveField" style="display:none;">
+                            <label for="pmActive">Status</label>
+                            <select id="pmActive">
+                                <option value="1">Ativo</option>
+                                <option value="0">Inativo</option>
+                            </select>
+                        </div>
+                        <div id="pmError" class="pm-error" style="display:none;"></div>
+                        <div class="pm-actions">
+                            <button type="button" class="pm-btn pm-btn-cancel" id="pmCancel">Cancelar</button>
+                            <button type="submit" class="pm-btn pm-btn-save" id="pmSave">Salvar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Modal Senha Gerada -->
+            <div id="senhaModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true">
+                <div class="pm-box pm-box-sm">
+                    <div class="pm-header">
+                        <span>Senha Inicial</span>
+                        <button class="pm-close" id="senhaClose">&times;</button>
+                    </div>
+                    <div class="pm-body">
+                        <p class="pm-info">Compartilhe esta senha com o usuário. Ela não poderá ser recuperada após fechar esta janela.</p>
+                        <div class="pm-senha-display" id="pmSenhaValue"></div>
+                        <button class="pm-btn pm-btn-copy" id="btnCopySenha">Copiar Senha</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== VIEW: DASHBOARD ===== -->
+            <div id="dashboardView" class="app-view">
+            <div class="dashboard-layout">
+
+                <!-- Coluna principal -->
+                <div class="dashboard-main">
+
+                    <!-- Resumo por status (4 cards com sparklines) -->
+                    <div class="status-summary">
+                        <div class="summary-card summary-new">
+                            <div class="summary-card-info">
+                                <span class="summary-count" id="countNew">—</span>
+                                <span class="summary-label">NOVOS</span>
+                            </div>
+                            <canvas class="sparkline-canvas" id="sparkNew" width="90" height="44"></canvas>
+                        </div>
+                        <div class="summary-card summary-inattendance">
+                            <div class="summary-card-info">
+                                <span class="summary-count" id="countInAttendance">—</span>
+                                <span class="summary-label">EM ATENDIMENTO</span>
+                            </div>
+                            <canvas class="sparkline-canvas" id="sparkInAttendance" width="90" height="44"></canvas>
+                        </div>
+                        <div class="summary-card summary-stopped">
+                            <div class="summary-card-info">
+                                <span class="summary-count" id="countStopped">—</span>
+                                <span class="summary-label">AGUARDANDO</span>
+                            </div>
+                            <canvas class="sparkline-canvas" id="sparkStopped" width="90" height="44"></canvas>
+                        </div>
+                        <div class="summary-card summary-total">
+                            <div class="summary-card-info">
+                                <span class="summary-count" id="countTotal">—</span>
+                                <span class="summary-label">TOTAL</span>
+                            </div>
+                            <canvas class="sparkline-canvas" id="sparkTotal" width="90" height="44"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Resumo por SLA (2 cards com donuts) -->
+                    <div class="sla-row">
+                        <div class="sla-card sla-ontime">
+                            <div class="sla-card-info">
+                                <span class="sla-count" id="countOnTime">—</span>
+                                <span class="sla-label">DENTRO DO PRAZO</span>
+                            </div>
+                            <div class="sla-donut-wrap">
+                                <svg class="sla-donut" viewBox="0 0 80 80" width="80" height="80">
+                                    <circle class="donut-bg" cx="40" cy="40" r="30"/>
+                                    <circle class="donut-arc donut-ontime" id="donutOntime" cx="40" cy="40" r="30"
+                                        stroke-dasharray="0 188.5" stroke-dashoffset="47.1"/>
+                                </svg>
+                                <span class="donut-pct" id="pctOnTime">—%</span>
+                            </div>
+                        </div>
+                        <div class="sla-card sla-overdue">
+                            <div class="sla-card-info">
+                                <span class="sla-count" id="countOverdue">—</span>
+                                <span class="sla-label">FORA DO PRAZO</span>
+                                <span class="overdue-insight" id="overdueInsight"></span>
+                            </div>
+                            <div class="sla-donut-wrap">
+                                <svg class="sla-donut" viewBox="0 0 80 80" width="80" height="80">
+                                    <circle class="donut-bg" cx="40" cy="40" r="30"/>
+                                    <circle class="donut-arc donut-overdue" id="donutOverdue" cx="40" cy="40" r="30"
+                                        stroke-dasharray="0 188.5" stroke-dashoffset="47.1"/>
+                                </svg>
+                                <span class="donut-pct" id="pctOverdue">—%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chamados em Aberto (colapsável) -->
+                    <section class="section" id="cardsSection">
+                        <div class="section-header">
+                            <button id="toggleBtn" class="toggle-section-btn">▼ Chamados em Aberto</button>
+                            <button id="syncBtn" class="sync-btn">
+                                <span class="sync-btn-label">🔄 Sincronizar</span>
+                                <span class="sync-btn-dots" aria-hidden="true">
+                                    <span class="sync-btn-dot"></span>
+                                    <span class="sync-btn-dot"></span>
+                                    <span class="sync-btn-dot"></span>
+                                </span>
+                            </button>
+                        </div>
+
+                        <!-- Barra de filtros -->
+                        <div class="filter-bar" id="filterBar">
+                            <select class="filter-select" id="filterStatus" title="Filtrar por status">
+                                <option value="">Todos os status</option>
+                                <option value="New">Novo</option>
+                                <option value="InAttendance">Em Atendimento</option>
+                                <option value="Stopped">Aguardando</option>
+                            </select>
+                            <select class="filter-select" id="filterUrgency" title="Filtrar por urgência">
+                                <option value="">Todas as urgências</option>
+                                <option value="Crítica">Crítica</option>
+                                <option value="Alta">Alta</option>
+                                <option value="Média">Média</option>
+                                <option value="Baixa">Baixa</option>
+                            </select>
+                            <select class="filter-select" id="filterAtendente" title="Filtrar por atendente">
+                                <option value="">Todos os atendentes</option>
+                            </select>
+                            <select class="filter-select" id="filterEquipe" title="Filtrar por equipe">
+                                <option value="">Todas as equipes</option>
+                            </select>
+                            <select class="filter-select" id="filterLastAction" title="Filtrar por última ação">
+                                <option value="">Última ação: todos</option>
+                                <option value="Attendant">Última ação: Agente</option>
+                                <option value="Customer">Última ação: Cliente</option>
+                            </select>
+                            <select class="filter-select" id="filterSla" title="Filtrar por SLA">
+                                <option value="">Todos os prazos</option>
+                                <option value="ontime">Dentro do prazo</option>
+                                <option value="overdue">Fora do prazo</option>
+                                <option value="paused">Em pausa</option>
+                            </select>
+                            <button class="filter-clear" id="filterClear" title="Limpar filtros">✕ Limpar</button>
+                            <span class="filter-count" id="filterCount"></span>
+                        </div>
+
+                        <div class="cards-container" id="cardsContainer">
+                            <div class="skeleton-card"><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text"></div></div>
+                            <div class="skeleton-card"><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text"></div></div>
+                            <div class="skeleton-card"><div class="skeleton-title"></div><div class="skeleton-text"></div><div class="skeleton-text"></div></div>
+                        </div>
+                    </section>
+
+                </div><!-- /dashboard-main -->
+
+                <!-- Sidebar de atendentes -->
+                <aside class="dashboard-sidebar">
+                    <p class="sidebar-title">Atendentes</p>
+                    <div class="attendants-container" id="attendantsContainer">
+                        <p style="color: #999;">Carregando...</p>
+                    </div>
+                </aside>
+
+            </div><!-- /dashboard-layout -->
+            </div><!-- /dashboardView -->
+
+            <!-- ===== VIEW: CURADORIA ===== -->
+            <div id="curadoriaView" class="app-view curadoria-view" style="display:none;">
+                <section class="curadoria-shell">
+                    <article class="curadoria-floating-card">
+                        <div class="curadoria-floating-glow"></div>
+                        <div class="curadoria-floating-content">
+                            <div class="curadoria-preview-list" id="curadoriaCardsContainer">
+                                <div class="curadoria-empty-state">Carregando curadoria...</div>
+                            </div>
+                            <span class="curadoria-meta curadoria-meta-floating" id="curadoriaMeta" style="display:none;">Preparando leitura...</span>
+                        </div>
+                    </article>
+                </section>
+                <!-- legado oculto -->
+                <div class="curadoria-header-main" style="display:none;">
+                    <div class="curadoria-header-title">
+                        <h1>Curadoria & Performance</h1>
+                        <p>Avaliação de colaboradores e comportamento de clientes</p>
+                    </div>
+                    <div id="curadoriaKpiBarLegacy" class="curadoria-kpi-bar"></div>
+                </div>
+
+                <div class="curadoria-filters" id="curadoriaFilters" style="display:none;">
+                    <select class="curadoria-filter-input" id="filterServico">
+                        <option value="">Todos os serviços</option>
+                    </select>
+                    <select class="curadoria-filter-input" id="filterOwner">
+                        <option value="">Todos os owners</option>
+                    </select>
+                    <select class="curadoria-filter-input" id="filterCuradoriaEquipe">
+                        <option value="">Todas as equipes</option>
+                    </select>
+                    <select class="curadoria-filter-input" id="filterSolicitante">
+                        <option value="">Todos os solicitantes</option>
+                    </select>
+                    <select class="curadoria-filter-input" id="filterCuradoriaUrgencia">
+                        <option value="">Todas as urgências</option>
+                        <option value="critica">Crítica</option>
+                        <option value="alta">Alta</option>
+                        <option value="media">Média</option>
+                        <option value="baixa">Baixa</option>
+                    </select>
+                    <select class="curadoria-filter-input" id="filterCuradoriaUrgenciaSugerida">
+                        <option value="">Todas as urgências sugeridas</option>
+                        <option value="critica">Crítica</option>
+                        <option value="alta">Alta</option>
+                        <option value="media">Média</option>
+                        <option value="baixa">Baixa</option>
+                    </select>
+                    <button class="curadoria-filter-clear" id="curadoriaFilterClear">Limpar</button>
+                </div>
+
+                <section class="section curadoria-section" style="display:none;">
+                    <div id="curadoriaPerformanceBoardLegacy" style="margin-bottom:16px;"></div>
+                    <div class="curadoria-cards-container" id="curadoriaCardsContainerLegacy">
+                        <div style="grid-column: 1/-1; padding: 40px; text-align: center; color: var(--muted);">
+                            Carregando curadoria...
+                        </div>
+                    </div>
+                </section>
+            </div><!-- /curadoriaView -->
+
+            <!-- Modal Resumo Executivo -->
+            <div id="executiveSummaryModal" class="pm-overlay" style="display:none;" role="dialog" aria-modal="true">
+                <div class="pm-box executive-modal-box">
+                    <div class="pm-header">
+                        <span id="executiveSummaryTitle">Resumo Executivo</span>
+                        <button class="pm-close" id="executiveSummaryClose" aria-label="Fechar">&times;</button>
+                    </div>
+                    <div class="executive-modal-body" id="executiveSummaryBody">
+                        Carregando analise...
+                    </div>
+                    <div class="executive-modal-actions">
+                        <button class="pm-btn pm-btn-cancel" id="executiveSummaryCancel">Fechar</button>
+                        <button class="pm-btn pm-btn-save" id="executiveSummaryOpenTicket">Abrir no Movidesk</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+    </div><!-- /app-wrapper -->
+
+
+    <script>
+        // Auth guard — redirect to login if no valid token
+        (function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.replace('/login.html');
+            }
+        })();
+    </script>
+    <script src="js/ticket-analyzer.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/curadoria.js"></script>
+    <script src="js/pessoas.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>

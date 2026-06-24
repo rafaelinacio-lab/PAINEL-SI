@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Configuração Movidesk</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f7f6f3;
+            --surface: #ffffff;
+            --border: #e6e3dc;
+            --text: #181816;
+            --muted: #68685f;
+            --hint: #a8a49c;
+            --red-mid: #e24b4a;
+            --grn-mid: #1d9e75;
+            --blu-mid: #378add;
+            --r: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.5;
+            min-height: 100vh;
+            padding: 40px 28px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            margin-bottom: 40px;
+        }
+
+        .page-header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            margin-bottom: 8px;
+        }
+
+        .page-header p {
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 28px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title .icon {
+            font-size: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 8px;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--blu-mid);
+            background: var(--surface);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .btn-primary {
+            background: var(--blu-mid);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2a5fc7;
+            box-shadow: 0 4px 12px rgba(55, 138, 221, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg);
+            border-color: var(--muted);
+        }
+
+        .btn-success {
+            background: var(--grn-mid);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #157d5e;
+            box-shadow: 0 4px 12px rgba(29, 158, 117, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: var(--red-mid);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c23a39;
+            box-shadow: 0 4px 12px rgba(226, 75, 74, 0.3);
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .alert {
+            padding: 14px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            border-left: 4px solid;
+        }
+
+        .alert-success {
+            background: #e1f5ee;
+            border-color: var(--grn-mid);
+            color: #085041;
+        }
+
+        .alert-error {
+            background: #fcebeb;
+            border-color: var(--red-mid);
+            color: #791f1f;
+        }
+
+        .alert-info {
+            background: #e6f1fb;
+            border-color: var(--blu-mid);
+            color: #0c447c;
+        }
+
+        .alert-warning {
+            background: #faeeda;
+            border-color: #ef9f27;
+            color: #633806;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e1f5ee;
+            color: #085041;
+        }
+
+        .status-badge.inactive {
+            background: #fcebeb;
+            color: #791f1f;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(55, 138, 221, 0.2);
+            border-top-color: var(--blu-mid);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: var(--hint);
+            margin-top: 6px;
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 24px 0;
+        }
+
+        @media (max-width: 560px) {
+            body {
+                padding: 20px 16px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .page-header h1 {
+                font-size: 22px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1>⚙️ Configuração Movidesk</h1>
+            <p>Gerencie o token da API e sincronize chamados</p>
+        </div>
+
+        <div id="alerts"></div>
+
+        <!-- Configuração de Token -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">🔐</span>
+                Token da API (Criptografado)
+            </div>
+
+            <div class="form-group">
+                <label for="tokenStatus">Status</label>
+                <div id="tokenStatus" class="status-badge inactive">
+                    ❌ Não configurado
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="token">Token Movidesk</label>
+                <textarea 
+                    id="token" 
+                    placeholder="Cole seu token de acesso da API Movidesk aqui..."
+                    autocomplete="off"
+                ></textarea>
+                <div class="help-text">
+                    ℹ️ O token será criptografado automaticamente e armazenado de forma segura
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="saveToken()">💾 Salvar Token</button>
+                <button class="btn-secondary" onclick="toggleTokenVisibility()">👁️ Mostrar/Ocultar</button>
+            </div>
+        </div>
+
+        <!-- Sincronização de Chamados -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">🔄</span>
+                Sincronizar Chamados
+            </div>
+
+            <p style="color: var(--muted); margin-bottom: 16px; font-size: 13px;">
+                Busca todos os chamados do Movidesk com base no filtro: 
+                <strong>Sistemas Internos (New, InAttendance, Stopped)</strong>
+            </p>
+
+            <div class="button-group">
+                <button class="btn-success" onclick="syncTickets()" id="syncBtn">
+                    🔄 Sincronizar Agora
+                </button>
+                <button class="btn-secondary" onclick="window.location.href='/'">
+                    📊 Ver Dashboard
+                </button>
+            </div>
+
+            <div id="syncProgress" style="display: none; margin-top: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="loading"></div>
+                    <span>Sincronizando chamados...</span>
+                </div>
+                <div style="margin-top: 10px; font-size: 12px; color: var(--muted);">
+                    <div id="syncStatus">Conectando à API...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">📊</span>
+                Estatísticas
+            </div>
+
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-box">
+                    <div class="stat-label">Total</div>
+                    <div class="stat-value">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Novo</div>
+                    <div class="stat-value">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Em Atendimento</div>
+                    <div class="stat-value">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Parado</div>
+                    <div class="stat-value">-</div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="loadStats()">🔄 Recarregar Estatísticas</button>
+            </div>
+        </div>
+
+        <!-- Informações de Segurança -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">🛡️</span>
+                Segurança
+            </div>
+
+            <ul style="margin-left: 20px; color: var(--muted); font-size: 13px; line-height: 1.8;">
+                <li>✓ Token é criptografado usando AES-256-CBC</li>
+                <li>✓ Dados armazenados localmente no banco de dados SQLite</li>
+                <li>✓ Nenhum token é enviado para serviços externos</li>
+                <li>✓ Sincronização com paginação automática</li>
+                <li>✓ Atualização de registros existentes</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = `${window.location.origin}/api`;
+
+        function getAuthToken() {
+            return localStorage.getItem('token')
+                || localStorage.getItem('authToken')
+                || localStorage.getItem('sessionToken')
+                || '';
+        }
+
+        function authHeaders(extra = {}) {
+            const token = getAuthToken();
+            if (!token) return { ...extra };
+            return { ...extra, Authorization: `Bearer ${token}` };
+        }
+
+        function isCurrentUserAdmin() {
+            try {
+                const raw = localStorage.getItem('user');
+                if (raw) {
+                    const user = JSON.parse(raw);
+                    return user?.role === 'admin';
+                }
+            } catch {}
+            return false;
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertsDiv = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <strong>${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ️'}</strong>
+                ${message}
+            `;
+            alertsDiv.appendChild(alert);
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        async function checkTokenStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/config/token`, {
+                    headers: authHeaders()
+                });
+                const data = await response.json();
+                const badge = document.getElementById('tokenStatus');
+                
+                if (data.tokenExists) {
+                    badge.textContent = '✅ Configurado';
+                    badge.className = 'status-badge';
+                } else {
+                    badge.textContent = '❌ Não configurado';
+                    badge.className = 'status-badge inactive';
+                }
+            } catch (error) {
+                console.error('Erro ao verificar token:', error);
+            }
+        }
+
+        async function saveToken() {
+            const token = document.getElementById('token').value.trim();
+            
+            if (!token) {
+                showAlert('Por favor, insira um token', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/config/token`, {
+                    method: 'POST',
+                    headers: {
+                        ...authHeaders(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('✓ Token salvo com segurança', 'success');
+                    document.getElementById('token').value = '';
+                    checkTokenStatus();
+                } else {
+                    showAlert(`Erro: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao salvar token: ' + error.message, 'error');
+            }
+        }
+
+        function toggleTokenVisibility() {
+            const input = document.getElementById('token');
+            if (input.type === 'password') {
+                input.type = 'text';
+            } else {
+                input.type = 'password';
+            }
+        }
+
+        async function syncTickets() {
+            const btn = document.getElementById('syncBtn');
+            const progress = document.getElementById('syncProgress');
+            
+            btn.disabled = true;
+            progress.style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_BASE}/tickets/sync`, {
+                    method: 'POST',
+                    headers: authHeaders()
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert(`✓ ${data.message}`, 'success');
+                    loadStats();
+                } else {
+                    showAlert(`Erro: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao sincronizar: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                progress.style.display = 'none';
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/tickets/stats/overview`, {
+                    headers: authHeaders()
+                });
+                const stats = await response.json();
+
+                const values = document.querySelectorAll('.stat-value');
+                values[0].textContent = stats.total || 0;
+                values[1].textContent = stats.novo || 0;
+                values[2].textContent = stats.emAtendimento || 0;
+                values[3].textContent = stats.parado || 0;
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+            }
+        }
+
+        // Inicializar na carga
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!isCurrentUserAdmin()) {
+                showAlert('Acesso restrito. Faça login com um usuário administrador.', 'error');
+            }
+            checkTokenStatus();
+            loadStats();
+            
+            // Atualizar a cada 30 segundos
+            setInterval(checkTokenStatus, 30000);
+            setInterval(loadStats, 30000);
+        });
+    </script>
+</body>
+</html>
