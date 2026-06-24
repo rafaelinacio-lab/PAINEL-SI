@@ -1,6 +1,14 @@
 
 // ── pessoas.js — Gestão de usuários ───────────────────────────────────────
 
+// Fallback para closeExecutiveSummaryModal caso curadoria.js não esteja carregado
+if (typeof closeExecutiveSummaryModal === 'undefined') {
+    function closeExecutiveSummaryModal() {
+        const modal = document.getElementById('executiveSummaryModal');
+        if (modal) modal.style.display = 'none';
+    }
+}
+
 async function pessoasLoad() {
     const tbody = document.getElementById('pessoasTbody');
     if (!tbody) return;

@@ -65,11 +65,8 @@ function applyRoleBasedNavigation() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ÁREA DE PESSOAS — CRUD
+// ÁREA DE PESSOAS — CRUD (variáveis declaradas em script.js)
 // ─────────────────────────────────────────────────────────────────
-
-const PESSOAS_API = `${API_BASE}/pessoas`;
-let _pessoasAllUsers = [];
 
 function showLoginScreen(message = '') {
     // Login está em página separada — redireciona

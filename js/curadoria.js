@@ -1158,8 +1158,7 @@ async function handleCardClick(ticketId) {
 
 // Pill permanente de última atualização
 
-// ─── Cache de tickets para Área de Pessoas ────────────────────────
-let _cachedTickets = [];
+// ─── Cache de tickets para Área de Pessoas (declarado em script.js) ────────
 
 // ─── Navegação entre Views ────────────────────────────────────────
 function navigateTo(view) {
@@ -1269,9 +1268,6 @@ function applyRoleBasedNavigation() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ÁREA DE PESSOAS — CRUD
+// ÁREA DE PESSOAS — CRUD (variáveis declaradas em script.js)
 // ─────────────────────────────────────────────────────────────────
-
-const PESSOAS_API = `${API_BASE}/pessoas`;
-let _pessoasAllUsers = [];
 

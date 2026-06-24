@@ -5,6 +5,7 @@
 // Configuração da API
 const API_BASE = `${window.location.origin}/api`;
 const CURADORIA_API = `${API_BASE}/curadoria`;
+const PESSOAS_API = `${API_BASE}/pessoas`;
 let _currentUser = null;
 let _appInitialized = false;
 let _curadoriaLoaded = false;
@@ -12,6 +13,7 @@ let _curadoriaRows = [];
 let _curadoriaFiltersReady = false;
 let _usersCache = []; // Cache de usuários para lookup de email por nome
 let _autoSyncIntervalId = null;
+let _pessoasAllUsers = [];
 
 const AUTO_SYNC_STORAGE_KEY = 'autosyncEnabled';
 const ENABLE_AUTO_LOAD_TICKETS = false;
