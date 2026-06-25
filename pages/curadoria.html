@@ -140,6 +140,141 @@
             animation: flowIn 0.78s cubic-bezier(0.16, 1, 0.3, 1) var(--flow-delay) both;
             will-change: transform, filter, border-radius, opacity;
         }
+
+        /* ── Competências em Destaque ── */
+        .comp-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            gap: 12px;
+        }
+        .comp-section-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .comp-section-badge {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface-variant, #9ca3af);
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 3px 10px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+        .comp-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .comp-card {
+            background: var(--bg, rgba(99,102,241,0.06));
+            border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 20%, transparent);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: compCardIn 0.45s cubic-bezier(0.16,1,0.3,1) both;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .comp-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        @keyframes compCardIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .comp-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .comp-card-icon-wrap {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .comp-card-icon {
+            font-size: 18px;
+            color: var(--accent, #6366f1);
+        }
+        .comp-card-title-group {
+            flex: 1;
+            min-width: 0;
+        }
+        .comp-card-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface, #f1f5f9);
+            line-height: 1.3;
+            margin-bottom: 2px;
+        }
+        .comp-card-desc {
+            display: block;
+            font-size: 11px;
+            color: var(--md-sys-color-on-surface-variant, #94a3b8);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .comp-card-badge {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--accent, #6366f1);
+            background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
+            border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 25%, transparent);
+            padding: 2px 8px;
+            border-radius: 20px;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            flex-shrink: 0;
+        }
+        .comp-card-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .comp-card-bar-track {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .comp-card-bar-fill {
+            height: 100%;
+            background: var(--accent, #6366f1);
+            border-radius: 99px;
+            transition: width 0.9s cubic-bezier(0.4,0,0.2,1);
+        }
+        .comp-card-pct {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent, #6366f1);
+            min-width: 36px;
+            text-align: right;
+        }
+        .comp-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+        .comp-card-count {
+            font-size: 11px;
+            color: var(--md-sys-color-on-surface-variant, #94a3b8);
+        }
     </style>
 </head>
 <body class="bg-background text-on-surface min-h-screen">
@@ -594,24 +729,33 @@ function renderAnalysisCard(owner, rows) {
     const positiveCats=PERF_CATEGORIES.filter(c=>!c.isNegative&&a.catCount[c.key]>0).sort((x,y)=>a.catCount[y.key]-a.catCount[x.key]);
     const diffCount=PERF_CATEGORIES.filter(c=>c.isNegative).reduce((s,c)=>s+(a.catCount[c.key]||0),0);
     const totalPositive=positiveCats.reduce((s,c)=>s+a.catCount[c.key],0);
-    const compCards=positiveCats.map(c=>{
+    const compCards=positiveCats.map((c,idx)=>{
         const count=a.catCount[c.key],pct=Math.round((count/maxCat)*100),meta=CAT_META[c.key]||{icon:'star',desc:''};
-        let barClass,badgeClass,badgeLabel;
-        if(pct>=80){barClass='bg-gradient-to-r from-green-500 to-green-400';badgeClass='bg-green-900 text-green-300';badgeLabel='Destaque';}
-        else if(pct>=50){barClass='bg-gradient-to-r from-yellow-500 to-amber-400';badgeClass='bg-yellow-900 text-yellow-300';badgeLabel='Bom';}
-        else if(pct>=25){barClass='bg-gradient-to-r from-orange-500 to-orange-400';badgeClass='bg-orange-900 text-orange-300';badgeLabel='Regular';}
-        else{barClass='bg-gradient-to-r from-red-600 to-red-500';badgeClass='bg-red-900 text-red-300';badgeLabel='Baixo';}
-        return `<div class="bg-surface-container p-4 rounded-xl flex flex-col gap-3">
-            <div class="flex items-start justify-between gap-2">
-                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-secondary">${meta.icon}</span><span class="font-label-md text-label-md text-on-surface leading-tight">${escapeHtml(c.label)}</span></div>
-                <span class="shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${badgeClass}">${badgeLabel}</span>
+        let accentColor,bgColor,badgeLabel;
+        if(pct>=80){accentColor='#22c55e';bgColor='rgba(34,197,94,0.08)';badgeLabel='Destaque';}
+        else if(pct>=50){accentColor='#f59e0b';bgColor='rgba(245,158,11,0.08)';badgeLabel='Bom';}
+        else if(pct>=25){accentColor='#f97316';bgColor='rgba(249,115,22,0.08)';badgeLabel='Regular';}
+        else{accentColor='#6366f1';bgColor='rgba(99,102,241,0.08)';badgeLabel='Baixo';}
+        const delayMs=idx*80;
+        return `<div class="comp-card" style="--accent:${accentColor};--bg:${bgColor};animation-delay:${delayMs}ms">
+            <div class="comp-card-header">
+                <div class="comp-card-icon-wrap">
+                    <span class="material-symbols-outlined comp-card-icon">${meta.icon}</span>
+                </div>
+                <div class="comp-card-title-group">
+                    <span class="comp-card-label">${escapeHtml(c.label)}</span>
+                    <span class="comp-card-desc">${escapeHtml(meta.desc)}</span>
+                </div>
+                <div class="comp-card-badge">${badgeLabel}</div>
             </div>
-            <div class="w-full bg-surface-container-high h-2.5 rounded-full overflow-hidden">
-                <div class="${barClass} h-full rounded-full" style="width:0%;transition:width 0.9s cubic-bezier(0.4,0,0.2,1)" data-bar-width="${pct}"></div>
+            <div class="comp-card-bar-row">
+                <div class="comp-card-bar-track">
+                    <div class="comp-card-bar-fill" style="width:0%" data-bar-width="${pct}"></div>
+                </div>
+                <span class="comp-card-pct">${pct}%</span>
             </div>
-            <div class="flex justify-between items-center">
-                <span class="text-xs text-on-surface-variant">${meta.desc}</span>
-                <div class="flex items-center gap-1.5 shrink-0"><span class="text-xs text-on-surface-variant">${count} ocorrências</span><span class="text-xs font-bold text-on-surface">${pct}%</span></div>
+            <div class="comp-card-footer">
+                <span class="comp-card-count">${count} chamado${count!==1?'s':''}</span>
             </div>
         </div>`;
     }).join('');
@@ -629,11 +773,14 @@ function renderAnalysisCard(owner, rows) {
             <div class="bg-surface-container-low p-4 rounded-lg"><span class="font-label-md text-label-md text-outline block mb-1">Total de Ações</span><span class="text-3xl font-bold text-primary" data-count-target="${a.totalAcoes}">0</span></div>
         </div>
         <div class="space-y-3 mb-10">
-            <div class="flex items-center justify-between mb-3">
-                <h4 class="font-label-md text-label-md text-primary font-bold uppercase tracking-wide">Competências em Destaque</h4>
-                <span class="text-xs text-on-surface-variant">${totalPositive} menções analisadas</span>
+            <div class="comp-section-header">
+                <div class="comp-section-title-row">
+                    <span class="material-symbols-outlined" style="font-size:18px;color:var(--md-sys-color-primary,#6366f1)">workspace_premium</span>
+                    <h4 class="font-label-md text-label-md text-primary font-bold uppercase tracking-wide">Competências em Destaque</h4>
+                </div>
+                <span class="comp-section-badge">${totalPositive > 0 ? totalPositive+' chamados avaliados' : 'Análise IA em andamento...'}</span>
             </div>
-            <div class="perf-competencia-bars grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">${compCards||'<p class="text-on-surface-variant text-sm col-span-2">Sem dados de competências para este período.</p>'}</div>
+            <div class="perf-competencia-bars comp-cards-grid">${compCards||'<p class="text-on-surface-variant text-sm" style="grid-column:1/-1;padding:16px 0">Aguardando análise da IA...</p>'}</div>
             ${diffCount>=0?`<div class="flex items-center gap-3 p-4 rounded-xl border ${diffCount===0?'border-green-800 bg-green-950':diffCount<=2?'border-yellow-800 bg-yellow-950':'border-red-800 bg-red-950'}">
                 <span class="material-symbols-outlined text-[22px] ${diffCount===0?'text-green-400':diffCount<=2?'text-yellow-400':'text-red-400'}">warning_amber</span>
                 <div class="flex-1"><div class="flex items-center gap-2 mb-0.5"><span class="font-label-md text-label-md text-on-surface">Dificuldade de resolução</span>${diffBadge}</div>
