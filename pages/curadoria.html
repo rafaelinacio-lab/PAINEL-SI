@@ -378,24 +378,21 @@ const DEFAULT_PERF_CATEGORIES = [
 ];
 let PERF_CATEGORIES = DEFAULT_PERF_CATEGORIES.map(c=>({...c}));
 async function loadPerfCategories() {
+    // Cada chamada é independente — falha de uma não quebra as outras
     try {
-        const [catData, gptData] = await Promise.all([
-            apiCall('/config/curadoria-categories'),
-            apiCall('/config/gpt-key').catch(()=>({configured:false}))
-        ]);
+        const catData = await apiCall('/config/curadoria-categories').catch(()=>({categories:null}));
         if(catData.categories&&catData.categories.length>0)
             PERF_CATEGORIES=catData.categories.map(c=>({
                 key:c.key, label:c.label, prompt:c.prompt||'', icon:c.icon||'star',
                 description:c.description||'', isNegative:!!c.isNegative
             }));
-        // Carrega a chave GPT descriptografada via endpoint de proxy interno
-        if(gptData.configured) {
-            try {
-                const keyData = await apiCall('/config/gpt-key-for-client');
-                if(keyData.apiKey) window._gptApiKey = keyData.apiKey;
-            } catch(_) {}
-        }
-    } catch{ /* defaults */ }
+    } catch(_) { /* mantém defaults */ }
+
+    // Carrega chave GPT separadamente, sem bloquear
+    try {
+        const keyData = await apiCall('/config/gpt-key-for-client').catch(()=>null);
+        if(keyData?.apiKey) window._gptApiKey = keyData.apiKey;
+    } catch(_) {}
 }
 
 /* ── Análise ──────────────────────────────────────────────────── */
@@ -406,9 +403,9 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
 
     const ownerNorm = normalizeOwnerName(owner), ownerFirst = ownerNorm.split(' ')[0];
     const ticketsSummary = ownerRows.map(row => {
-        let perf; try { perf = typeof row.performance_suporte === 'object' ? row.performance_suporte : JSON.parse(row.performance_suporte||'{}')); } catch { perf = {}; }
+        let perf; try { perf = typeof row.performance_suporte === 'object' ? row.performance_suporte : JSON.parse(row.performance_suporte||'{}'); } catch { perf = {}; }
         const items = Array.isArray(perf?.items) ? perf.items : [];
-        const ownerItem = items.find(item => { const n = normalizeOwnerName(item.nome||'')); return n===ownerNorm||n.includes(ownerFirst)||ownerNorm.includes(n.split(' ')[0]); });
+        const ownerItem = items.find(item => { const n = normalizeOwnerName(item.nome||''); return n===ownerNorm||n.includes(ownerFirst)||ownerNorm.includes(n.split(' ')[0]); });
         const pontos = ownerItem ? (ownerItem.pontos||[]).join(' | ') : '';
         return `Chamado #${row.ticket_id} (${row.urgencia||'sem urgência'}): ${row.analise_fato||row.fato||''} ${pontos ? '| Pontos: '+pontos : ''}`.trim();
     }).filter(Boolean).join('\n');
