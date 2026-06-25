@@ -149,11 +149,7 @@
             margin-bottom: 16px;
             gap: 12px;
         }
-        .comp-section-title-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .comp-section-title-row { display: flex; align-items: center; gap: 8px; }
         .comp-section-badge {
             font-size: 11px;
             font-weight: 600;
@@ -166,114 +162,90 @@
         }
         .comp-cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 10px;
             margin-bottom: 16px;
+        }
+        .comp-empty {
+            grid-column: 1/-1;
+            padding: 24px 0;
+            opacity: 0.6;
         }
         .comp-card {
             background: var(--bg, rgba(99,102,241,0.06));
-            border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 20%, transparent);
-            border-radius: 14px;
-            padding: 16px;
+            border: 1px solid var(--accent, #6366f1);
+            border-left-width: 3px;
+            border-radius: 12px;
+            padding: 14px 16px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            animation: compCardIn 0.45s cubic-bezier(0.16,1,0.3,1) both;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            gap: 10px;
+            animation: compCardIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
         }
-        .comp-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-        }
+        .comp-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
         @keyframes compCardIn {
-            from { opacity: 0; transform: translateY(12px) scale(0.97); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
-        .comp-card-header {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
+        .comp-card-header { display: flex; align-items: flex-start; gap: 10px; }
         .comp-card-icon-wrap {
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
-            background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
+            width: 34px; height: 34px;
+            border-radius: 9px;
+            background: var(--bg, rgba(99,102,241,0.12));
+            border: 1px solid var(--accent, #6366f1);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
         }
-        .comp-card-icon {
-            font-size: 18px;
-            color: var(--accent, #6366f1);
-        }
-        .comp-card-title-group {
-            flex: 1;
-            min-width: 0;
-        }
+        .comp-card-icon { font-size: 16px; color: var(--accent, #6366f1); }
+        .comp-card-title-group { flex: 1; min-width: 0; }
         .comp-card-label {
             display: block;
-            font-size: 13px;
-            font-weight: 600;
+            font-size: 13px; font-weight: 700;
             color: var(--md-sys-color-on-surface, #f1f5f9);
-            line-height: 1.3;
-            margin-bottom: 2px;
+            line-height: 1.3; margin-bottom: 3px;
         }
         .comp-card-desc {
-            display: block;
-            font-size: 11px;
+            display: block; font-size: 11px;
             color: var(--md-sys-color-on-surface-variant, #94a3b8);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
         }
         .comp-card-badge {
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--accent, #6366f1);
-            background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
-            border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 25%, transparent);
-            padding: 2px 8px;
-            border-radius: 20px;
-            white-space: nowrap;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            flex-shrink: 0;
+            font-size: 10px; font-weight: 700;
+            padding: 2px 8px; border-radius: 20px;
+            white-space: nowrap; text-transform: uppercase; letter-spacing: 0.05em;
+            border: 1px solid; flex-shrink: 0;
         }
-        .comp-card-bar-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+        .comp-card-bar-row { display: flex; align-items: center; gap: 10px; }
         .comp-card-bar-track {
-            flex: 1;
-            height: 6px;
-            background: rgba(255,255,255,0.08);
-            border-radius: 99px;
-            overflow: hidden;
+            flex: 1; height: 5px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 99px; overflow: hidden;
         }
         .comp-card-bar-fill {
-            height: 100%;
-            background: var(--accent, #6366f1);
-            border-radius: 99px;
-            transition: width 0.9s cubic-bezier(0.4,0,0.2,1);
+            height: 100%; border-radius: 99px;
+            transition: width 1s cubic-bezier(0.4,0,0.2,1);
         }
         .comp-card-pct {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--accent, #6366f1);
-            min-width: 36px;
-            text-align: right;
+            font-size: 12px; font-weight: 700;
+            min-width: 34px; text-align: right;
         }
         .comp-card-footer {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
+            display: flex; flex-direction: column; gap: 4px;
         }
         .comp-card-count {
             font-size: 11px;
             color: var(--md-sys-color-on-surface-variant, #94a3b8);
+        }
+        .comp-card-evidence {
+            font-size: 11px;
+            color: var(--md-sys-color-on-surface-variant, #94a3b8);
+            font-style: italic;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
+            cursor: help;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 4px;
         }
     </style>
 </head>
@@ -618,6 +590,52 @@ function analysePerformance(rows,owner) {
 }
 
 // Enriquece o card com dados da IA após renderização inicial
+// ── Renderiza cards de competências (compartilhado pelo render inicial e pelo enrich da IA)
+function renderCompCards(catCount, aiResult) {
+    const maxCat = Math.max(...PERF_CATEGORIES.map(c => catCount[c.key]||0), 1);
+    const allCats = PERF_CATEGORIES.filter(c => !c.isNegative);
+    if (allCats.every(c => (catCount[c.key]||0) === 0)) {
+        return '<p class="text-on-surface-variant text-sm comp-empty">Aguardando análise da IA...</p>';
+    }
+    const sorted = [...allCats].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
+    return sorted.map((c, idx) => {
+        const count = catCount[c.key] || 0;
+        const pct = Math.round((count / maxCat) * 100);
+        let accentColor, bgColor, badgeLabel;
+        if (pct >= 80) { accentColor='#22c55e'; bgColor='rgba(34,197,94,0.08)'; badgeLabel='Destaque'; }
+        else if (pct >= 50) { accentColor='#f59e0b'; bgColor='rgba(245,158,11,0.08)'; badgeLabel='Bom'; }
+        else if (pct >= 25) { accentColor='#f97316'; bgColor='rgba(249,115,22,0.08)'; badgeLabel='Regular'; }
+        else if (count > 0) { accentColor='#6366f1'; bgColor='rgba(99,102,241,0.08)'; badgeLabel='Baixo'; }
+        else { accentColor='rgba(148,163,184,0.4)'; bgColor='rgba(148,163,184,0.04)'; badgeLabel='—'; }
+        const aiEvidence = aiResult?.[c.key]?.evidence?.[0] || '';
+        const evidenceHtml = aiEvidence
+            ? `<span class="comp-card-evidence" title="${escapeHtml(aiResult[c.key].evidence.join(' | '))}">${escapeHtml(aiEvidence)}</span>`
+            : '';
+        return `<div class="comp-card" style="--accent:${accentColor};--bg:${bgColor};animation-delay:${idx*60}ms">
+            <div class="comp-card-header">
+                <div class="comp-card-icon-wrap">
+                    <span class="material-symbols-outlined comp-card-icon">${c.icon||'star'}</span>
+                </div>
+                <div class="comp-card-title-group">
+                    <span class="comp-card-label">${escapeHtml(c.label)}</span>
+                    <span class="comp-card-desc">${escapeHtml(c.description||'')}</span>
+                </div>
+                <div class="comp-card-badge" style="color:${accentColor};border-color:${accentColor}30;background:${bgColor}">${badgeLabel}</div>
+            </div>
+            <div class="comp-card-bar-row">
+                <div class="comp-card-bar-track">
+                    <div class="comp-card-bar-fill" style="width:0%;background:${accentColor}" data-bar-width="${pct}"></div>
+                </div>
+                <span class="comp-card-pct" style="color:${accentColor}">${count > 0 ? pct+'%' : '—'}</span>
+            </div>
+            <div class="comp-card-footer">
+                <span class="comp-card-count">${count > 0 ? count+' chamado'+(count!==1?'s':'') : 'não identificado'}</span>
+                ${evidenceHtml}
+            </div>
+        </div>`;
+    }).join('');
+}
+
 async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCount) {
     const aiResult = await analyseCompetenciasWithAI(ownerRows, owner);
     if (!aiResult) return;
@@ -626,15 +644,11 @@ async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCou
     if (!container) return;
     const barsEl = container.querySelector('.perf-competencia-bars');
     if (!barsEl) return;
-    const maxCat=Math.max(...PERF_CATEGORIES.map(c=>catCount[c.key]||0),1);
-    const positiveCats=PERF_CATEGORIES.filter(c=>!c.isNegative&&(catCount[c.key]||0)>0).sort((x,y)=>(catCount[y.key]||0)-(catCount[x.key]||0));
-    if(positiveCats.length===0){barsEl.innerHTML='<span style="color:var(--text-secondary);font-size:12px">Nenhuma competência identificada pela IA</span>';return;}
-    barsEl.innerHTML=positiveCats.map(c=>{
-        const count=catCount[c.key]||0,pct=Math.round((count/maxCat)*100);
-        const aiData=aiResult[c.key];
-        const ev=aiData?.evidence?.[0]?`<span class="perf-bar-evidence" title="${escapeHtml(aiData.evidence.join(' | '))}">${escapeHtml(aiData.evidence[0])}</span>`:'';
-        return `<div class="perf-bar-row"><span class="perf-bar-label" title="${escapeHtml(c.description)}"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle">${c.icon||'star'}</span> ${escapeHtml(c.label)}</span><div class="perf-bar-track"><div class="perf-bar-fill" style="width:${pct}%"></div></div><span class="perf-bar-count">${count}</span>${ev}</div>`;
-    }).join('');
+    barsEl.innerHTML = renderCompCards(catCount, aiResult);
+    // Animar barras após inserção
+    requestAnimationFrame(()=>{
+        barsEl.querySelectorAll('[data-bar-width]').forEach(bar=>{bar.style.width=bar.dataset.barWidth+'%';});
+    });
 }
 
 
@@ -729,36 +743,7 @@ function renderAnalysisCard(owner, rows) {
     const positiveCats=PERF_CATEGORIES.filter(c=>!c.isNegative&&a.catCount[c.key]>0).sort((x,y)=>a.catCount[y.key]-a.catCount[x.key]);
     const diffCount=PERF_CATEGORIES.filter(c=>c.isNegative).reduce((s,c)=>s+(a.catCount[c.key]||0),0);
     const totalPositive=positiveCats.reduce((s,c)=>s+a.catCount[c.key],0);
-    const compCards=positiveCats.map((c,idx)=>{
-        const count=a.catCount[c.key],pct=Math.round((count/maxCat)*100),meta=CAT_META[c.key]||{icon:'star',desc:''};
-        let accentColor,bgColor,badgeLabel;
-        if(pct>=80){accentColor='#22c55e';bgColor='rgba(34,197,94,0.08)';badgeLabel='Destaque';}
-        else if(pct>=50){accentColor='#f59e0b';bgColor='rgba(245,158,11,0.08)';badgeLabel='Bom';}
-        else if(pct>=25){accentColor='#f97316';bgColor='rgba(249,115,22,0.08)';badgeLabel='Regular';}
-        else{accentColor='#6366f1';bgColor='rgba(99,102,241,0.08)';badgeLabel='Baixo';}
-        const delayMs=idx*80;
-        return `<div class="comp-card" style="--accent:${accentColor};--bg:${bgColor};animation-delay:${delayMs}ms">
-            <div class="comp-card-header">
-                <div class="comp-card-icon-wrap">
-                    <span class="material-symbols-outlined comp-card-icon">${meta.icon}</span>
-                </div>
-                <div class="comp-card-title-group">
-                    <span class="comp-card-label">${escapeHtml(c.label)}</span>
-                    <span class="comp-card-desc">${escapeHtml(meta.desc)}</span>
-                </div>
-                <div class="comp-card-badge">${badgeLabel}</div>
-            </div>
-            <div class="comp-card-bar-row">
-                <div class="comp-card-bar-track">
-                    <div class="comp-card-bar-fill" style="width:0%" data-bar-width="${pct}"></div>
-                </div>
-                <span class="comp-card-pct">${pct}%</span>
-            </div>
-            <div class="comp-card-footer">
-                <span class="comp-card-count">${count} chamado${count!==1?'s':''}</span>
-            </div>
-        </div>`;
-    }).join('');
+    const compCards=renderCompCards(a.catCount, null);
     const diffBadge=diffCount===0?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-900 text-green-300">Nenhuma</span>`:diffCount<=2?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-300">${diffCount} ocorrência${diffCount>1?'s':''}</span>`:`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-900 text-red-300">${diffCount} ocorrências</span>`;
     const diffPct=Math.round((diffCount/Math.max(totalPositive,1))*100);
     const posHtml=a.positiveEvidence.length?a.positiveEvidence.map(ev=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-green-600">check_circle</span><span>${escapeHtml(ev.reasons[0]||'Evidência positiva identificada')}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem evidências positivas registradas</li>';
