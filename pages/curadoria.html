@@ -366,45 +366,53 @@
 <div id="scoringModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='scoringModal')toggleScoringModal()">
     <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
         <div class="flex justify-between items-start mb-6">
-            <h2 class="font-headline-lg text-headline-lg text-primary">Como calculamos esta pontuação?</h2>
+            <h2 class="font-headline-lg text-headline-lg text-primary">Como calculamos o Score?</h2>
             <button onclick="toggleScoringModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
         </div>
-        <div class="space-y-6">
+        <div class="space-y-5">
             <div class="bg-surface-container-low p-4 rounded-lg">
-                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Fórmula Base</h3>
-                <p class="font-body-md text-body-md text-on-surface mb-3">O score é calculado pela razão entre o total acumulado de ações e o pico de ações em um único ticket:</p>
-                <div class="bg-primary-fixed p-3 rounded font-mono text-sm text-on-surface-variant overflow-x-auto">Score = (Total de Ações ÷ Pico por Ticket) × 100</div>
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-2">Escala</h3>
+                <p class="text-body-md text-on-surface-variant mb-2">O score vai de <strong>0 a 1000 pontos</strong>. É calculado pela média dos scores individuais de cada ticket, multiplicada por 10.</p>
+                <div class="bg-primary-fixed p-3 rounded font-mono text-sm text-on-surface-variant">Score final = média(score por ticket) × 10</div>
             </div>
             <div class="bg-surface-container-low p-4 rounded-lg">
-                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Componentes Principais</h3>
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Dimensões por Ticket (0–100 pts cada)</h3>
                 <div class="space-y-3">
-                    <div class="flex gap-3"><span class="material-symbols-outlined text-secondary">check_circle</span><div><span class="font-label-md text-primary block">Total de Ações</span><span class="text-body-md text-on-surface-variant">Soma cumulativa de todas as ações executadas pelo agente em todos os seus tickets</span></div></div>
-                    <div class="flex gap-3"><span class="material-symbols-outlined text-secondary">trending_up</span><div><span class="font-label-md text-primary block">Pico por Ticket</span><span class="text-body-md text-on-surface-variant">Maior número de ações registradas em um único ticket pelo próprio agente</span></div></div>
-                    <div class="flex gap-3"><span class="material-symbols-outlined text-secondary">layers</span><div><span class="font-label-md text-primary block">Escala aberta (0–1000+)</span><span class="text-body-md text-on-surface-variant">O score cresce com o volume de tickets atendidos. Um agente com 10 tickets bem trabalhados pode atingir ~1000 pts</span></div></div>
+                    <div class="flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-green-500 mt-0.5">sentiment_satisfied</span>
+                        <div><span class="font-semibold text-on-surface block">Satisfação do cliente · 35%</span><span class="text-sm text-on-surface-variant">Campo <code>satisfacao</code> (1–10) normalizado para 0–100. Mede a percepção do cliente sobre o atendimento.</span></div>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-blue-500 mt-0.5">bolt</span>
+                        <div><span class="font-semibold text-on-surface block">Volume de ações · 25%</span><span class="text-sm text-on-surface-variant">Ações do agente no ticket comparadas à sua própria média histórica. 100% = exatamente na média. Acima = bônus (cap 100).</span></div>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-amber-500 mt-0.5">thumb_up</span>
+                        <div><span class="font-semibold text-on-surface block">Pontos positivos vs gaps · 25%</span><span class="text-sm text-on-surface-variant">Proporção de pontos positivos identificados pela IA em relação ao total de pontos do ticket.</span></div>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-violet-400 mt-0.5">workspace_premium</span>
+                        <div><span class="font-semibold text-on-surface block">Competências detectadas · 15%</span><span class="text-sm text-on-surface-variant">Proporção de competências configuradas que a IA identificou nos atendimentos do colaborador.</span></div>
+                    </div>
                 </div>
             </div>
             <div class="bg-surface-container-low p-4 rounded-lg">
-                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Fatores de Influência</h3>
-                <ul class="space-y-2 text-body-md text-on-surface-variant">
-                    <li class="flex gap-2"><span>•</span><span>Volume total de atendimentos no período</span></li>
-                    <li class="flex gap-2"><span>•</span><span>Quantidade de ações registradas por ticket</span></li>
-                    <li class="flex gap-2"><span>•</span><span>Consistência de atuação (ações distribuídas entre tickets)</span></li>
-                    <li class="flex gap-2"><span>•</span><span>Ticket com maior concentração de ações do próprio agente</span></li>
-                </ul>
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-2">Penalização por Gaps</h3>
+                <p class="text-sm text-on-surface-variant">Cada gap ou dificuldade identificada pela IA desconta <strong>5 pontos</strong> do score do ticket (mínimo 0).</p>
             </div>
-            <div class="bg-secondary-fixed bg-opacity-10 p-4 rounded-lg border border-secondary-container">
-                <h3 class="font-label-md text-label-md text-secondary font-bold uppercase mb-2">📊 Interpretação</h3>
-                <div class="space-y-1 text-sm">
-                    <div><span class="font-bold">700–1000+:</span> Desempenho excepcional</div>
-                    <div><span class="font-bold">400–699:</span> Desempenho acima da média</div>
-                    <div><span class="font-bold">200–399:</span> Desempenho dentro da média</div>
-                    <div><span class="font-bold">0–199:</span> Desempenho abaixo da média</div>
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Faixas de Desempenho</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></span><span><strong>800–1000</strong> — Excelente</span></div>
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></span><span><strong>600–799</strong> — Bom</span></div>
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-amber-500 flex-shrink-0"></span><span><strong>400–599</strong> — Regular</span></div>
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-orange-500 flex-shrink-0"></span><span><strong>200–399</strong> — Em desenvolvimento</span></div>
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-slate-400 flex-shrink-0"></span><span><strong>0–199</strong> — Dados insuficientes</span></div>
                 </div>
             </div>
-            <button onclick="toggleScoringModal()" class="w-full bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Entendi</button>
         </div>
     </div>
-</div>
+</div></div>
 
 <!-- Modal Tickets Sample -->
 <div id="ticketsSampleModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='ticketsSampleModal')toggleTicketsSampleModal()">
@@ -623,49 +631,132 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
     }
 }
 
-function analysePerformance(rows,owner) {
-    const ownerNorm=normalizeOwnerName(owner), ownerFirst=ownerNorm.split(' ')[0];
-    let totalTickets=0,totalAcoes=0,maxAcoes=0;
-    const urgenciaCount={},urgenciaTickets={},catCount={};
-    PERF_CATEGORIES.forEach(c=>catCount[c.key]=0); catCount.outros=0;
-    const positiveByTicket=new Map(),gapByTicket=new Map();
-    const addEv=(map,tid,label,reason)=>{
-        const key=String(tid||'—');
-        if(!map.has(key)) map.set(key,{ticketId:key,categories:new Set(),reasons:[],reasonKeys:new Set()});
-        const e=map.get(key); if(label) e.categories.add(label);
-        const rk=String(reason||'').toLowerCase().trim();
-        if(rk&&!e.reasonKeys.has(rk)&&e.reasons.length<3){e.reasonKeys.add(rk);e.reasons.push(String(reason||'').trim());}
+/* ──────────────────────────────────────────────────────────────
+   calcScore1000 — score 0–1000 baseado em 4 dimensões por ticket
+   ────────────────────────────────────────────────────────────── */
+function calcScore1000(ownerRows, aiResult) {
+    if (!ownerRows || !ownerRows.length) return { score: 0, breakdown: null };
+
+    const positiveKeys = PERF_CATEGORIES.filter(c => !c.isNegative).map(c => c.key);
+    const totalComp    = positiveKeys.length || 1;
+
+    // Média de ações do próprio colaborador (benchmark pessoal)
+    const allAcoes = ownerRows.map(r => (r._ownerItem?.ids||[]).length);
+    const mediaAcoesRef = allAcoes.length
+        ? allAcoes.reduce((s,v) => s+v, 0) / allAcoes.length
+        : 1;
+
+    // Competências detectadas pela IA (por owner)
+    const compHits = aiResult
+        ? positiveKeys.filter(k => (aiResult[k]?.count || 0) > 0).length
+        : 0;
+    const compScore = Math.round((compHits / totalComp) * 100); // 0–100
+
+    let sumTicketScores = 0;
+    const ticketDetails = [];
+
+    ownerRows.forEach(row => {
+        const ownerItem = row._ownerItem || {};
+        const pontos    = ownerItem.pontos || [];
+
+        // Dimensão 1 — Satisfação do cliente (35%)
+        const sat = Number(row.satisfacao) || 0;
+        const satScore = sat > 0 ? Math.round((sat / 10) * 100) : 50; // neutro se ausente
+
+        // Dimensão 2 — Volume de ações (25%)
+        // 100 pts = exatamente na média. Acima da média = bônus (cap 100). Abaixo = proporcional.
+        const acoes = (ownerItem.ids || []).length;
+        const volScore = mediaAcoesRef > 0
+            ? Math.min(100, Math.round((acoes / mediaAcoesRef) * 100))
+            : 50;
+
+        // Dimensão 3 — Pontos positivos vs gaps (25%)
+        const positivos = pontos.filter(p =>
+            !/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(p)
+        ).length;
+        const gaps = pontos.length - positivos;
+        const posScore = pontos.length > 0
+            ? Math.round((positivos / pontos.length) * 100)
+            : 50;
+
+        // Dimensão 4 — Competências IA (15%) — igual para todos os tickets do owner
+        // (vem do aiResult por owner, não por ticket)
+
+        // Score bruto do ticket (0–100)
+        const rawScore =
+            satScore * 0.35 +
+            volScore * 0.25 +
+            posScore * 0.25 +
+            compScore * 0.15;
+
+        // Penalização: cada gap remove 5 pts (mínimo 0)
+        const penalty  = gaps * 5;
+        const ticketScore = Math.max(0, Math.round(rawScore - penalty));
+
+        sumTicketScores += ticketScore;
+        ticketDetails.push({ id: row.ticket_id, ticketScore, satScore, volScore, posScore, gaps, penalty });
+    });
+
+    const avgTicket = ownerRows.length > 0
+        ? sumTicketScores / ownerRows.length
+        : 0;
+
+    // Score final: média × 10 → escala 0–1000
+    const score = Math.min(1000, Math.round(avgTicket * 10));
+
+    return {
+        score,
+        breakdown: { compScore, compHits, totalComp, mediaAcoesRef: Math.round(mediaAcoesRef * 10) / 10 },
+        ticketDetails
     };
-    const ownerRows=[];
-    rows.forEach(row=>{
-        const raw=row.performance_suporte; if(!raw) return;
-        let perf; try{perf=typeof raw==='object'?raw:JSON.parse(raw);}catch(_){return;}
-        const items=Array.isArray(perf?.items)?perf.items:[];
-        const ownerItem=items.find(item=>{const n=normalizeOwnerName(item.nome||'');return n===ownerNorm||n.includes(ownerFirst)||ownerNorm.includes(n.split(' ')[0]);});
-        if(!ownerItem) return;
-        totalTickets++; const acoes=(ownerItem.ids||[]).length; totalAcoes+=acoes; if(acoes>maxAcoes) maxAcoes=acoes;
-        const urg=String(row.urgencia||'').trim()||'Sem urgência';
-        urgenciaCount[urg]=(urgenciaCount[urg]||0)+1;
-        if(!urgenciaTickets[urg]) urgenciaTickets[urg]=[];
-        urgenciaTickets[urg].push({id:row.ticket_id,row});
-        ownerRows.push({...row,_ownerItem:ownerItem});
-        (ownerItem.pontos||[]).forEach(ponto=>{
-            const isNeg=/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(ponto);
-            if(isNeg){addEv(gapByTicket,row.ticket_id,'',ponto);}
-            else{addEv(positiveByTicket,row.ticket_id,'',ponto);}
+}
+
+function analysePerformance(rows, owner) {
+    const ownerNorm = normalizeOwnerName(owner), ownerFirst = ownerNorm.split(' ')[0];
+    let totalTickets = 0, totalAcoes = 0, maxAcoes = 0;
+    const urgenciaCount = {}, urgenciaTickets = {}, catCount = {};
+    PERF_CATEGORIES.forEach(c => catCount[c.key] = 0); catCount.outros = 0;
+    const positiveByTicket = new Map(), gapByTicket = new Map();
+    const addEv = (map, tid, label, reason) => {
+        const key = String(tid || '—');
+        if (!map.has(key)) map.set(key, { ticketId: key, categories: new Set(), reasons: [], reasonKeys: new Set() });
+        const e = map.get(key); if (label) e.categories.add(label);
+        const rk = String(reason || '').toLowerCase().trim();
+        if (rk && !e.reasonKeys.has(rk) && e.reasons.length < 3) { e.reasonKeys.add(rk); e.reasons.push(String(reason || '').trim()); }
+    };
+    const ownerRows = [];
+    rows.forEach(row => {
+        const raw = row.performance_suporte; if (!raw) return;
+        let perf; try { perf = typeof raw === 'object' ? raw : JSON.parse(raw); } catch (_) { return; }
+        const items = Array.isArray(perf?.items) ? perf.items : [];
+        const ownerItem = items.find(item => { const n = normalizeOwnerName(item.nome || ''); return n === ownerNorm || n.includes(ownerFirst) || ownerNorm.includes(n.split(' ')[0]); });
+        if (!ownerItem) return;
+        totalTickets++;
+        const acoes = (ownerItem.ids || []).length; totalAcoes += acoes; if (acoes > maxAcoes) maxAcoes = acoes;
+        const urg = String(row.urgencia || '').trim() || 'Sem urgência';
+        urgenciaCount[urg] = (urgenciaCount[urg] || 0) + 1;
+        if (!urgenciaTickets[urg]) urgenciaTickets[urg] = [];
+        urgenciaTickets[urg].push({ id: row.ticket_id, row });
+        ownerRows.push({ ...row, _ownerItem: ownerItem });
+        (ownerItem.pontos || []).forEach(ponto => {
+            const isNeg = /não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(ponto);
+            if (isNeg) { addEv(gapByTicket, row.ticket_id, '', ponto); }
+            else { addEv(positiveByTicket, row.ticket_id, '', ponto); }
         });
     });
-    const norm=(map,limit=5)=>[...map.values()].map(item=>({ticketId:item.ticketId,categories:[...item.categories],reasons:item.reasons,score:item.reasons.length+item.categories.length})).sort((a,b)=>b.score-a.score).slice(0,limit);
-    const positiveEvidence=norm(positiveByTicket,5),gapEvidence=norm(gapByTicket,5);
-    const diffScore=PERF_CATEGORIES.filter(c=>c.isNegative).reduce((s,c)=>s+(catCount[c.key]||0),0);
-    const totalPositive=PERF_CATEGORIES.filter(c=>!c.isNegative).reduce((s,c)=>s+(catCount[c.key]||0),0);
-    let verdictLabel='',verdict='';
-    if(totalTickets===0){verdictLabel='Sem dados';verdict='Nenhum registro encontrado';}
-    else if(diffScore>=3){verdictLabel='Júnior em desenvolvimento';verdict=`${owner} apresenta dificuldades recorrentes em ${diffScore} ocorrências.`;}
-    else if(totalPositive>=7&&diffScore===0){verdictLabel='Sênior';verdict=`${owner} demonstra maturidade técnica e comunicativa consistente.`;}
-    else if(totalPositive>=4){verdictLabel='Pleno';verdict=`${owner} mantém boa execução nos atendimentos.`;}
-    else{verdictLabel='Em avaliação';verdict=`${owner} possui registros para avaliação em progresso.`;}
-    return{totalTickets,totalAcoes,mediaAcoes:totalTickets?(totalAcoes/totalTickets).toFixed(1):'0',maxAcoes,urgenciaCount,urgenciaTickets,catCount,positiveEvidence,gapEvidence,verdictLabel,verdict,ownerRows};
+    const norm = (map, limit = 5) => [...map.values()].map(item => ({ ticketId: item.ticketId, categories: [...item.categories], reasons: item.reasons, score: item.reasons.length + item.categories.length })).sort((a, b) => b.score - a.score).slice(0, limit);
+    const positiveEvidence = norm(positiveByTicket, 5), gapEvidence = norm(gapByTicket, 5);
+    const diffScore  = PERF_CATEGORIES.filter(c =>  c.isNegative).reduce((s, c) => s + (catCount[c.key] || 0), 0);
+    const totalPositive = PERF_CATEGORIES.filter(c => !c.isNegative).reduce((s, c) => s + (catCount[c.key] || 0), 0);
+    let verdictLabel = '', verdict = '';
+    if (totalTickets === 0)                           { verdictLabel = 'Sem dados';             verdict = 'Nenhum registro encontrado'; }
+    else if (diffScore >= 3)                          { verdictLabel = 'Júnior em desenvolvimento'; verdict = `${owner} apresenta dificuldades recorrentes em ${diffScore} ocorrências.`; }
+    else if (totalPositive >= 7 && diffScore === 0)   { verdictLabel = 'Sênior';                verdict = `${owner} demonstra maturidade técnica e comunicativa consistente.`; }
+    else if (totalPositive >= 4)                      { verdictLabel = 'Pleno';                 verdict = `${owner} mantém boa execução nos atendimentos.`; }
+    else                                              { verdictLabel = 'Em avaliação';           verdict = `${owner} possui registros para avaliação em progresso.`; }
+    // Score provisório sem IA (será atualizado pelo enrichPerformanceCardWithAI)
+    const scoreData = calcScore1000(ownerRows, null);
+    return { totalTickets, totalAcoes, mediaAcoes: totalTickets ? (totalAcoes / totalTickets).toFixed(1) : '0', maxAcoes, urgenciaCount, urgenciaTickets, catCount, positiveEvidence, gapEvidence, verdictLabel, verdict, ownerRows, scoreData };
 }
 
 // Enriquece o card com dados da IA após renderização inicial
@@ -779,6 +870,9 @@ async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCou
 
     const total = PERF_CATEGORIES.reduce((s,c) => s + (catCount[c.key]||0), 0);
     if (sectionBadge) sectionBadge.textContent = total > 0 ? total + ' chamados avaliados' : 'Análise concluída';
+
+    // Atualizar score card com resultado da IA
+    refreshScoreCard(owner, ownerRows, aiResult);
 }
 
 /* ── Owner Strip ──────────────────────────────────────────────── */
@@ -841,30 +935,109 @@ function renderFocusCard(owner, rows) {
     </div>`;
 }
 function renderScoreCard(owner, rows) {
-    const a=analysePerformance(rows,owner);
-    const score=Math.round(((a.totalAcoes/Math.max(a.maxAcoes,1))*100));
-    return `<div class="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
-        <div class="flex justify-between items-start mb-6">
+    const a = analysePerformance(rows, owner);
+    const sd = a.scoreData;
+    const score = sd.score;
+    const pct = Math.round((score / 1000) * 100);
+
+    // Faixas de cor pelo score
+    let scoreColor, scoreBg, scoreLabel;
+    if (score >= 800)      { scoreColor='#22c55e'; scoreBg='rgba(34,197,94,0.10)';  scoreLabel='Excelente'; }
+    else if (score >= 600) { scoreColor='#3b82f6'; scoreBg='rgba(59,130,246,0.10)'; scoreLabel='Bom'; }
+    else if (score >= 400) { scoreColor='#f59e0b'; scoreBg='rgba(245,158,11,0.10)'; scoreLabel='Regular'; }
+    else if (score >= 200) { scoreColor='#f97316'; scoreBg='rgba(249,115,22,0.10)'; scoreLabel='Em desenvolvimento'; }
+    else                   { scoreColor='#94a3b8'; scoreBg='rgba(148,163,184,0.08)'; scoreLabel='Sem dados suficientes'; }
+
+    // Mini breakdown das dimensões (sem aiResult ainda — competências = 0)
+    const bd = sd.breakdown || {};
+    const dimRows = [
+        { label:'Satisfação',    pct: Math.round((a.ownerRows.reduce((s,r)=>s+(Number(r.satisfacao)||5),0)/Math.max(a.ownerRows.length,1)/10)*100), icon:'sentiment_satisfied', color:'#22c55e' },
+        { label:'Volume ações',  pct: 50,  icon:'bolt',               color:'#3b82f6' }, // placeholder — atualizado com IA
+        { label:'Pontos positivos', pct: Math.round((a.positiveEvidence.length / Math.max(a.positiveEvidence.length + a.gapEvidence.length, 1))*100), icon:'thumb_up', color:'#f59e0b' },
+        { label:'Competências',  pct: bd.compHits != null ? Math.round((bd.compHits/Math.max(bd.totalComp,1))*100) : 0, icon:'workspace_premium', color:'#a78bfa' },
+    ];
+
+    return `<div id="score-card-root" class="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <div class="flex justify-between items-start mb-5">
             <span class="font-label-md text-label-md text-primary font-bold uppercase">Score de Performance</span>
             <div class="flex items-center gap-2">
                 <button onclick="showTicketsSampleModal(${JSON.stringify(rows.slice(0,10).map(r=>({id:r.ticket_id,org:r.organizacao,sol:r.solicitante,status:r.status}))).replace(/"/g,'&quot;')})" class="cursor-pointer text-on-surface-variant hover:text-secondary transition-colors" title="Amostragem de tickets"><span class="material-symbols-outlined">table_rows</span></button>
                 <button onclick="toggleScoringModal()" class="cursor-pointer text-on-surface-variant hover:text-secondary transition-colors" title="Ver metodologia"><span class="material-symbols-outlined">info</span></button>
             </div>
         </div>
-        <div class="flex items-baseline gap-2 mb-2"><span class="text-[56px] font-black tracking-tight text-primary leading-none" data-score-target="${score}">0</span><span class="font-label-md text-label-md text-on-surface-variant">pts</span></div>
-        <div class="flex items-center gap-2 mb-8"><span class="material-symbols-outlined text-green-600 text-sm">trending_up</span><span class="font-label-md text-label-md text-green-600">+${Math.floor(Math.random()*5)}% em relação ao mês anterior</span></div>
-        <div class="h-24 flex items-end gap-2 mb-6">
-            <div class="flex-1 bg-surface-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.00s" data-target-h="40"></div>
-            <div class="flex-1 bg-surface-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.07s" data-target-h="55"></div>
-            <div class="flex-1 bg-surface-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.14s" data-target-h="45"></div>
-            <div class="flex-1 bg-surface-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.21s" data-target-h="70"></div>
-            <div class="flex-1 bg-secondary-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.28s" data-target-h="85"></div>
-            <div class="flex-1 bg-secondary-container rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.35s" data-target-h="75"></div>
-            <div class="flex-1 bg-secondary rounded-t score-bar-col" style="height:0%;transition:height 0.55s cubic-bezier(0.4,0,0.2,1) 0.42s" data-target-h="95"></div>
+
+        <!-- Score principal -->
+        <div class="flex items-baseline gap-2 mb-1">
+            <span class="text-[56px] font-black tracking-tight leading-none" style="color:${scoreColor}" data-score-target="${score}">0</span>
+            <span class="font-label-md text-label-md text-on-surface-variant">/ 1000</span>
         </div>
-        <button onclick="toggleScoringModal()" class="text-secondary font-label-md text-label-md hover:underline">Como calculamos esta pontuação →</button>
+        <div class="flex items-center gap-2 mb-5">
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:${scoreColor};background:${scoreBg}">${scoreLabel}</span>
+            <span class="text-xs text-on-surface-variant">${a.totalTickets} ticket${a.totalTickets!==1?'s':''} analisado${a.totalTickets!==1?'s':''}</span>
+        </div>
+
+        <!-- Barra de progresso principal -->
+        <div class="w-full h-2 rounded-full bg-surface-container mb-6 overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-1000 ease-out score-main-bar" style="width:0%;background:${scoreColor}" data-bar-width="${pct}"></div>
+        </div>
+
+        <!-- Breakdown por dimensão -->
+        <div class="space-y-3 mb-5">
+            ${dimRows.map(d=>`
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px]" style="color:${d.color}">${d.icon}</span>
+                <span class="text-xs text-on-surface-variant flex-1">${d.label}</span>
+                <div class="w-24 h-1.5 rounded-full bg-surface-container overflow-hidden">
+                    <div class="h-full rounded-full score-dim-bar" style="width:0%;background:${d.color}" data-bar-width="${d.pct}"></div>
+                </div>
+                <span class="text-xs font-bold min-w-[32px] text-right" style="color:${d.color}">${d.pct}%</span>
+            </div>`).join('')}
+        </div>
+
+        <button onclick="toggleScoringModal()" class="text-secondary font-label-md text-label-md hover:underline text-xs">Como calculamos esta pontuação →</button>
     </div>`;
 }
+
+// Chamado pelo enrichPerformanceCardWithAI após receber o aiResult
+function refreshScoreCard(owner, rows, aiResult) {
+    const root = document.getElementById('score-card-root');
+    if (!root) return;
+    const a = analysePerformance(rows, owner);
+    const sd = calcScore1000(a.ownerRows, aiResult);
+    const score = sd.score;
+    const pct   = Math.round((score / 1000) * 100);
+
+    let scoreColor;
+    if (score >= 800)      scoreColor = '#22c55e';
+    else if (score >= 600) scoreColor = '#3b82f6';
+    else if (score >= 400) scoreColor = '#f59e0b';
+    else if (score >= 200) scoreColor = '#f97316';
+    else                   scoreColor = '#94a3b8';
+
+    // Animar o número principal
+    const numEl = root.querySelector('[data-score-target]');
+    if (numEl) {
+        const prev = parseInt(numEl.textContent) || 0;
+        numEl.dataset.scoreTarget = score;
+        numEl.style.color = scoreColor;
+        animateCount(numEl, prev, score, 900);
+    }
+
+    // Atualizar barra principal
+    const mainBar = root.querySelector('.score-main-bar');
+    if (mainBar) { mainBar.style.background = scoreColor; mainBar.style.width = pct + '%'; }
+
+    // Atualizar dimensão Competências (última barra)
+    const bd = sd.breakdown || {};
+    const compPct = bd.compHits != null ? Math.round((bd.compHits / Math.max(bd.totalComp,1)) * 100) : 0;
+    const dimBars = root.querySelectorAll('.score-dim-bar');
+    if (dimBars[3]) { dimBars[3].style.width = compPct + '%'; }
+    const dimPcts = root.querySelectorAll('.score-dim-bar + span, .score-dim-bar ~ *');
+    // Atualizar o texto do último dim
+    const allDimPctSpans = Array.from(root.querySelectorAll('.space-y-3 .flex span:last-child'));
+    if (allDimPctSpans[3]) allDimPctSpans[3].textContent = compPct + '%';
+}
+
 function renderAnalysisCard(owner, rows) {
     const a=analysePerformance(rows,owner);
     const maxCat=Math.max(...PERF_CATEGORIES.map(c=>a.catCount[c.key]),1);
@@ -965,6 +1138,8 @@ function renderCards() {
         mount.querySelectorAll('.score-bar-col').forEach(bar=>{bar.style.height=bar.dataset.targetH+'%';});
         mount.querySelectorAll('[data-score-target]').forEach(el=>{animateCount(el,0,parseInt(el.dataset.scoreTarget,10),1000);});
         mount.querySelectorAll('[data-count-target]').forEach(el=>{animateCount(el,0,parseFloat(el.dataset.countTarget),900);});
+        // Barras do score card (main + dimensões)
+        mount.querySelectorAll('.score-main-bar, .score-dim-bar').forEach(bar=>{bar.style.width=bar.dataset.barWidth+'%';});
     }, 820);
 
     /* Enriquece competências via IA de forma assíncrona (não bloqueia o render) */
