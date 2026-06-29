@@ -246,63 +246,49 @@
             cursor: help;
             border-top: 1px solid rgba(255,255,255,0.06);
             padding-top: 4px;
-
-        /* ── Skeleton shimmer para comp-cards ── */
-        @keyframes shimmer {
-            0%   { background-position: -400px 0; }
-            100% { background-position: 400px 0; }
         }
-        .comp-card-skeleton {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.07);
-            border-left-width: 3px;
-            border-left-color: rgba(255,255,255,0.10);
+
+        /* ── Loading overlay sobre comp-card ── */
+        .comp-card {
+            position: relative;
+        }
+        .comp-card-overlay {
+            position: absolute;
+            inset: 0;
             border-radius: 12px;
-            padding: 14px 16px;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(1px);
             display: flex;
-            flex-direction: column;
-            gap: 10px;
-            animation: compCardIn 0.35s cubic-bezier(0.16,1,0.3,1) both;
-            overflow: hidden;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            transition: opacity 0.35s ease;
+            pointer-events: none;
         }
-        .skeleton-line {
-            border-radius: 6px;
-            background: linear-gradient(90deg,
-                rgba(255,255,255,0.04) 0%,
-                rgba(255,255,255,0.10) 40%,
-                rgba(255,255,255,0.04) 80%
-            );
-            background-size: 400px 100%;
-            animation: shimmer 1.6s infinite linear;
+        .comp-card-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
-        .skeleton-header { display: flex; align-items: center; gap: 10px; }
-        .skeleton-icon { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; }
-        .skeleton-text-group { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-        .skeleton-badge { width: 48px; height: 18px; border-radius: 20px; flex-shrink: 0; }
-        .skeleton-bar-row { display: flex; align-items: center; gap: 10px; }
-        .skeleton-bar-track { flex: 1; height: 5px; border-radius: 99px; }
-        .skeleton-pct { width: 28px; height: 14px; border-radius: 4px; }
-        .skeleton-footer { height: 12px; width: 60%; border-radius: 4px; }
-
-        /* Comp-card com estado de loading individual */
-        .comp-card.comp-card--loading .comp-card-bar-fill {
-            background: linear-gradient(90deg,
-                rgba(255,255,255,0.05) 0%,
-                rgba(255,255,255,0.13) 40%,
-                rgba(255,255,255,0.05) 80%
-            ) !important;
-            background-size: 400px 100% !important;
-            animation: shimmer 1.4s infinite linear !important;
-            width: 100% !important;
+        @keyframes spinRing {
+            to { transform: rotate(360deg); }
         }
-        .comp-card.comp-card--done {
-            animation: compCardReveal 0.5s cubic-bezier(0.16,1,0.3,1) both;
+        .comp-card-spinner {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2.5px solid rgba(167,139,250,0.2);
+            border-top-color: #a78bfa;
+            animation: spinRing 0.8s linear infinite;
+        }
+        /* Reveal animation quando overlay sai */
+        .comp-card--done {
+            animation: compCardReveal 0.45s cubic-bezier(0.16,1,0.3,1) both;
         }
         @keyframes compCardReveal {
-            from { opacity: 0.4; transform: scale(0.97); }
+            from { opacity: 0.6; transform: scale(0.98); }
             to   { opacity: 1;   transform: scale(1); }
         }
-        /* Badge de "analisando" pulsante */
+        /* Badge pulsante no header da seção */
         .comp-ai-pulse {
             display: inline-flex; align-items: center; gap: 5px;
             font-size: 10px; font-weight: 700; text-transform: uppercase;
@@ -664,49 +650,26 @@ function analysePerformance(rows,owner) {
 
 // Enriquece o card com dados da IA após renderização inicial
 // ── Renderiza cards de competências (compartilhado pelo render inicial e pelo enrich da IA)
-function renderSkeletonCompCards() {
-    return PERF_CATEGORIES.map((c, idx) => `
-        <div class="comp-card-skeleton" style="animation-delay:${idx*55}ms">
-            <div class="skeleton-header">
-                <div class="skeleton-line skeleton-icon"></div>
-                <div class="skeleton-text-group">
-                    <div class="skeleton-line" style="height:13px;width:70%"></div>
-                    <div class="skeleton-line" style="height:10px;width:90%"></div>
-                </div>
-                <div class="skeleton-line skeleton-badge"></div>
-            </div>
-            <div class="skeleton-bar-row">
-                <div class="skeleton-line skeleton-bar-track"></div>
-                <div class="skeleton-line skeleton-pct"></div>
-            </div>
-            <div class="skeleton-line skeleton-footer"></div>
-        </div>
-    `).join('');
-}
-
 function renderSingleCompCard(c, idx, catCount, aiResult, isLoading) {
     const count = catCount[c.key] || 0;
     const maxCat = Math.max(...PERF_CATEGORIES.map(x => (catCount[x.key]||0)), 1);
-    const pct = Math.round((count / maxCat) * 100);
+    const pct = count > 0 ? Math.round((count / maxCat) * 100) : 0;
     let accentColor, bgColor, badgeLabel;
-    if (isLoading) {
-        accentColor = 'rgba(148,163,184,0.35)';
-        bgColor = 'rgba(148,163,184,0.04)';
-        badgeLabel = '<span class="comp-ai-pulse">IA</span>';
-    } else if (pct >= 80) { accentColor='#22c55e'; bgColor='rgba(34,197,94,0.08)'; badgeLabel='Destaque'; }
-    else if (pct >= 50)   { accentColor='#f59e0b'; bgColor='rgba(245,158,11,0.08)'; badgeLabel='Bom'; }
-    else if (pct >= 25)   { accentColor='#f97316'; bgColor='rgba(249,115,22,0.08)'; badgeLabel='Regular'; }
-    else if (count > 0)   { accentColor='#6366f1'; bgColor='rgba(99,102,241,0.08)'; badgeLabel='Baixo'; }
-    else                  { accentColor='rgba(148,163,184,0.4)'; bgColor='rgba(148,163,184,0.04)'; badgeLabel='—'; }
+    if (pct >= 80)      { accentColor='#22c55e'; bgColor='rgba(34,197,94,0.08)';   badgeLabel='Destaque'; }
+    else if (pct >= 50) { accentColor='#f59e0b'; bgColor='rgba(245,158,11,0.08)';  badgeLabel='Bom'; }
+    else if (pct >= 25) { accentColor='#f97316'; bgColor='rgba(249,115,22,0.08)';  badgeLabel='Regular'; }
+    else if (count > 0) { accentColor='#6366f1'; bgColor='rgba(99,102,241,0.08)';  badgeLabel='Baixo'; }
+    else                { accentColor='rgba(148,163,184,0.4)'; bgColor='rgba(148,163,184,0.04)'; badgeLabel='—'; }
     const aiEvidence = (!isLoading && aiResult?.[c.key]?.evidence?.[0]) || '';
     const evidenceHtml = aiEvidence
         ? `<span class="comp-card-evidence" title="${escapeHtml(aiResult[c.key].evidence.join(' | '))}">${escapeHtml(aiEvidence)}</span>`
         : '';
-    const loadingClass = isLoading ? ' comp-card--loading' : ' comp-card--done';
-    const badgeContent = typeof badgeLabel === 'string' && !badgeLabel.startsWith('<')
-        ? `<div class="comp-card-badge" style="color:${accentColor};border-color:${accentColor}30;background:${bgColor}">${badgeLabel}</div>`
-        : `<div class="comp-card-badge" style="border:none;background:transparent">${badgeLabel}</div>`;
-    return `<div class="comp-card${loadingClass}" data-comp-key="${escapeHtml(c.key)}" style="--accent:${accentColor};--bg:${bgColor};animation-delay:${idx*60}ms">
+    const overlayHtml = isLoading
+        ? `<div class="comp-card-overlay"><div class="comp-card-spinner"></div></div>`
+        : '';
+    const doneClass = !isLoading ? ' comp-card--done' : '';
+    return `<div class="comp-card${doneClass}" data-comp-key="${escapeHtml(c.key)}" style="--accent:${accentColor};--bg:${bgColor};animation-delay:${idx*60}ms">
+        ${overlayHtml}
         <div class="comp-card-header">
             <div class="comp-card-icon-wrap">
                 <span class="material-symbols-outlined comp-card-icon">${c.icon||'star'}</span>
@@ -715,16 +678,16 @@ function renderSingleCompCard(c, idx, catCount, aiResult, isLoading) {
                 <span class="comp-card-label">${escapeHtml(c.label)}</span>
                 <span class="comp-card-desc">${escapeHtml(c.description||'')}</span>
             </div>
-            ${badgeContent}
+            <div class="comp-card-badge" style="color:${accentColor};border-color:${accentColor}30;background:${bgColor}">${isLoading ? '…' : badgeLabel}</div>
         </div>
         <div class="comp-card-bar-row">
             <div class="comp-card-bar-track">
-                <div class="comp-card-bar-fill" style="width:${isLoading ? '100' : '0'}%;background:${accentColor}" ${isLoading ? '' : `data-bar-width="${pct}"`}></div>
+                <div class="comp-card-bar-fill" style="width:0%;background:${accentColor}" ${!isLoading ? `data-bar-width="${pct}"` : ''}></div>
             </div>
-            <span class="comp-card-pct" style="color:${accentColor}">${isLoading ? '' : (count > 0 ? pct+'%' : '—')}</span>
+            <span class="comp-card-pct" style="color:${accentColor}">${!isLoading && count > 0 ? pct+'%' : '—'}</span>
         </div>
         <div class="comp-card-footer">
-            <span class="comp-card-count">${isLoading ? '<span style="opacity:0.4">analisando...</span>' : (count > 0 ? count+' chamado'+(count!==1?'s':'') : 'não identificado')}</span>
+            <span class="comp-card-count">${count > 0 ? count+' chamado'+(count!==1?'s':'') : 'não identificado'}</span>
             ${evidenceHtml}
         </div>
     </div>`;
@@ -742,10 +705,12 @@ async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCou
     const barsEl = container.querySelector('.perf-competencia-bars');
     if (!barsEl) return;
 
-    // Mostrar skeletons imediatamente
-    barsEl.innerHTML = renderSkeletonCompCards();
+    const sorted = [...PERF_CATEGORIES].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
 
-    // Atualizar badge da seção para "analisando..."
+    // Renderizar todos os cards imediatamente com overlay de loading
+    barsEl.innerHTML = sorted.map((c, idx) => renderSingleCompCard(c, idx, catCount, null, true)).join('');
+
+    // Badge da seção pulsante
     const sectionBadge = container.querySelector('.comp-section-badge');
     if (sectionBadge) {
         sectionBadge.innerHTML = '<span class="comp-ai-pulse">Analisando com IA</span>';
@@ -754,46 +719,46 @@ async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCou
     const aiResult = await analyseCompetenciasWithAI(ownerRows, owner);
 
     if (!aiResult) {
-        // Sem chave GPT ou erro — renderizar com zeros (sem loading)
-        barsEl.innerHTML = renderCompCards(catCount, null);
-        requestAnimationFrame(()=>{
-            barsEl.querySelectorAll('[data-bar-width]').forEach(bar=>{bar.style.width=bar.dataset.barWidth+'%';});
+        // Sem chave GPT ou erro — remover overlays, manter cards como estão
+        barsEl.querySelectorAll('.comp-card-overlay').forEach(el => {
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 350);
         });
+        barsEl.querySelectorAll('.comp-card').forEach(c => c.classList.add('comp-card--done'));
         if (sectionBadge) sectionBadge.textContent = 'Análise local';
         return;
     }
 
     // Atualizar contagens com resultado IA
-    PERF_CATEGORIES.forEach(c=>{ const r=aiResult[c.key]; if(r) catCount[c.key]=r.count||0; });
+    PERF_CATEGORIES.forEach(c => { const r = aiResult[c.key]; if (r) catCount[c.key] = r.count || 0; });
 
-    const maxCat = Math.max(...PERF_CATEGORIES.map(c=>(catCount[c.key]||0)), 1);
-    const sorted = [...PERF_CATEGORIES].sort((x,y)=>(catCount[y.key]||0)-(catCount[x.key]||0));
+    const sortedFinal = [...PERF_CATEGORIES].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
 
-    // Renderizar todos os cards em loading state primeiro
-    barsEl.innerHTML = sorted.map((c, idx) => renderSingleCompCard(c, idx, catCount, aiResult, true)).join('');
+    // Revelar cada card individualmente: substituir HTML e animar remoção do overlay
+    for (let i = 0; i < sortedFinal.length; i++) {
+        const c = sortedFinal[i];
+        await new Promise(r => setTimeout(r, 80 + i * 70));
 
-    // Revelar cada card individualmente com delay escalonado
-    const cards = Array.from(barsEl.querySelectorAll('.comp-card'));
-    for (let i = 0; i < sorted.length; i++) {
-        const c = sorted[i];
-        const card = cards[i];
-        if (!card) continue;
-        await new Promise(r => setTimeout(r, 90 + i * 60));
-        const pct = Math.round(((catCount[c.key]||0)/maxCat)*100);
-        const newHtml = renderSingleCompCard(c, i, catCount, aiResult, false);
-        card.outerHTML = newHtml;
-        // Animar a barra do card recém inserido
-        const updatedCard = barsEl.querySelectorAll('.comp-card')[i];
+        // Encontrar o card pelo key
+        const cardEl = barsEl.querySelector(`[data-comp-key="${CSS.escape(c.key)}"]`);
+        if (!cardEl) continue;
+
+        // Substituir pelo card final (sem overlay)
+        const finalHtml = renderSingleCompCard(c, i, catCount, aiResult, false);
+        cardEl.outerHTML = finalHtml;
+
+        // Animar a barra do card revelado
+        const updatedCard = barsEl.querySelector(`[data-comp-key="${CSS.escape(c.key)}"]`);
         if (updatedCard) {
             const barFill = updatedCard.querySelector('[data-bar-width]');
             if (barFill) {
-                requestAnimationFrame(()=>{ barFill.style.width = barFill.dataset.barWidth + '%'; });
+                requestAnimationFrame(() => { barFill.style.width = barFill.dataset.barWidth + '%'; });
             }
         }
     }
 
-    const total = PERF_CATEGORIES.reduce((s,c)=>s+(catCount[c.key]||0),0);
-    if (sectionBadge) sectionBadge.textContent = total > 0 ? total+' chamados avaliados' : 'Análise concluída';
+    const total = PERF_CATEGORIES.reduce((s,c) => s + (catCount[c.key]||0), 0);
+    if (sectionBadge) sectionBadge.textContent = total > 0 ? total + ' chamados avaliados' : 'Análise concluída';
 }
 
 /* ── Owner Strip ──────────────────────────────────────────────── */
@@ -887,7 +852,7 @@ function renderAnalysisCard(owner, rows) {
     const positiveCats=PERF_CATEGORIES.filter(c=>!c.isNegative&&a.catCount[c.key]>0).sort((x,y)=>a.catCount[y.key]-a.catCount[x.key]);
     const diffCount=PERF_CATEGORIES.filter(c=>c.isNegative).reduce((s,c)=>s+(a.catCount[c.key]||0),0);
     const totalPositive=positiveCats.reduce((s,c)=>s+a.catCount[c.key],0);
-    const compCards=renderSkeletonCompCards();
+    const compCards=PERF_CATEGORIES.map((c,idx)=>renderSingleCompCard(c,idx,a.catCount,null,true)).join('');
     const diffBadge=diffCount===0?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-900 text-green-300">Nenhuma</span>`:diffCount<=2?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-300">${diffCount} ocorrência${diffCount>1?'s':''}</span>`:`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-900 text-red-300">${diffCount} ocorrências</span>`;
     const diffPct=Math.round((diffCount/Math.max(totalPositive,1))*100);
     const posHtml=a.positiveEvidence.length?a.positiveEvidence.map(ev=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-green-600">check_circle</span><span>${escapeHtml(ev.reasons[0]||'Evidência positiva identificada')}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem evidências positivas registradas</li>';
