@@ -459,4 +459,96 @@ router.post('/curadoria-categories', authMiddleware, requireRole('admin'), (req,
   });
 });
 
+
+// ============================================================
+// AI USAGE LOG
+// ============================================================
+
+// Preços por 1M tokens (gpt-4o-mini e gpt-4.1-mini — mesmos preços)
+const AI_PRICES = {
+  'gpt-4o-mini':  { input: 0.15, output: 0.60 },
+  'gpt-4.1-mini': { input: 0.40, output: 1.60 },
+  'gpt-4o':       { input: 5.00, output: 15.00 },
+  'gpt-4.1':      { input: 2.00, output:  8.00 },
+};
+
+function estimateCost(model, inputTokens, outputTokens) {
+  const price = AI_PRICES[model] || AI_PRICES['gpt-4o-mini'];
+  return ((inputTokens * price.input) + (outputTokens * price.output)) / 1_000_000;
+}
+
+// POST - registrar uso de IA (chamado pelo frontend e pelo backend)
+router.post('/ai-usage', authMiddleware, (req, res) => {
+  const { source, model, input_tokens, output_tokens, meta } = req.body;
+  if (!source || input_tokens == null || output_tokens == null) {
+    return res.status(400).json({ error: 'Campos obrigatórios: source, input_tokens, output_tokens' });
+  }
+  const totalTokens = (input_tokens || 0) + (output_tokens || 0);
+  const cost = estimateCost(model || 'gpt-4o-mini', input_tokens || 0, output_tokens || 0);
+  const userEmail = req.user?.email || null;
+
+  db.run(
+    `INSERT INTO ai_usage_log (source, model, input_tokens, output_tokens, total_tokens, estimated_cost_usd, user_email, meta)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [source, model || 'gpt-4o-mini', input_tokens || 0, output_tokens || 0, totalTokens, cost, userEmail, meta ? JSON.stringify(meta) : null],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'Erro ao salvar usage' });
+      res.json({ success: true, cost });
+    }
+  );
+});
+
+// GET - consultar usage agregado (somente admin)
+router.get('/ai-usage', authMiddleware, requireRole('admin'), (req, res) => {
+  const days = parseInt(req.query.days || '30', 10);
+
+  db.get(
+    `SELECT
+       COUNT(*)                                    AS total_calls,
+       COALESCE(SUM(input_tokens),  0)             AS total_input_tokens,
+       COALESCE(SUM(output_tokens), 0)             AS total_output_tokens,
+       COALESCE(SUM(total_tokens),  0)             AS total_tokens,
+       COALESCE(SUM(estimated_cost_usd), 0)        AS total_cost_usd
+     FROM ai_usage_log
+     WHERE created_at >= NOW() - INTERVAL '${days} days'`,
+    [],
+    (err, summary) => {
+      if (err) return res.status(500).json({ error: 'Erro ao consultar usage' });
+
+      db.all(
+        `SELECT
+           source,
+           model,
+           COUNT(*)                             AS calls,
+           COALESCE(SUM(total_tokens),  0)      AS tokens,
+           COALESCE(SUM(estimated_cost_usd), 0) AS cost_usd
+         FROM ai_usage_log
+         WHERE created_at >= NOW() - INTERVAL '${days} days'
+         GROUP BY source, model
+         ORDER BY cost_usd DESC`,
+        [],
+        (err2, bySource) => {
+          if (err2) return res.status(500).json({ error: 'Erro ao consultar breakdown' });
+
+          db.all(
+            `SELECT
+               DATE(created_at) AS day,
+               COALESCE(SUM(total_tokens),  0)      AS tokens,
+               COALESCE(SUM(estimated_cost_usd), 0) AS cost_usd
+             FROM ai_usage_log
+             WHERE created_at >= NOW() - INTERVAL '${days} days'
+             GROUP BY DATE(created_at)
+             ORDER BY day ASC`,
+            [],
+            (err3, daily) => {
+              if (err3) return res.status(500).json({ error: 'Erro ao consultar histórico diário' });
+              res.json({ summary, bySource: bySource || [], daily: daily || [], days });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
 module.exports = { router, getToken, getPrompt, getDatabaseConfig, getMovideskConditions, getAutoSyncConfig };

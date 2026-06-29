@@ -322,6 +322,39 @@
                         </div>
                         <div id="cfgPromptStatus" class="config-status"></div>
                     </div>
+
+                    <!-- Card de Consumo de IA -->
+                    <div class="config-card" id="cfgAiUsageCard">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
+                            <h3 class="config-card-title" style="margin:0">Consumo de IA</h3>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <select id="cfgUsageDays" class="config-input" style="padding:5px 10px;font-size:12px;width:auto" onchange="loadAiUsage()">
+                                    <option value="7">Últimos 7 dias</option>
+                                    <option value="30" selected>Últimos 30 dias</option>
+                                    <option value="90">Últimos 90 dias</option>
+                                    <option value="365">Último ano</option>
+                                </select>
+                                <button class="config-btn config-btn-muted" onclick="loadAiUsage()" style="padding:5px 12px;font-size:12px">↻ Atualizar</button>
+                            </div>
+                        </div>
+                        <p class="config-card-help">Tokens consumidos e custo estimado de todas as chamadas à IA feitas pelo sistema.</p>
+
+                        <!-- KPIs -->
+                        <div id="cfgUsageKpis" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin:16px 0 20px">
+                            <div class="cfg-kpi-card"><span class="cfg-kpi-label">Chamadas</span><span class="cfg-kpi-value" id="cfgKpiCalls">—</span></div>
+                            <div class="cfg-kpi-card"><span class="cfg-kpi-label">Tokens entrada</span><span class="cfg-kpi-value" id="cfgKpiInput">—</span></div>
+                            <div class="cfg-kpi-card"><span class="cfg-kpi-label">Tokens saída</span><span class="cfg-kpi-value" id="cfgKpiOutput">—</span></div>
+                            <div class="cfg-kpi-card cfg-kpi-card--highlight"><span class="cfg-kpi-label">Custo estimado</span><span class="cfg-kpi-value" id="cfgKpiCost">—</span></div>
+                        </div>
+
+                        <!-- Breakdown por fonte -->
+                        <div id="cfgUsageBreakdown" style="margin-bottom:16px"></div>
+
+                        <!-- Gráfico diário simples -->
+                        <div id="cfgUsageChart" style="margin-top:8px"></div>
+
+                        <div id="cfgUsageStatus" class="config-status" style="margin-top:8px"></div>
+                    </div>
                 </div>
 
                 <!-- ABA: Sistema -->

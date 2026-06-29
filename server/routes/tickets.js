@@ -343,6 +343,33 @@ async function generateExecutiveSummaryFromLLM(context) {
   const payload = await response.json();
   const text = extractTextFromResponsesPayload(payload);
 
+  // Capturar usage de tokens para o log
+  try {
+    const usage = payload?.usage || {};
+    const inputTok  = usage.input_tokens  || usage.prompt_tokens     || 0;
+    const outputTok = usage.output_tokens || usage.completion_tokens  || 0;
+    if (inputTok > 0 || outputTok > 0) {
+      db.run(
+        `INSERT INTO ai_usage_log (source, model, input_tokens, output_tokens, total_tokens, estimated_cost_usd, user_email)
+         VALUES (?, ?, ?, ?, ?, ?,  ?)`,
+        [
+          'executive_summary',
+          model,
+          inputTok,
+          outputTok,
+          inputTok + outputTok,
+          (() => {
+            const prices = { 'gpt-4o-mini': [0.15, 0.60], 'gpt-4.1-mini': [0.40, 1.60], 'gpt-4o': [5.00, 15.00], 'gpt-4.1': [2.00, 8.00] };
+            const [pi, po] = prices[model] || prices['gpt-4o-mini'];
+            return ((inputTok * pi) + (outputTok * po)) / 1_000_000;
+          })(),
+          null
+        ],
+        () => {}
+      );
+    }
+  } catch (_) {}
+
   let parsed;
   try {
     parsed = JSON.parse(cleanJsonText(text));

@@ -596,6 +596,26 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
         const data = await resp.json();
         const text = data.choices?.[0]?.message?.content?.trim() || '{}';
         const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+        // Registrar usage de tokens no backend
+        try {
+            const usage = data.usage || {};
+            const inputTok  = usage.prompt_tokens     || 0;
+            const outputTok = usage.completion_tokens || 0;
+            if (inputTok > 0 || outputTok > 0) {
+                fetch(`${window.API_BASE || '/api'}/config/ai-usage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...(window.authHeaders ? window.authHeaders() : {}) },
+                    body: JSON.stringify({
+                        source: 'competencias_curadoria',
+                        model: 'gpt-4o-mini',
+                        input_tokens: inputTok,
+                        output_tokens: outputTok,
+                        meta: { owner }
+                    })
+                }).catch(() => {});
+            }
+        } catch (_) {}
+
         return parsed.competencias || null;
     } catch(e) {
         console.warn('analyseCompetenciasWithAI falhou:', e.message);

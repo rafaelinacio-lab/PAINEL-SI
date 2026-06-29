@@ -330,6 +330,8 @@ function switchConfigTab(tab) {
     document.querySelector(`.cfg-tab-btn[data-tab="${tab}"]`)?.classList.add('cfg-tab-active');
     // Volta o scroll para o topo ao trocar de aba
     document.querySelector('.main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+    // Carregar consumo de IA ao abrir aba IA
+    if (tab === 'ia') loadAiUsage();
 }
 
 async function loadAutoSyncStatus() {
@@ -872,3 +874,103 @@ function resetMovideskConditions() {
     setDefaultMovideskConditions();
     setCfgStatus('cfgMovideskConditionsStatus', 'Padrões restaurados. Clique em "Salvar condições" para aplicar.', 'ok');
 }
+
+// ============================================================
+// AI USAGE — Consumo de tokens e custo estimado
+// ============================================================
+
+function fmtTokens(n) {
+    const num = Number(n) || 0;
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M';
+    if (num >= 1_000)     return (num / 1_000).toFixed(1) + 'k';
+    return String(num);
+}
+
+function fmtCost(usd) {
+    const v = Number(usd) || 0;
+    if (v < 0.01) return '< $0,01';
+    return '$' + v.toFixed(3).replace('.', ',');
+}
+
+function fmtSource(src) {
+    const map = {
+        'executive_summary':       'Resumo Executivo',
+        'competencias_curadoria':  'Competências (Curadoria)',
+    };
+    return map[src] || src;
+}
+
+async function loadAiUsage() {
+    if (!isCurrentUserAdmin()) return;
+
+    const days = document.getElementById('cfgUsageDays')?.value || '30';
+    const statusEl = document.getElementById('cfgUsageStatus');
+    const kpiCalls  = document.getElementById('cfgKpiCalls');
+    const kpiInput  = document.getElementById('cfgKpiInput');
+    const kpiOutput = document.getElementById('cfgKpiOutput');
+    const kpiCost   = document.getElementById('cfgKpiCost');
+
+    if (statusEl) statusEl.textContent = 'Carregando...';
+
+    try {
+        const res = await fetch(`${API_BASE}/config/ai-usage?days=${days}`, { headers: authHeaders() });
+        if (!res.ok) throw new Error(`Erro ${res.status}`);
+        const data = await res.json();
+        const s = data.summary || {};
+
+        // KPIs
+        if (kpiCalls)  kpiCalls.textContent  = Number(s.total_calls || 0).toLocaleString('pt-BR');
+        if (kpiInput)  kpiInput.textContent   = fmtTokens(s.total_input_tokens);
+        if (kpiOutput) kpiOutput.textContent  = fmtTokens(s.total_output_tokens);
+        if (kpiCost)   kpiCost.textContent    = fmtCost(s.total_cost_usd);
+
+        // Breakdown por fonte
+        const breakdownEl = document.getElementById('cfgUsageBreakdown');
+        if (breakdownEl) {
+            if (!data.bySource || !data.bySource.length) {
+                breakdownEl.innerHTML = '<p style="font-size:13px;color:var(--muted);padding:8px 0">Nenhuma chamada registrada neste período.</p>';
+            } else {
+                breakdownEl.innerHTML = `
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px">Por origem</div>
+                    ${data.bySource.map(row => `
+                        <div class="cfg-usage-row">
+                            <span class="cfg-usage-source">${fmtSource(row.source)}</span>
+                            <span class="cfg-usage-model">${row.model || '—'}</span>
+                            <span class="cfg-usage-tokens">${fmtTokens(row.tokens)} tokens</span>
+                            <span class="cfg-usage-cost">${fmtCost(row.cost_usd)}</span>
+                        </div>
+                    `).join('')}
+                `;
+            }
+        }
+
+        // Mini gráfico de barras diárias
+        const chartEl = document.getElementById('cfgUsageChart');
+        if (chartEl) {
+            if (!data.daily || !data.daily.length) {
+                chartEl.innerHTML = '';
+            } else {
+                const maxCost = Math.max(...data.daily.map(d => Number(d.cost_usd) || 0), 0.0001);
+                chartEl.innerHTML = `
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:8px">Consumo diário</div>
+                    <div class="cfg-chart-wrap">
+                        ${data.daily.map(d => {
+                            const pct = Math.max(4, Math.round((Number(d.cost_usd) / maxCost) * 100));
+                            const label = `${d.day}: ${fmtTokens(d.tokens)} tokens · ${fmtCost(d.cost_usd)}`;
+                            return `<div class="cfg-chart-bar" style="height:${pct}%" title="${label}"></div>`;
+                        }).join('')}
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px;padding:0 2px">
+                        <span>${data.daily[0]?.day || ''}</span>
+                        <span>${data.daily[data.daily.length-1]?.day || ''}</span>
+                    </div>
+                `;
+            }
+        }
+
+        if (statusEl) statusEl.textContent = '';
+    } catch(err) {
+        if (statusEl) { statusEl.textContent = 'Erro ao carregar consumo: ' + err.message; statusEl.className = 'config-status config-status-error'; }
+    }
+}
+

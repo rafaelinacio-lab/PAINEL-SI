@@ -4863,3 +4863,105 @@ body.legacy-view-mode #embeddedPagesView {
         width: 100%;
     }
 }
+
+/* ─── AI Usage KPI Cards ─── */
+.cfg-kpi-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.cfg-kpi-card--highlight {
+    border-color: #6366f1;
+    background: rgba(99,102,241,0.06);
+}
+.cfg-kpi-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+.cfg-kpi-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.2;
+}
+.cfg-kpi-card--highlight .cfg-kpi-value {
+    color: #818cf8;
+}
+
+/* Breakdown por fonte */
+.cfg-usage-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+.cfg-usage-row:last-child { border-bottom: none; }
+.cfg-usage-source {
+    flex: 1;
+    font-weight: 600;
+    color: var(--text);
+}
+.cfg-usage-model {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1px 6px;
+}
+.cfg-usage-tokens {
+    color: var(--muted);
+    font-size: 12px;
+    min-width: 80px;
+    text-align: right;
+}
+.cfg-usage-cost {
+    font-weight: 700;
+    color: #818cf8;
+    min-width: 72px;
+    text-align: right;
+}
+
+/* Mini bar chart */
+.cfg-chart-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 52px;
+    padding: 0 2px;
+}
+.cfg-chart-bar {
+    flex: 1;
+    border-radius: 4px 4px 0 0;
+    background: rgba(99,102,241,0.35);
+    min-height: 2px;
+    transition: background 0.2s;
+    cursor: pointer;
+    position: relative;
+}
+.cfg-chart-bar:hover { background: #818cf8; }
+.cfg-chart-bar[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15,23,42,0.95);
+    color: #f1f5f9;
+    font-size: 10px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10;
+}
+

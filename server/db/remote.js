@@ -227,6 +227,21 @@ async function initSchema(activePool, key) {
       ALTER TABLE tickets
       ADD COLUMN IF NOT EXISTS owner_team TEXT
     `).catch(() => {});
+
+    await activePool.query(`
+      CREATE TABLE IF NOT EXISTS ai_usage_log (
+        id SERIAL PRIMARY KEY,
+        source VARCHAR(64) NOT NULL,
+        model VARCHAR(64),
+        input_tokens INTEGER DEFAULT 0,
+        output_tokens INTEGER DEFAULT 0,
+        total_tokens INTEGER DEFAULT 0,
+        estimated_cost_usd NUMERIC(10,6) DEFAULT 0,
+        user_email TEXT,
+        meta TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `).catch(() => {});
   })();
 
   schemaInitPromises.set(key, initPromise);
