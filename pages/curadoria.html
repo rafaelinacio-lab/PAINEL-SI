@@ -412,15 +412,15 @@
             </div>
             <div class="bg-surface-container-low p-4 rounded-lg">
                 <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-2">Classificação de Senioridade</h3>
-                <p class="text-sm text-on-surface-variant mb-3">Baseada nos entregáveis oficiais das descrições de cargo da Viasoft (Analista de Suporte JR/PL/SR e Especialista em Suporte). Requer no mínimo 5 chamados para classificação confiável.</p>
+                <p class="text-sm text-on-surface-variant mb-3">Definida diretamente pelo Score de Performance (0–1000), que já combina as 4 dimensões avaliadas: satisfação do cliente, eficiência de atendimento, qualidade do atendimento (pontos positivos vs. gaps) e competências detectadas pela IA. As faixas seguem o espírito dos entregáveis oficiais das descrições de cargo da Viasoft (Analista de Suporte JR/PL/SR e Especialista em Suporte). Requer no mínimo 5 chamados para classificação confiável.</p>
                 <div class="space-y-2 text-sm">
-                    <div><strong>Especialista</strong> — satisfação ≥95% e resolução no 1º contato ≥98%</div>
-                    <div><strong>Sênior</strong> — satisfação ≥95% e resolução no 1º contato ≥90%</div>
-                    <div><strong>Pleno</strong> — satisfação ≥85% e resolução no 1º contato ≥75%</div>
-                    <div><strong>Júnior</strong> — satisfação ≥70%</div>
-                    <div><strong>Em desenvolvimento</strong> — abaixo dos critérios mínimos do cargo JR</div>
+                    <div><strong>Especialista</strong> — score 800–1000</div>
+                    <div><strong>Sênior</strong> — score 650–799</div>
+                    <div><strong>Pleno</strong> — score 450–649</div>
+                    <div><strong>Júnior</strong> — score 250–449</div>
+                    <div><strong>Em desenvolvimento</strong> — score 0–249</div>
                 </div>
-                <p class="text-xs text-on-surface-variant mt-3 opacity-75">Nota: por não haver data de admissão cadastrada, a classificação não considera tempo de empresa — apenas indicadores de performance mensuráveis.</p>
+                <p class="text-xs text-on-surface-variant mt-3 opacity-75">Nota: por não haver data de admissão cadastrada, a classificação não considera tempo de empresa — apenas o desempenho mensurável nas 4 dimensões do score.</p>
             </div>
         </div>
     </div>
@@ -789,43 +789,46 @@ function calcScore1000(ownerRows, aiResult) {
    Especialista em Suporte). Sem data de admissão disponível,
    a classificação usa exclusivamente entregáveis mensuráveis.
    ────────────────────────────────────────────────────────────── */
-function classifySeniority(metrics, totalTickets) {
+/* ──────────────────────────────────────────────────────────────
+   classifySeniority — classificação baseada DIRETO no score final
+   0-1000, que já combina as 4 dimensões (satisfação 35%, eficiência
+   25%, pontos positivos/gaps 25%, competências 15%). Faixas
+   calibradas para corresponder aos entregáveis oficiais das
+   descrições de cargo Viasoft (Analista de Suporte JR/PL/SR e
+   Especialista em Suporte).
+   ────────────────────────────────────────────────────────────── */
+function classifySeniority(metrics, totalTickets, score) {
     if (!metrics || totalTickets === 0) {
         return { label: 'Sem dados', reason: 'Nenhum registro encontrado para avaliação.' };
     }
-
-    const sat = metrics.avgSatisfaction;       // %
-    const fcr = metrics.firstContactRate;      // %
-    const openTk = metrics.openTicketsCount;
-    const openRef = metrics.avgOpenTicketsRef || 8;
 
     // Amostra mínima para classificação confiável
     if (totalTickets < 5) {
         return { label: 'Em avaliação', reason: `Apenas ${totalTickets} chamado(s) — amostra insuficiente para classificação de senioridade.` };
     }
 
-    // Especialista em Suporte: satisfação >=95%, 1º contato >=98%, tickets abertos controlados
-    if (sat !== null && sat >= 95 && fcr !== null && fcr >= 98 && openTk <= Math.max(8, openRef)) {
-        return { label: 'Especialista', reason: `Satisfação ${sat}% e resolução no 1º contato ${fcr}% atendem ao padrão de Especialista em Suporte (mín. 95%/98%).` };
-    }
+    const s = Number(score) || 0;
+    const sat = metrics.avgSatisfaction;
+    const fcr = metrics.firstContactRate;
 
-    // Sênior: satisfação >=95%, 1º contato >=90%, tickets abertos <=8
-    if (sat !== null && sat >= 95 && fcr !== null && fcr >= 90 && openTk <= Math.max(8, openRef)) {
-        return { label: 'Sênior', reason: `Satisfação ${sat}% e resolução no 1º contato ${fcr}% atendem aos entregáveis de Analista de Suporte SR.` };
-    }
+    const detalhe = [
+        sat !== null ? `satisfação ${sat}%` : null,
+        fcr !== null ? `1º contato ${fcr}%` : null,
+    ].filter(Boolean).join(', ');
 
-    // Pleno: satisfação >=85%, 1º contato >=75%
-    if (sat !== null && sat >= 85 && (fcr === null || fcr >= 75)) {
-        return { label: 'Pleno', reason: `Satisfação ${sat}%${fcr!==null?` e 1º contato ${fcr}%`:''} dentro do esperado para Analista de Suporte PL.` };
+    if (s >= 800) {
+        return { label: 'Especialista', reason: `Score ${s}/1000 combina satisfação, eficiência, qualidade de atendimento e competências no padrão de Especialista em Suporte${detalhe ? ` (${detalhe})` : ''}.` };
     }
-
-    // Júnior: satisfação >=70%
-    if (sat !== null && sat >= 70) {
-        return { label: 'Júnior', reason: `Satisfação ${sat}% compatível com Analista de Suporte JR. Espaço para evolução até os critérios de PL (satisfação ≥85%).` };
+    if (s >= 650) {
+        return { label: 'Sênior', reason: `Score ${s}/1000 reflete maturidade técnica e comunicativa consistente, compatível com Analista de Suporte SR${detalhe ? ` (${detalhe})` : ''}.` };
     }
-
-    // Em desenvolvimento: abaixo dos critérios mínimos
-    return { label: 'Em desenvolvimento', reason: sat !== null ? `Satisfação ${sat}% abaixo do mínimo esperado (70%) para o cargo de Analista de Suporte JR.` : 'Dados de satisfação insuficientes para classificação.' };
+    if (s >= 450) {
+        return { label: 'Pleno', reason: `Score ${s}/1000 indica execução sólida no atendimento, dentro do esperado para Analista de Suporte PL${detalhe ? ` (${detalhe})` : ''}.` };
+    }
+    if (s >= 250) {
+        return { label: 'Júnior', reason: `Score ${s}/1000 compatível com Analista de Suporte JR${detalhe ? ` (${detalhe})` : ''}. Há espaço de evolução nas dimensões avaliadas (satisfação, eficiência, qualidade de atendimento e competências).` };
+    }
+    return { label: 'Em desenvolvimento', reason: `Score ${s}/1000 está abaixo do mínimo esperado para o cargo de Analista de Suporte JR${detalhe ? ` (${detalhe})` : ''}. Recomenda-se atenção nas dimensões avaliadas.` };
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -858,7 +861,7 @@ function calcMonthlyScoreHistory(ownerRows, aiResult) {
         // colaborador (característica dele como um todo) — aplicado igualmente
         // em cada mês, em vez de recalculado por período.
         const sd = calcScore1000(monthRows, aiResult || null);
-        const seniority = classifySeniority(sd.metrics, monthRows.length);
+        const seniority = classifySeniority(sd.metrics, monthRows.length, sd.score);
         const [y, m] = monthKey.split('-');
         return {
             monthKey,
@@ -916,7 +919,7 @@ function analysePerformance(rows, owner) {
 
     // Classificação de senioridade baseada nos entregáveis oficiais Viasoft
     // (Descrições de cargo v10 — Analista de Suporte JR/PL/SR, Especialista em Suporte)
-    const seniority = classifySeniority(scoreData.metrics, totalTickets);
+    const seniority = classifySeniority(scoreData.metrics, totalTickets, scoreData.score);
     const verdictLabel = seniority.label;
     const verdict = seniority.reason;
 
@@ -1270,7 +1273,7 @@ function refreshScoreCard(owner, rows, aiResult) {
     if (allDimPctSpans[3]) allDimPctSpans[3].textContent = compPct + '%';
 
     // Reclassificar senioridade com dados completos (IA já presente)
-    const seniority = classifySeniority(sd.metrics, a.totalTickets);
+    const seniority = classifySeniority(sd.metrics, a.totalTickets, sd.score);
     updateSeniorityBadge(seniority);
 
     // Re-renderizar histórico mensal já com a dimensão Competências real (aiResult
