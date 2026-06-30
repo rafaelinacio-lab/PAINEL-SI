@@ -186,6 +186,16 @@ ANALISE ENCADEADA:
 - compilado_causa_modulo_fato em texto natural sem underscores
 - Excecao: se o ticket for de Sistemas Internos, o diagnostico nao deve depender de causa, fato ou ModuloXRotina; nesses casos, preencha esses campos apenas com "Nao se aplica a Sistemas Internos" quando nao houver valor real no JSON
 
+CLASSIFICACAO DE SATISFACAO DO CLIENTE (campo satisfacao):
+- Avalie a satisfacao real do CLIENTE com o atendimento prestado, numa escala de 1 a 10
+- NUNCA retorne um valor fixo ou padrao; calcule com base em sinais concretos do ticket:
+  * Cliente elogiou o atendimento, agradeceu, resolveu rapido, sem reclamacoes => 8 a 10
+  * Atendimento neutro, sem elogios nem reclamacoes, resolucao dentro do esperado => 5 a 7
+  * Cliente demonstrou frustracao, repetiu o pedido, reclamou de demora, mas problema foi resolvido => 3 a 4
+  * Cliente reclamou explicitamente, ticket reaberto, problema nao resolvido, tom agressivo/irritado => 1 a 2
+- Use o campo sentimento (positivo|neutro|negativo) e o padrao_emocional do cliente como base, mas a nota deve refletir a INTENSIDADE do sentimento, nao apenas a categoria
+- Tickets sem nenhuma interacao do cliente apos a resolucao (sem como medir satisfacao) devem usar 6 como neutro-padrao, mas isso deve ser RARO — priorize sempre analisar o tom das mensagens do cliente
+
 RESPONDA EXATAMENTE no formato JSON abaixo, preenchendo todos os campos:
 {
   "tabela_acoes": [
@@ -249,8 +259,8 @@ RESPONDA EXATAMENTE no formato JSON abaixo, preenchendo todos os campos:
   "nota_urgencia_descricao": "Critica",
   "justificativa_urgencia": "Justificativa em no maximo 3 frases",
   "recomendacao_atendente": "Orientacao pratica para o atendente",
-  "sentimento": "neutro",
-  "satisfacao": 5,
+  "sentimento": "positivo|neutro|negativo (escolha o real)",
+  "satisfacao": "numero de 1 a 10 calculado conforme as regras de CLASSIFICACAO DE SATISFACAO acima — NAO copie este texto, calcule o valor real",
   "alertas": ["alerta identificado 1"]
 }
 
@@ -269,7 +279,7 @@ VALORES VALIDOS:
 - urgencia: critica|alta|media|baixa
 - sentimento: positivo|neutro|negativo
 - perfil_cliente: neutro|moderado|ansioso|agressivo|detalhista|leigo
-- satisfacao: inteiro 1..10 com coerencia por sentimento
+- satisfacao: inteiro 1..10 calculado por sinais reais do ticket (ver regras de CLASSIFICACAO DE SATISFACAO acima). Varie o valor conforme o caso real — nao use sempre o mesmo numero
 - nota_urgencia: 1..4
 - origem em tabela_acoes: origin 0=Abertura, 1=Cliente, 2=Suporte, 9=Sistema
 

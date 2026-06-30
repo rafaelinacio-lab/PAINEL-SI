@@ -649,17 +649,46 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
 /* ──────────────────────────────────────────────────────────────
    calcScore1000 — score 0–1000 baseado em 4 dimensões por ticket
    ────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────
+   calcTeamBenchmarks — referências do TIME inteiro (todos os
+   owners), usadas para medir Eficiência de Atendimento de forma
+   comparativa e não circular (em vez de comparar cada colaborador
+   com a própria média, que não discrimina nada).
+   ────────────────────────────────────────────────────────────── */
+let _teamBenchmarksCache = null;
+function calcTeamBenchmarks(allRowsParam) {
+    if (_teamBenchmarksCache) return _teamBenchmarksCache;
+
+    const tempos = allRowsParam
+        .map(r => Number(r.tempo_resol_dias))
+        .filter(v => Number.isFinite(v) && v >= 0);
+    const agentes = allRowsParam
+        .map(r => Number(r.total_agente))
+        .filter(v => Number.isFinite(v) && v >= 0);
+
+    const median = (arr) => {
+        if (!arr.length) return null;
+        const sorted = [...arr].sort((a,b) => a-b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 ? sorted[mid] : (sorted[mid-1] + sorted[mid]) / 2;
+    };
+    const mean = (arr) => arr.length ? arr.reduce((s,v) => s+v, 0) / arr.length : null;
+
+    _teamBenchmarksCache = {
+        medianTempoResol: median(tempos),
+        meanTotalAgente: mean(agentes)
+    };
+    return _teamBenchmarksCache;
+}
+
 function calcScore1000(ownerRows, aiResult) {
     if (!ownerRows || !ownerRows.length) return { score: 0, breakdown: null, metrics: null };
 
     const positiveKeys = PERF_CATEGORIES.filter(c => !c.isNegative).map(c => c.key);
     const totalComp    = positiveKeys.length || 1;
 
-    // Média de ações do próprio colaborador (benchmark pessoal)
-    const allAcoes = ownerRows.map(r => (r._ownerItem?.ids||[]).length);
-    const mediaAcoesRef = allAcoes.length
-        ? allAcoes.reduce((s,v) => s+v, 0) / allAcoes.length
-        : 1;
+    // Benchmarks do time inteiro (mediana de tempo de resolução, média de ações do agente)
+    const team = calcTeamBenchmarks(allRows);
 
     // Competências detectadas pela IA (por owner)
     const compHits = aiResult
@@ -682,11 +711,22 @@ function calcScore1000(ownerRows, aiResult) {
         const satScore = sat > 0 ? Math.round((sat / 10) * 100) : 50; // neutro se ausente
         if (sat > 0) { sumSat += sat; satCount++; }
 
-        // Dimensão 2 — Volume de ações (25%)
-        const acoes = (ownerItem.ids || []).length;
-        const volScore = mediaAcoesRef > 0
-            ? Math.min(100, Math.round((acoes / mediaAcoesRef) * 100))
-            : 50;
+        // Dimensão 2 — Eficiência de Atendimento (25%)
+        // 50% velocidade (tempo_resol_dias vs mediana do time) + 50% dedicação (total_agente vs média do time)
+        const tempoTicket = Number(row.tempo_resol_dias);
+        let velocidadeScore = 50; // neutro se sem dado
+        if (Number.isFinite(tempoTicket) && team.medianTempoResol != null && team.medianTempoResol > 0) {
+            // mais rápido que a mediana = score alto (até 100); mais lento = score cai proporcionalmente
+            velocidadeScore = Math.max(0, Math.min(100, Math.round((team.medianTempoResol / Math.max(tempoTicket, 0.1)) * 50)));
+        }
+
+        const totalAgenteTicket = Number(row.total_agente);
+        let dedicacaoScore = 50; // neutro se sem dado
+        if (Number.isFinite(totalAgenteTicket) && team.meanTotalAgente != null && team.meanTotalAgente > 0) {
+            // próximo ou acima da média do time = bom engajamento (cap 100); muito abaixo = atendimento raso
+            dedicacaoScore = Math.max(0, Math.min(100, Math.round((totalAgenteTicket / team.meanTotalAgente) * 70)));
+        }
+        const volScore = Math.round(velocidadeScore * 0.5 + dedicacaoScore * 0.5);
 
         // Dimensão 3 — Pontos positivos vs gaps (25%)
         const positivos = pontos.filter(p =>
@@ -724,16 +764,19 @@ function calcScore1000(ownerRows, aiResult) {
     // Métricas agregadas para classificação de senioridade (baseado nos entregáveis Viasoft)
     const avgSatisfaction = satCount > 0 ? Math.round((sumSat / satCount) * 10) : null; // % (0-100)
     const firstContactRate = totalPontos > 0 ? Math.round(((totalPontos - totalGaps) / totalPontos) * 100) : null; // % proxy
+    const avgVolScore = ticketDetails.length
+        ? Math.round(ticketDetails.reduce((s,t) => s + t.volScore, 0) / ticketDetails.length)
+        : 50;
 
     return {
         score,
-        breakdown: { compScore, compHits, totalComp, mediaAcoesRef: Math.round(mediaAcoesRef * 10) / 10 },
+        breakdown: { compScore, compHits, totalComp, avgVolScore, medianTempoResolTeam: team.medianTempoResol, meanTotalAgenteTeam: team.meanTotalAgente },
         ticketDetails,
         metrics: {
             avgSatisfaction,        // % satisfação (proxy do entregável "Satisfação >= 95%")
             firstContactRate,       // % proxy do entregável "1º contato >= 90/98%"
             openTicketsCount,       // proxy do entregável "tickets abertos <= 8"
-            avgOpenTicketsRef: Math.round(mediaAcoesRef * 10) / 10,
+            avgOpenTicketsRef: team.meanTotalAgente != null ? Math.round(team.meanTotalAgente * 10) / 10 : null,
             totalGaps,
             avgScorePerTicket: Math.round(avgTicket * 10) / 10
         }
@@ -1073,7 +1116,7 @@ function renderScoreCard(owner, rows) {
     const bd = sd.breakdown || {};
     const dimRows = [
         { label:'Satisfação',    pct: Math.round((a.ownerRows.reduce((s,r)=>s+(Number(r.satisfacao)||5),0)/Math.max(a.ownerRows.length,1)/10)*100), icon:'sentiment_satisfied', color:'#22c55e' },
-        { label:'Volume ações',  pct: 50,  icon:'bolt',               color:'#3b82f6' }, // placeholder — atualizado com IA
+        { label:'Eficiência',    pct: bd.avgVolScore != null ? bd.avgVolScore : 50,  icon:'bolt', color:'#3b82f6' },
         { label:'Pontos positivos', pct: Math.round((a.positiveEvidence.length / Math.max(a.positiveEvidence.length + a.gapEvidence.length, 1))*100), icon:'thumb_up', color:'#f59e0b' },
         { label:'Competências',  pct: bd.compHits != null ? Math.round((bd.compHits/Math.max(bd.totalComp,1))*100) : 0, icon:'workspace_premium', color:'#a78bfa' },
     ];
