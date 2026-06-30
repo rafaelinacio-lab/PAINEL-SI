@@ -610,9 +610,11 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
             const inputTok  = usage.prompt_tokens     || 0;
             const outputTok = usage.completion_tokens || 0;
             if (inputTok > 0 || outputTok > 0) {
-                fetch(`${window.API_BASE || '/api'}/config/ai-usage`, {
+                const _dbgToken = getToken();
+                console.log('[AI-USAGE-DEBUG] token length:', _dbgToken.length, 'preview:', _dbgToken.slice(0,8)+'...');
+                fetch(`${API_BASE}/config/ai-usage`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...(window.authHeaders ? window.authHeaders() : {}) },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_dbgToken}` },
                     body: JSON.stringify({
                         source: 'competencias_curadoria',
                         model: 'gpt-4o-mini',
@@ -620,7 +622,8 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
                         output_tokens: outputTok,
                         meta: { owner }
                     })
-                }).catch(() => {});
+                }).then(r => { if (!r.ok) console.warn('Falha ao registrar AI usage:', r.status); })
+                  .catch(e => console.warn('Erro ao registrar AI usage:', e.message));
             }
         } catch (_) {}
 
