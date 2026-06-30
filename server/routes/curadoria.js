@@ -97,7 +97,31 @@ router.get('/', async (req, res) => {
       LIMIT 500`
     );
 
-    res.json((result.rows || []).map(normalizeCuradoriaRow));
+    const rows = result.rows || [];
+    const ticketIds = rows.map(r => r.ticket_id).filter(id => id != null);
+
+    // tickets vive no banco principal (database diferente de movidesk_curadoria),
+    // então buscamos as datas de criação em uma segunda query e cruzamos em memória.
+    let datesById = {};
+    if (ticketIds.length) {
+      try {
+        const datesResult = await db.query(
+          `SELECT id, "createdDate" FROM tickets WHERE id = ANY($1::bigint[])`,
+          [ticketIds]
+        );
+        datesById = (datesResult.rows || []).reduce((acc, r) => {
+          acc[r.id] = r.createdDate;
+          return acc;
+        }, {});
+      } catch (e) {
+        console.warn('Não foi possível buscar createdDate dos tickets:', e.message);
+      }
+    }
+
+    res.json(rows.map(row => ({
+      ...normalizeCuradoriaRow(row),
+      ticket_created_date: datesById[row.ticket_id] || null
+    })));
   } catch (error) {
     console.error('Erro ao buscar curadoria:', error);
     res.status(500).json({ error: 'Erro ao carregar dados de curadoria' });

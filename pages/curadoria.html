@@ -785,6 +785,48 @@ function classifySeniority(metrics, totalTickets) {
     return { label: 'Em desenvolvimento', reason: sat !== null ? `Satisfação ${sat}% abaixo do mínimo esperado (70%) para o cargo de Analista de Suporte JR.` : 'Dados de satisfação insuficientes para classificação.' };
 }
 
+/* ──────────────────────────────────────────────────────────────
+   calcMonthlyScoreHistory — agrupa os tickets de um owner por
+   mês (com base em ticket_created_date, data real de criação
+   do chamado) e calcula o score 0–1000 + senioridade de cada mês.
+   Não depende de IA (compScore fica neutro/0 no histórico mensal,
+   pois rodar IA retroativa por mês teria custo desproporcional).
+   ────────────────────────────────────────────────────────────── */
+function calcMonthlyScoreHistory(ownerRows) {
+    if (!ownerRows || !ownerRows.length) return [];
+
+    const byMonth = new Map(); // 'YYYY-MM' -> rows[]
+
+    ownerRows.forEach(row => {
+        const dateStr = row.ticket_created_date;
+        if (!dateStr) return;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        if (!byMonth.has(key)) byMonth.set(key, []);
+        byMonth.get(key).push(row);
+    });
+
+    const months = [...byMonth.keys()].sort(); // cronológico (YYYY-MM ordena bem como string)
+
+    return months.map(monthKey => {
+        const monthRows = byMonth.get(monthKey);
+        const sd = calcScore1000(monthRows, null); // sem IA — competências neutra
+        const seniority = classifySeniority(sd.metrics, monthRows.length);
+        const [y, m] = monthKey.split('-');
+        return {
+            monthKey,
+            year: Number(y),
+            month: Number(m),
+            score: sd.score,
+            totalTickets: monthRows.length,
+            seniorityLabel: seniority.label,
+            seniorityReason: seniority.reason,
+            metrics: sd.metrics
+        };
+    });
+}
+
 function analysePerformance(rows, owner) {
     const ownerNorm = normalizeOwnerName(owner), ownerFirst = ownerNorm.split(' ')[0];
     let totalTickets = 0, totalAcoes = 0, maxAcoes = 0;
@@ -1086,57 +1128,58 @@ function renderScoreCard(owner, rows) {
 }
 
 // Carrega e renderiza o histórico de evolução do score dentro do card
-async function loadScoreHistory(owner) {
+const MONTH_NAMES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+// Renderiza o gráfico de evolução mensal do score, calculado a partir dos
+// próprios tickets do owner (sem depender de snapshots no banco).
+function renderMonthlyScoreHistory(owner, ownerRows) {
     const chartEl  = document.getElementById('score-history-chart');
     const periodEl = document.getElementById('score-history-period');
     if (!chartEl) return;
 
-    try {
-        const res = await fetch(`${API_BASE}/config/performance-history?owner=${encodeURIComponent(owner)}&limit=20`, {
-            headers: { 'Authorization': `Bearer ${getToken()}` }
-        });
-        if (!res.ok) throw new Error(`Erro ${res.status}`);
-        const data = await res.json();
-        const history = (data.history || []).slice().reverse(); // ordem cronológica
+    const monthly = calcMonthlyScoreHistory(ownerRows);
 
-        if (!history.length) {
-            chartEl.innerHTML = `<span class="text-xs text-on-surface-variant opacity-50">Sem histórico ainda — o primeiro snapshot será salvo ao concluir esta análise.</span>`;
-            return;
-        }
-
-        const scores  = history.map(h => Number(h.score) || 0);
-        const maxScore = Math.max(...scores, 1);
-
-        const fmtDate = (iso) => {
-            const d = new Date(iso);
-            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        };
-
-        chartEl.innerHTML = `
-            <div class="w-full">
-                <div class="flex items-end gap-1.5 h-14">
-                    ${history.map((h, i) => {
-                        const s = Number(h.score) || 0;
-                        const heightPct = Math.max(6, Math.round((s / maxScore) * 100));
-                        const isLast = i === history.length - 1;
-                        const barColor = s >= 800 ? '#22c55e' : s >= 600 ? '#3b82f6' : s >= 400 ? '#f59e0b' : s >= 200 ? '#f97316' : '#94a3b8';
-                        const label = `${fmtDate(h.created_at)} · ${s} pts · ${escapeHtml(h.seniority_label||'')}`;
-                        return `<div class="flex-1 rounded-t cursor-pointer transition-opacity hover:opacity-80 score-history-bar"
-                                     style="height:${heightPct}%;background:${barColor};${isLast?'box-shadow:0 0 0 1.5px '+barColor+'33':''}"
-                                     title="${label}"></div>`;
-                    }).join('')}
-                </div>
-                <div class="flex justify-between mt-1.5">
-                    <span class="text-[10px] text-on-surface-variant opacity-60">${fmtDate(history[0].created_at)}</span>
-                    <span class="text-[10px] text-on-surface-variant opacity-60">${fmtDate(history[history.length-1].created_at)}</span>
-                </div>
-            </div>`;
-
-        if (periodEl) periodEl.textContent = `${history.length} registro${history.length!==1?'s':''}`;
-    } catch (e) {
-        chartEl.innerHTML = `<span class="text-xs text-on-surface-variant opacity-50">Não foi possível carregar o histórico.</span>`;
-        console.warn('loadScoreHistory falhou:', e.message);
+    if (!monthly.length) {
+        chartEl.innerHTML = `<span class="text-xs text-on-surface-variant opacity-50">Sem data de criação disponível nos tickets para montar o histórico mensal.</span>`;
+        if (periodEl) periodEl.textContent = '';
+        return;
     }
+
+    const maxScore = Math.max(...monthly.map(m => m.score), 1);
+
+    chartEl.innerHTML = `
+        <div class="w-full">
+            <div class="flex items-end gap-1.5 h-14">
+                ${monthly.map((m, i) => {
+                    const heightPct = Math.max(6, Math.round((m.score / maxScore) * 100));
+                    const isLast = i === monthly.length - 1;
+                    const barColor = m.score >= 800 ? '#22c55e' : m.score >= 600 ? '#3b82f6' : m.score >= 400 ? '#f59e0b' : m.score >= 200 ? '#f97316' : '#94a3b8';
+                    const label = `${MONTH_NAMES_PT[m.month-1]}/${m.year} · ${m.score} pts · ${m.totalTickets} ticket${m.totalTickets!==1?'s':''} · ${escapeHtml(m.seniorityLabel)}`;
+                    return `<div class="flex-1 rounded-t cursor-pointer transition-opacity hover:opacity-80 score-history-bar"
+                                 style="height:${heightPct}%;background:${barColor};${isLast?'box-shadow:0 0 0 1.5px '+barColor+'33':''}"
+                                 title="${label}"></div>`;
+                }).join('')}
+            </div>
+            <div class="flex justify-between mt-1.5">
+                <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[monthly[0].month-1]}/${monthly[0].year}</span>
+                <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[monthly[monthly.length-1].month-1]}/${monthly[monthly.length-1].year}</span>
+            </div>
+        </div>`;
+
+    if (periodEl) periodEl.textContent = `${monthly.length} mês${monthly.length!==1?'es':''}`;
+
+    // Persistir snapshot do mês mais recente (mantém histórico oficial no banco)
+    const last = monthly[monthly.length-1];
+    const period = monthDateRange(last.year, last.month);
+    savePerformanceSnapshot(owner, { score: last.score, metrics: last.metrics, breakdown: {} },
+        { label: last.seniorityLabel, reason: last.seniorityReason }, last.totalTickets, period, /*skipReload*/ true);
+}
+
+function monthDateRange(year, month) {
+    const start = new Date(year, month-1, 1);
+    const end   = new Date(year, month, 0);
+    const fmt = (d) => d.toISOString().slice(0,10);
+    return { start: fmt(start), end: fmt(end) };
 }
 
 // Chamado pelo enrichPerformanceCardWithAI após receber o aiResult
@@ -1193,11 +1236,13 @@ function updateSeniorityBadge(seniority) {
 }
 
 // Salva o snapshot do score no histórico (backend)
-async function savePerformanceSnapshot(owner, scoreData, seniority, totalTickets) {
+async function savePerformanceSnapshot(owner, scoreData, seniority, totalTickets, period, skipReload) {
     try {
         const m = scoreData.metrics || {};
         const bd = scoreData.breakdown || {};
         const today = new Date().toISOString().slice(0, 10);
+        const periodStart = period?.start || today;
+        const periodEnd   = period?.end   || today;
         const res = await fetch(`${API_BASE}/config/performance-snapshot`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
@@ -1213,13 +1258,12 @@ async function savePerformanceSnapshot(owner, scoreData, seniority, totalTickets
                 avg_open_tickets_ref: m.avgOpenTicketsRef,
                 gaps_count: m.totalGaps,
                 breakdown: bd,
-                period_start: today,
-                period_end: today
+                period_start: periodStart,
+                period_end: periodEnd
             })
         });
         if (!res.ok) { console.warn('Falha ao salvar performance-snapshot:', res.status); return; }
-        // Atualizar gráfico com o novo ponto recém-salvo
-        loadScoreHistory(owner);
+        if (!skipReload) renderMonthlyScoreHistory(owner, scoreData.ownerRows || []);
     } catch (e) {
         console.warn('savePerformanceSnapshot falhou:', e.message);
     }
@@ -1329,8 +1373,10 @@ function renderCards() {
         mount.querySelectorAll('.score-main-bar, .score-dim-bar').forEach(bar=>{bar.style.width=bar.dataset.barWidth+'%';});
     }, 820);
 
-    // Carregar histórico de evolução do score (não bloqueia o render)
-    loadScoreHistory(currentOwner);
+    // Carregar histórico de evolução mensal do score (não bloqueia o render)
+    // Usa ownerRows já processado por analysePerformance (com _ownerItem populado)
+    const _perfForHistory = analysePerformance(ownerRows, currentOwner);
+    renderMonthlyScoreHistory(currentOwner, _perfForHistory.ownerRows);
 
     /* Enriquece competências via IA de forma assíncrona (não bloqueia o render) */
     const ownerRowsForAI = ownerRows;
