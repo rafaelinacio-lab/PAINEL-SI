@@ -47,9 +47,9 @@ async function createPoolForConfig(cfg, ensureSchema = false) {
     user: cfg.user,
     password: cfg.password,
     ssl: cfg.ssl ? { rejectUnauthorized: false } : false,
-    max: 20,
+    max: 30,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000
+    connectionTimeoutMillis: 10000
   });
   pool.__poolKey = key;
   pools.set(key, pool);
