@@ -410,6 +410,18 @@
                     <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-slate-400 flex-shrink-0"></span><span><strong>0–199</strong> — Dados insuficientes</span></div>
                 </div>
             </div>
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-2">Classificação de Senioridade</h3>
+                <p class="text-sm text-on-surface-variant mb-3">Baseada nos entregáveis oficiais das descrições de cargo da Viasoft (Analista de Suporte JR/PL/SR e Especialista em Suporte). Requer no mínimo 5 chamados para classificação confiável.</p>
+                <div class="space-y-2 text-sm">
+                    <div><strong>Especialista</strong> — satisfação ≥95% e resolução no 1º contato ≥98%</div>
+                    <div><strong>Sênior</strong> — satisfação ≥95% e resolução no 1º contato ≥90%</div>
+                    <div><strong>Pleno</strong> — satisfação ≥85% e resolução no 1º contato ≥75%</div>
+                    <div><strong>Júnior</strong> — satisfação ≥70%</div>
+                    <div><strong>Em desenvolvimento</strong> — abaixo dos critérios mínimos do cargo JR</div>
+                </div>
+                <p class="text-xs text-on-surface-variant mt-3 opacity-75">Nota: por não haver data de admissão cadastrada, a classificação não considera tempo de empresa — apenas indicadores de performance mensuráveis.</p>
+            </div>
         </div>
     </div>
 </div></div>
@@ -638,7 +650,7 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
    calcScore1000 — score 0–1000 baseado em 4 dimensões por ticket
    ────────────────────────────────────────────────────────────── */
 function calcScore1000(ownerRows, aiResult) {
-    if (!ownerRows || !ownerRows.length) return { score: 0, breakdown: null };
+    if (!ownerRows || !ownerRows.length) return { score: 0, breakdown: null, metrics: null };
 
     const positiveKeys = PERF_CATEGORIES.filter(c => !c.isNegative).map(c => c.key);
     const totalComp    = positiveKeys.length || 1;
@@ -656,6 +668,9 @@ function calcScore1000(ownerRows, aiResult) {
     const compScore = Math.round((compHits / totalComp) * 100); // 0–100
 
     let sumTicketScores = 0;
+    let sumSat = 0, satCount = 0;
+    let totalGaps = 0, totalPontos = 0;
+    let openTicketsCount = 0;
     const ticketDetails = [];
 
     ownerRows.forEach(row => {
@@ -665,9 +680,9 @@ function calcScore1000(ownerRows, aiResult) {
         // Dimensão 1 — Satisfação do cliente (35%)
         const sat = Number(row.satisfacao) || 0;
         const satScore = sat > 0 ? Math.round((sat / 10) * 100) : 50; // neutro se ausente
+        if (sat > 0) { sumSat += sat; satCount++; }
 
         // Dimensão 2 — Volume de ações (25%)
-        // 100 pts = exatamente na média. Acima da média = bônus (cap 100). Abaixo = proporcional.
         const acoes = (ownerItem.ids || []).length;
         const volScore = mediaAcoesRef > 0
             ? Math.min(100, Math.round((acoes / mediaAcoesRef) * 100))
@@ -678,21 +693,24 @@ function calcScore1000(ownerRows, aiResult) {
             !/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(p)
         ).length;
         const gaps = pontos.length - positivos;
+        totalGaps += gaps;
+        totalPontos += pontos.length;
         const posScore = pontos.length > 0
             ? Math.round((positivos / pontos.length) * 100)
             : 50;
 
-        // Dimensão 4 — Competências IA (15%) — igual para todos os tickets do owner
-        // (vem do aiResult por owner, não por ticket)
+        // Ticket "em aberto" — status não finalizado (proxy disponível nos dados)
+        const statusLower = String(row.status || '').toLowerCase();
+        if (statusLower && !/fechad|resolvid|encerrad|finalizad|cancelad/i.test(statusLower)) {
+            openTicketsCount++;
+        }
 
-        // Score bruto do ticket (0–100)
         const rawScore =
             satScore * 0.35 +
             volScore * 0.25 +
             posScore * 0.25 +
             compScore * 0.15;
 
-        // Penalização: cada gap remove 5 pts (mínimo 0)
         const penalty  = gaps * 5;
         const ticketScore = Math.max(0, Math.round(rawScore - penalty));
 
@@ -700,18 +718,71 @@ function calcScore1000(ownerRows, aiResult) {
         ticketDetails.push({ id: row.ticket_id, ticketScore, satScore, volScore, posScore, gaps, penalty });
     });
 
-    const avgTicket = ownerRows.length > 0
-        ? sumTicketScores / ownerRows.length
-        : 0;
-
-    // Score final: média × 10 → escala 0–1000
+    const avgTicket = ownerRows.length > 0 ? sumTicketScores / ownerRows.length : 0;
     const score = Math.min(1000, Math.round(avgTicket * 10));
+
+    // Métricas agregadas para classificação de senioridade (baseado nos entregáveis Viasoft)
+    const avgSatisfaction = satCount > 0 ? Math.round((sumSat / satCount) * 10) : null; // % (0-100)
+    const firstContactRate = totalPontos > 0 ? Math.round(((totalPontos - totalGaps) / totalPontos) * 100) : null; // % proxy
 
     return {
         score,
         breakdown: { compScore, compHits, totalComp, mediaAcoesRef: Math.round(mediaAcoesRef * 10) / 10 },
-        ticketDetails
+        ticketDetails,
+        metrics: {
+            avgSatisfaction,        // % satisfação (proxy do entregável "Satisfação >= 95%")
+            firstContactRate,       // % proxy do entregável "1º contato >= 90/98%"
+            openTicketsCount,       // proxy do entregável "tickets abertos <= 8"
+            avgOpenTicketsRef: Math.round(mediaAcoesRef * 10) / 10,
+            totalGaps,
+            avgScorePerTicket: Math.round(avgTicket * 10) / 10
+        }
     };
+}
+
+/* ──────────────────────────────────────────────────────────────
+   classifySeniority — baseado nos entregáveis oficiais Viasoft
+   (Descrições de cargo v10: Analista de Suporte JR/PL/SR e
+   Especialista em Suporte). Sem data de admissão disponível,
+   a classificação usa exclusivamente entregáveis mensuráveis.
+   ────────────────────────────────────────────────────────────── */
+function classifySeniority(metrics, totalTickets) {
+    if (!metrics || totalTickets === 0) {
+        return { label: 'Sem dados', reason: 'Nenhum registro encontrado para avaliação.' };
+    }
+
+    const sat = metrics.avgSatisfaction;       // %
+    const fcr = metrics.firstContactRate;      // %
+    const openTk = metrics.openTicketsCount;
+    const openRef = metrics.avgOpenTicketsRef || 8;
+
+    // Amostra mínima para classificação confiável
+    if (totalTickets < 5) {
+        return { label: 'Em avaliação', reason: `Apenas ${totalTickets} chamado(s) — amostra insuficiente para classificação de senioridade.` };
+    }
+
+    // Especialista em Suporte: satisfação >=95%, 1º contato >=98%, tickets abertos controlados
+    if (sat !== null && sat >= 95 && fcr !== null && fcr >= 98 && openTk <= Math.max(8, openRef)) {
+        return { label: 'Especialista', reason: `Satisfação ${sat}% e resolução no 1º contato ${fcr}% atendem ao padrão de Especialista em Suporte (mín. 95%/98%).` };
+    }
+
+    // Sênior: satisfação >=95%, 1º contato >=90%, tickets abertos <=8
+    if (sat !== null && sat >= 95 && fcr !== null && fcr >= 90 && openTk <= Math.max(8, openRef)) {
+        return { label: 'Sênior', reason: `Satisfação ${sat}% e resolução no 1º contato ${fcr}% atendem aos entregáveis de Analista de Suporte SR.` };
+    }
+
+    // Pleno: satisfação >=85%, 1º contato >=75%
+    if (sat !== null && sat >= 85 && (fcr === null || fcr >= 75)) {
+        return { label: 'Pleno', reason: `Satisfação ${sat}%${fcr!==null?` e 1º contato ${fcr}%`:''} dentro do esperado para Analista de Suporte PL.` };
+    }
+
+    // Júnior: satisfação >=70%
+    if (sat !== null && sat >= 70) {
+        return { label: 'Júnior', reason: `Satisfação ${sat}% compatível com Analista de Suporte JR. Espaço para evolução até os critérios de PL (satisfação ≥85%).` };
+    }
+
+    // Em desenvolvimento: abaixo dos critérios mínimos
+    return { label: 'Em desenvolvimento', reason: sat !== null ? `Satisfação ${sat}% abaixo do mínimo esperado (70%) para o cargo de Analista de Suporte JR.` : 'Dados de satisfação insuficientes para classificação.' };
 }
 
 function analysePerformance(rows, owner) {
@@ -751,14 +822,16 @@ function analysePerformance(rows, owner) {
     const positiveEvidence = norm(positiveByTicket, 5), gapEvidence = norm(gapByTicket, 5);
     const diffScore  = PERF_CATEGORIES.filter(c =>  c.isNegative).reduce((s, c) => s + (catCount[c.key] || 0), 0);
     const totalPositive = PERF_CATEGORIES.filter(c => !c.isNegative).reduce((s, c) => s + (catCount[c.key] || 0), 0);
-    let verdictLabel = '', verdict = '';
-    if (totalTickets === 0)                           { verdictLabel = 'Sem dados';             verdict = 'Nenhum registro encontrado'; }
-    else if (diffScore >= 3)                          { verdictLabel = 'Júnior em desenvolvimento'; verdict = `${owner} apresenta dificuldades recorrentes em ${diffScore} ocorrências.`; }
-    else if (totalPositive >= 7 && diffScore === 0)   { verdictLabel = 'Sênior';                verdict = `${owner} demonstra maturidade técnica e comunicativa consistente.`; }
-    else if (totalPositive >= 4)                      { verdictLabel = 'Pleno';                 verdict = `${owner} mantém boa execução nos atendimentos.`; }
-    else                                              { verdictLabel = 'Em avaliação';           verdict = `${owner} possui registros para avaliação em progresso.`; }
+
     // Score provisório sem IA (será atualizado pelo enrichPerformanceCardWithAI)
     const scoreData = calcScore1000(ownerRows, null);
+
+    // Classificação de senioridade baseada nos entregáveis oficiais Viasoft
+    // (Descrições de cargo v10 — Analista de Suporte JR/PL/SR, Especialista em Suporte)
+    const seniority = classifySeniority(scoreData.metrics, totalTickets);
+    const verdictLabel = seniority.label;
+    const verdict = seniority.reason;
+
     return { totalTickets, totalAcoes, mediaAcoes: totalTickets ? (totalAcoes / totalTickets).toFixed(1) : '0', maxAcoes, urgenciaCount, urgenciaTickets, catCount, positiveEvidence, gapEvidence, verdictLabel, verdict, ownerRows, scoreData };
 }
 
@@ -1039,6 +1112,50 @@ function refreshScoreCard(owner, rows, aiResult) {
     // Atualizar o texto do último dim
     const allDimPctSpans = Array.from(root.querySelectorAll('.space-y-3 .flex span:last-child'));
     if (allDimPctSpans[3]) allDimPctSpans[3].textContent = compPct + '%';
+
+    // Reclassificar senioridade com dados completos (IA já presente) e persistir snapshot
+    const seniority = classifySeniority(sd.metrics, a.totalTickets);
+    updateSeniorityBadge(seniority);
+    savePerformanceSnapshot(owner, sd, seniority, a.totalTickets);
+}
+
+// Atualiza o badge de senioridade no card de análise, se já estiver renderizado
+function updateSeniorityBadge(seniority) {
+    const badgeEl = document.getElementById('seniority-verdict-label');
+    const reasonEl = document.getElementById('seniority-verdict-reason');
+    if (badgeEl) badgeEl.textContent = seniority.label;
+    if (reasonEl) reasonEl.textContent = seniority.reason;
+}
+
+// Salva o snapshot do score no histórico (backend)
+async function savePerformanceSnapshot(owner, scoreData, seniority, totalTickets) {
+    try {
+        const m = scoreData.metrics || {};
+        const bd = scoreData.breakdown || {};
+        const today = new Date().toISOString().slice(0, 10);
+        await fetch(`${API_BASE}/config/performance-snapshot`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+            body: JSON.stringify({
+                owner_name: owner,
+                score: scoreData.score,
+                seniority_label: seniority.label,
+                seniority_reason: seniority.reason,
+                total_tickets: totalTickets,
+                avg_satisfaction: m.avgSatisfaction,
+                first_contact_rate: m.firstContactRate,
+                open_tickets_count: m.openTicketsCount,
+                avg_open_tickets_ref: m.avgOpenTicketsRef,
+                gaps_count: m.totalGaps,
+                breakdown: bd,
+                period_start: today,
+                period_end: today
+            })
+        }).then(r => { if (!r.ok) console.warn('Falha ao salvar performance-snapshot:', r.status); })
+          .catch(e => console.warn('Erro ao salvar performance-snapshot:', e.message));
+    } catch (e) {
+        console.warn('savePerformanceSnapshot falhou:', e.message);
+    }
 }
 
 function renderAnalysisCard(owner, rows) {
@@ -1083,8 +1200,8 @@ function renderAnalysisCard(owner, rows) {
         </div>
         <div class="bg-primary-container p-6 rounded-xl">
             <span class="font-label-md text-label-md text-on-primary-container uppercase tracking-widest block mb-4">Análise Final</span>
-            <p class="font-headline-lg text-headline-lg text-on-primary mb-6">${escapeHtml(a.verdictLabel)}</p>
-            <p class="font-body-md text-body-md text-on-primary">${escapeHtml(a.verdict)}</p>
+            <p id="seniority-verdict-label" class="font-headline-lg text-headline-lg text-on-primary mb-6">${escapeHtml(a.verdictLabel)}</p>
+            <p id="seniority-verdict-reason" class="font-body-md text-body-md text-on-primary">${escapeHtml(a.verdict)}</p>
         </div>
     </div>`;
 }

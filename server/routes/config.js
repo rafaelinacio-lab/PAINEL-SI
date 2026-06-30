@@ -551,4 +551,78 @@ router.get('/ai-usage', authMiddleware, requireRole('admin'), (req, res) => {
   );
 });
 
+// ============================================================
+// PERFORMANCE SCORE HISTORY — snapshots do score 0-1000
+// ============================================================
+
+// POST - salvar snapshot do score de um colaborador
+router.post('/performance-snapshot', authMiddleware, (req, res) => {
+  const {
+    owner_name, score, seniority_label, seniority_reason,
+    total_tickets, avg_satisfaction, first_contact_rate,
+    open_tickets_count, avg_open_tickets_ref,
+    sat_score, vol_score, pos_score, comp_score,
+    gaps_count, breakdown, period_start, period_end
+  } = req.body;
+
+  if (!owner_name || score == null) {
+    return res.status(400).json({ error: 'Campos obrigatórios: owner_name, score' });
+  }
+
+  const userEmail = req.user?.email || null;
+
+  db.run(
+    `INSERT INTO performance_score_history
+       (owner_name, score, seniority_label, seniority_reason, total_tickets,
+        avg_satisfaction, first_contact_rate, open_tickets_count, avg_open_tickets_ref,
+        sat_score, vol_score, pos_score, comp_score, gaps_count, breakdown,
+        period_start, period_end, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      owner_name, score, seniority_label || null, seniority_reason || null, total_tickets || 0,
+      avg_satisfaction || null, first_contact_rate || null, open_tickets_count || 0, avg_open_tickets_ref || null,
+      sat_score || null, vol_score || null, pos_score || null, comp_score || null,
+      gaps_count || 0, breakdown ? JSON.stringify(breakdown) : null,
+      period_start || null, period_end || null, userEmail
+    ],
+    (err) => {
+      if (err) { console.error('Erro ao salvar performance-snapshot:', err.message); return res.status(500).json({ error: 'Erro ao salvar snapshot' }); }
+      res.json({ success: true });
+    }
+  );
+});
+
+// GET - histórico de scores de um colaborador
+router.get('/performance-history', authMiddleware, (req, res) => {
+  const owner = req.query.owner;
+  const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
+  if (!owner) return res.status(400).json({ error: 'Parâmetro owner é obrigatório' });
+
+  db.all(
+    `SELECT * FROM performance_score_history
+     WHERE owner_name = ?
+     ORDER BY created_at DESC
+     LIMIT ?`,
+    [owner, limit],
+    (err, rows) => {
+      if (err) { console.error('Erro ao consultar performance-history:', err.message); return res.status(500).json({ error: 'Erro ao consultar histórico' }); }
+      res.json({ owner, history: rows || [] });
+    }
+  );
+});
+
+// GET - último snapshot de todos os colaboradores (para listagens/ranking)
+router.get('/performance-history-latest', authMiddleware, (req, res) => {
+  db.all(
+    `SELECT DISTINCT ON (owner_name) *
+     FROM performance_score_history
+     ORDER BY owner_name, created_at DESC`,
+    [],
+    (err, rows) => {
+      if (err) { console.error('Erro ao consultar performance-history-latest:', err.message); return res.status(500).json({ error: 'Erro ao consultar histórico' }); }
+      res.json({ latest: rows || [] });
+    }
+  );
+});
+
 module.exports = { router, getToken, getPrompt, getDatabaseConfig, getMovideskConditions, getAutoSyncConfig };

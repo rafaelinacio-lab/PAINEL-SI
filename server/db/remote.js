@@ -242,6 +242,35 @@ async function initSchema(activePool, key) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `).catch(() => {});
+
+    await activePool.query(`
+      CREATE TABLE IF NOT EXISTS performance_score_history (
+        id SERIAL PRIMARY KEY,
+        owner_name TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        seniority_label VARCHAR(64),
+        seniority_reason TEXT,
+        total_tickets INTEGER DEFAULT 0,
+        avg_satisfaction NUMERIC(5,2),
+        first_contact_rate NUMERIC(5,2),
+        open_tickets_count INTEGER DEFAULT 0,
+        avg_open_tickets_ref NUMERIC(6,2),
+        sat_score NUMERIC(6,2),
+        vol_score NUMERIC(6,2),
+        pos_score NUMERIC(6,2),
+        comp_score NUMERIC(6,2),
+        gaps_count INTEGER DEFAULT 0,
+        breakdown TEXT,
+        period_start DATE,
+        period_end DATE,
+        created_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `).catch(() => {});
+
+    await activePool.query(`
+      CREATE INDEX IF NOT EXISTS idx_perf_score_owner ON performance_score_history(owner_name, created_at DESC)
+    `).catch(() => {});
   })();
 
   schemaInitPromises.set(key, initPromise);
