@@ -792,7 +792,7 @@ function classifySeniority(metrics, totalTickets) {
    Não depende de IA (compScore fica neutro/0 no histórico mensal,
    pois rodar IA retroativa por mês teria custo desproporcional).
    ────────────────────────────────────────────────────────────── */
-function calcMonthlyScoreHistory(ownerRows) {
+function calcMonthlyScoreHistory(ownerRows, aiResult) {
     if (!ownerRows || !ownerRows.length) return [];
 
     const byMonth = new Map(); // 'YYYY-MM' -> rows[]
@@ -811,7 +811,10 @@ function calcMonthlyScoreHistory(ownerRows) {
 
     return months.map(monthKey => {
         const monthRows = byMonth.get(monthKey);
-        const sd = calcScore1000(monthRows, null); // sem IA — competências neutra
+        // aiResult vem da análise de competências feita sobre TODOS os tickets do
+        // colaborador (característica dele como um todo) — aplicado igualmente
+        // em cada mês, em vez de recalculado por período.
+        const sd = calcScore1000(monthRows, aiResult || null);
         const seniority = classifySeniority(sd.metrics, monthRows.length);
         const [y, m] = monthKey.split('-');
         return {
@@ -1132,12 +1135,14 @@ const MONTH_NAMES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','O
 
 // Renderiza o gráfico de evolução mensal do score, calculado a partir dos
 // próprios tickets do owner (sem depender de snapshots no banco).
-function renderMonthlyScoreHistory(owner, ownerRows) {
+// aiResult (quando disponível) é a análise de competências feita sobre TODOS
+// os tickets do colaborador — aplicada igualmente a cada mês do histórico.
+function renderMonthlyScoreHistory(owner, ownerRows, aiResult) {
     const chartEl  = document.getElementById('score-history-chart');
     const periodEl = document.getElementById('score-history-period');
     if (!chartEl) return;
 
-    const monthly = calcMonthlyScoreHistory(ownerRows);
+    const monthly = calcMonthlyScoreHistory(ownerRows, aiResult);
 
     if (!monthly.length) {
         chartEl.innerHTML = `<span class="text-xs text-on-surface-variant opacity-50">Sem data de criação disponível nos tickets para montar o histórico mensal.</span>`;
@@ -1221,10 +1226,21 @@ function refreshScoreCard(owner, rows, aiResult) {
     const allDimPctSpans = Array.from(root.querySelectorAll('.space-y-3 .flex span:last-child'));
     if (allDimPctSpans[3]) allDimPctSpans[3].textContent = compPct + '%';
 
-    // Reclassificar senioridade com dados completos (IA já presente) e persistir snapshot
+    // Reclassificar senioridade com dados completos (IA já presente)
     const seniority = classifySeniority(sd.metrics, a.totalTickets);
     updateSeniorityBadge(seniority);
-    savePerformanceSnapshot(owner, sd, seniority, a.totalTickets);
+
+    // Re-renderizar histórico mensal já com a dimensão Competências real (aiResult
+    // é a análise sobre TODOS os tickets do colaborador — aplicada a cada mês)
+    renderMonthlyScoreHistory(owner, a.ownerRows, aiResult);
+
+    // Snapshot agregado do período completo selecionado (não um mês específico)
+    const firstDate = a.ownerRows.map(r => r.ticket_created_date).filter(Boolean).sort()[0];
+    const lastDate  = a.ownerRows.map(r => r.ticket_created_date).filter(Boolean).sort().slice(-1)[0];
+    const period = (firstDate && lastDate)
+        ? { start: String(firstDate).slice(0,10), end: String(lastDate).slice(0,10) }
+        : null;
+    savePerformanceSnapshot(owner, sd, seniority, a.totalTickets, period, /*skipReload*/ true);
 }
 
 // Atualiza o badge de senioridade no card de análise, se já estiver renderizado
