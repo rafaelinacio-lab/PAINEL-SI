@@ -333,7 +333,7 @@
 <main id="curadoriaMain" class="pt-6 pb-12 px-container-padding max-w-[1440px] mx-auto" style="visibility:hidden">
 
     <!-- Busca de Owner -->
-    <section class="mb-4 flex items-center gap-3">
+    <section class="mb-4 flex flex-wrap items-center gap-3">
         <div id="ownerSearchWrapper" onclick="expandOwnerSearch()">
             <div class="search-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
@@ -347,6 +347,16 @@
             </button>
         </div>
         <div id="ownerSearchCount" class="text-xs text-on-surface-variant hidden"></div>
+        <button
+            id="curadoriaRefreshBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="manualCuradoriaRefresh()"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
+            <span id="curadoriaRefreshBtnLabel">Atualizar dados</span>
+        </button>
+        <div id="curadoriaRefreshMeta" class="text-xs text-on-surface-variant"></div>
     </section>
 
     <!-- Owner Strip -->
@@ -1469,30 +1479,103 @@ function selectOwner(owner) {
 }
 
 /* ── Carga inicial ────────────────────────────────────────────── */
+const CURADORIA_REFRESH_STORAGE_KEY = 'curadoriaLastRefreshAt';
+let _curadoriaDailyRefreshTimeout = null;
+
+function formatCuradoriaRefreshTimestamp(value) {
+    if (!value) return 'Ainda não atualizado manualmente.';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Atualização recente indisponível.';
+    return `Última atualização: ${date.toLocaleString('pt-BR')}`;
+}
+
+function updateCuradoriaRefreshMeta(value = localStorage.getItem(CURADORIA_REFRESH_STORAGE_KEY)) {
+    const meta = document.getElementById('curadoriaRefreshMeta');
+    if (meta) meta.textContent = formatCuradoriaRefreshTimestamp(value);
+}
+
+function setCuradoriaRefreshButtonState(isLoading) {
+    const button = document.getElementById('curadoriaRefreshBtn');
+    const label = document.getElementById('curadoriaRefreshBtnLabel');
+    if (button) button.disabled = isLoading;
+    if (label) label.textContent = isLoading ? 'Atualizando...' : 'Atualizar dados';
+}
+
+function applyCuradoriaRows(rows) {
+    let filteredRows = rows || [];
+    if (currentUser?.role === 'supervisor' && currentUser?.vertical) {
+        const vertical = String(currentUser.vertical).trim().toLowerCase();
+        filteredRows = filteredRows.filter(r => String(r.owner_team || '').trim().toLowerCase() === vertical);
+    }
+
+    allRows = filteredRows;
+    renderOwnerStrip(allRows);
+
+    if (allRows.length > 0) {
+        const owners = uniqueOwners(allRows);
+        const ownerStillExists = currentOwner && owners.some(owner => owner.name === currentOwner);
+        currentOwner = ownerStillExists ? currentOwner : (owners[0]?.name || null);
+        if (currentOwner) {
+            selectOwner(currentOwner);
+        }
+        return;
+    }
+
+    currentOwner = null;
+    if (currentUser?.role === 'supervisor') {
+        document.getElementById('curadoriaMount').innerHTML =
+            `<div class="col-span-12 py-16 text-center text-on-surface-variant">
+                <span class="material-symbols-outlined text-5xl mb-4 block">group_off</span>
+                <p class="font-body-md text-body-md">Nenhum agente encontrado para a equipe <strong>${escapeHtml(currentUser.vertical)}</strong>.</p>
+            </div>`;
+    } else {
+        document.getElementById('curadoriaMount').innerHTML =
+            `<div class="col-span-12 py-16 text-center text-on-surface-variant">Nenhum registro de curadoria encontrado.</div>`;
+    }
+}
+
+async function refreshCuradoriaData({ showOverlay = false, showButtonLoading = false } = {}) {
+    const overlay = document.getElementById('curadoriaLoadingOverlay');
+    const main = document.getElementById('curadoriaMain');
+    const mount = document.getElementById('curadoriaMount');
+
+    if (showButtonLoading) setCuradoriaRefreshButtonState(true);
+    if (showOverlay) {
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        main.style.visibility = 'hidden';
+    } else if (mount) {
+        mount.style.transition = 'opacity 0.25s ease';
+        mount.style.opacity = '0.15';
+    }
+
+    try {
+        const [user, rows] = await Promise.all([loadPerfCategories().then(() => apiCall('/auth/me')), apiCall('/curadoria')]);
+        currentUser = user;
+        applyCuradoriaRows(rows);
+        const refreshedAt = new Date().toISOString();
+        localStorage.setItem(CURADORIA_REFRESH_STORAGE_KEY, refreshedAt);
+        updateCuradoriaRefreshMeta(refreshedAt);
+    } finally {
+        if (showButtonLoading) setCuradoriaRefreshButtonState(false);
+        if (showOverlay) {
+            overlay.style.transition = 'opacity 0.4s ease';
+            overlay.style.opacity = '0';
+            setTimeout(() => { overlay.style.display = 'none'; }, 400);
+            main.style.visibility = 'visible';
+        } else if (mount) {
+            mount.style.opacity = '';
+            mount.style.transition = '';
+        }
+    }
+}
+
 async function loadCuradoria() {
     const overlay=document.getElementById('curadoriaLoadingOverlay');
     const main=document.getElementById('curadoriaMain');
     try {
-        const [user,rows]=await Promise.all([loadPerfCategories().then(()=>apiCall('/auth/me')),apiCall('/curadoria')]);
-        currentUser=user;
-        let filteredRows=rows||[];
-        if(currentUser?.role==='supervisor'&&currentUser?.vertical){
-            const uv=String(currentUser.vertical).trim().toLowerCase();
-            filteredRows=filteredRows.filter(r=>String(r.owner_team||'').trim().toLowerCase()===uv);
-        }
-        allRows=filteredRows;
-        renderOwnerStrip(allRows);
-        if(allRows.length>0){
-            const owners=uniqueOwners(allRows);
-            currentOwner=owners[0]?.name||null;
-            selectOwner(currentOwner);
-        } else if(currentUser?.role==='supervisor'){
-            document.getElementById('curadoriaMount').innerHTML=
-                `<div class="col-span-12 py-16 text-center text-on-surface-variant">
-                    <span class="material-symbols-outlined text-5xl mb-4 block">group_off</span>
-                    <p class="font-body-md text-body-md">Nenhum agente encontrado para a equipe <strong>${escapeHtml(currentUser.vertical)}</strong>.</p>
-                </div>`;
-        }
+        updateCuradoriaRefreshMeta();
+        await refreshCuradoriaData({ showOverlay: true });
     } catch(err) {
         console.error('Erro:',err);
         document.getElementById('curadoriaMount').innerHTML=
@@ -1501,31 +1584,36 @@ async function loadCuradoria() {
         overlay.style.transition='opacity 0.4s ease'; overlay.style.opacity='0';
         setTimeout(()=>{overlay.style.display='none';},400);
         main.style.visibility='visible';
-        startCuradoriaRefresh();
+        scheduleCuradoriaDailyRefresh();
     }
 }
 
-let _curadoriaTimer=null;
-function startCuradoriaRefresh() {
-    clearInterval(_curadoriaTimer);
-    _curadoriaTimer=setInterval(async()=>{
+async function manualCuradoriaRefresh() {
+    try {
+        await refreshCuradoriaData({ showButtonLoading: true });
+        scheduleCuradoriaDailyRefresh();
+    } catch (err) {
+        console.error('Erro ao atualizar curadoria manualmente:', err);
+        alert(`Erro ao atualizar curadoria: ${err.message}`);
+    }
+}
+
+function scheduleCuradoriaDailyRefresh() {
+    clearTimeout(_curadoriaDailyRefreshTimeout);
+    const now = new Date();
+    const nextRun = new Date(now);
+    nextRun.setHours(24, 0, 0, 0);
+    const delay = Math.max(60 * 1000, nextRun.getTime() - now.getTime());
+
+    _curadoriaDailyRefreshTimeout = setTimeout(async () => {
         try {
-            await loadPerfCategories();
-            const rows=await apiCall('/curadoria');
-            let filteredRows=rows||[];
-            if(currentUser?.role==='supervisor'&&currentUser?.vertical){
-                const v=String(currentUser.vertical).trim().toLowerCase();
-                filteredRows=filteredRows.filter(r=>String(r.owner_team||'').trim().toLowerCase()===v);
-            }
-            const mount=document.getElementById('curadoriaMount');
-            if(mount){mount.style.transition='opacity 0.25s ease';mount.style.opacity='0.15';}
-            setTimeout(()=>{
-                allRows=filteredRows; renderOwnerStrip(allRows);
-                if(mount){mount.style.opacity='';mount.style.transition='';}
-                if(currentOwner) renderCards();
-            },280);
-        } catch(_){ /* skip */ }
-    },2*60*1000);
+            await refreshCuradoriaData();
+        } catch (err) {
+            console.error('Erro ao atualizar curadoria automaticamente:', err);
+        } finally {
+            scheduleCuradoriaDailyRefresh();
+        }
+    }, delay);
 }
 
 window.addEventListener('load',loadCuradoria);
