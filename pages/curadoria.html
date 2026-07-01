@@ -598,7 +598,11 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
     if (!gptKey || !ownerRows.length) return null;
 
     const ownerNorm = normalizeOwnerName(owner), ownerFirst = ownerNorm.split(' ')[0];
-    const ticketsSummary = ownerRows.map(row => {
+
+    // Limita a 80 tickets para controlar tamanho do prompt (tickets mais recentes primeiro)
+    const sampleRows = ownerRows.length > 80 ? ownerRows.slice(0, 80) : ownerRows;
+
+    const ticketsSummary = sampleRows.map(row => {
         let perf; try { perf = typeof row.performance_suporte === 'object' ? row.performance_suporte : JSON.parse(row.performance_suporte||'{}'); } catch { perf = {}; }
         const items = Array.isArray(perf?.items) ? perf.items : [];
         const ownerItem = items.find(item => { const n = normalizeOwnerName(item.nome||''); return n===ownerNorm||n.includes(ownerFirst)||ownerNorm.includes(n.split(' ')[0]); });
@@ -612,15 +616,16 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
         `${i+1}. key="${cat.key}" label="${cat.label}" isNegative=${cat.isNegative}\n   Critério: ${cat.prompt}`
     ).join('\n\n');
 
-    const systemPrompt = `Você é um avaliador de desempenho de atendentes de suporte. Analise os chamados e avalie cada competência. Para cada competência retorne "count" (número de chamados onde foi observada), "evidence" (array com até 3 exemplos curtos), "ticketIds" (IDs dos chamados). Responda APENAS em JSON válido sem markdown: {"competencias":{"key":{"count":0,"evidence":["..."],"ticketIds":[]}}}`;
+    // Não pedir ticketIds: causa JSON gigante que estoura max_tokens em owners com muitos chamados
+    const systemPrompt = `Você é um avaliador de desempenho de atendentes de suporte. Analise os chamados e avalie cada competência. Para cada competência retorne apenas "count" (número de chamados onde foi observada) e "evidence" (array com até 3 exemplos curtos em português). Responda APENAS em JSON válido sem markdown: {"competencias":{"key":{"count":0,"evidence":["..."]}}}`;
 
-    const userMsg = `Atendente: ${owner}\nTotal: ${ownerRows.length} chamados\n\nChamados:\n${ticketsSummary}\n\nCompetências:\n${competenciasPrompt}`;
+    const userMsg = `Atendente: ${owner}\nTotal analisado: ${sampleRows.length} chamados${ownerRows.length > sampleRows.length ? ` (amostra de ${ownerRows.length})` : ''}\n\nChamados:\n${ticketsSummary}\n\nCompetências:\n${competenciasPrompt}`;
 
     try {
         const resp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
-            body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, max_tokens: 1500,
+            body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, max_tokens: 2500,
                 messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }] })
         });
         const data = await resp.json();
