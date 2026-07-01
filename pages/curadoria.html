@@ -901,23 +901,33 @@ function analysePerformance(rows, owner) {
     };
     const ownerRows = [];
     rows.forEach(row => {
-        const raw = row.performance_suporte; if (!raw) return;
-        let perf; try { perf = typeof raw === 'object' ? raw : JSON.parse(raw); } catch (_) { return; }
-        const items = Array.isArray(perf?.items) ? perf.items : [];
-        const ownerItem = items.find(item => { const n = normalizeOwnerName(item.nome || ''); return n === ownerNorm || n.includes(ownerFirst) || ownerNorm.includes(n.split(' ')[0]); });
-        if (!ownerItem) return;
+        // Tenta extrair ownerItem de performance_suporte, mas NÃO pula o ticket se o campo estiver vazio.
+        // O score usa satisfacao, tempo_resol_dias e total_agente que existem independentemente.
+        let ownerItem = null;
+        const raw = row.performance_suporte;
+        if (raw) {
+            try {
+                const perf = typeof raw === 'object' ? raw : JSON.parse(raw);
+                const items = Array.isArray(perf?.items) ? perf.items : [];
+                ownerItem = items.find(item => { const n = normalizeOwnerName(item.nome || ''); return n === ownerNorm || n.includes(ownerFirst) || ownerNorm.includes(n.split(' ')[0]); }) || null;
+            } catch (_) {}
+        }
+
         totalTickets++;
-        const acoes = (ownerItem.ids || []).length; totalAcoes += acoes; if (acoes > maxAcoes) maxAcoes = acoes;
+        const acoes = ownerItem ? (ownerItem.ids || []).length : 0;
+        totalAcoes += acoes; if (acoes > maxAcoes) maxAcoes = acoes;
         const urg = String(row.urgencia || '').trim() || 'Sem urgência';
         urgenciaCount[urg] = (urgenciaCount[urg] || 0) + 1;
         if (!urgenciaTickets[urg]) urgenciaTickets[urg] = [];
         urgenciaTickets[urg].push({ id: row.ticket_id, row });
-        ownerRows.push({ ...row, _ownerItem: ownerItem });
-        (ownerItem.pontos || []).forEach(ponto => {
-            const isNeg = /não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(ponto);
-            if (isNeg) { addEv(gapByTicket, row.ticket_id, '', ponto); }
-            else { addEv(positiveByTicket, row.ticket_id, '', ponto); }
-        });
+        ownerRows.push({ ...row, _ownerItem: ownerItem || {} });
+        if (ownerItem) {
+            (ownerItem.pontos || []).forEach(ponto => {
+                const isNeg = /não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(ponto);
+                if (isNeg) { addEv(gapByTicket, row.ticket_id, '', ponto); }
+                else { addEv(positiveByTicket, row.ticket_id, '', ponto); }
+            });
+        }
     });
     const norm = (map, limit = 5) => [...map.values()].map(item => ({ ticketId: item.ticketId, categories: [...item.categories], reasons: item.reasons, score: item.reasons.length + item.categories.length })).sort((a, b) => b.score - a.score).slice(0, limit);
     const positiveEvidence = norm(positiveByTicket, 5), gapEvidence = norm(gapByTicket, 5);
