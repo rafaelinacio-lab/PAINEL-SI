@@ -599,38 +599,43 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
 
     const ownerNorm = normalizeOwnerName(owner), ownerFirst = ownerNorm.split(' ')[0];
 
-    // Limita a 80 tickets para controlar tamanho do prompt (tickets mais recentes primeiro)
-    const sampleRows = ownerRows.length > 80 ? ownerRows.slice(0, 80) : ownerRows;
+    // Limita a 60 tickets: cada linha de summary tem ~150 chars → ~60 tickets = ~3000 chars input
+    // evita que o JSON de resposta estoure max_tokens mesmo para owners com 180+ tickets
+    const sampleRows = ownerRows.length > 60 ? ownerRows.slice(0, 60) : ownerRows;
 
+    // Summary enxuto: ticket_id, urgencia e analise_fato truncado (sem pontos longos)
     const ticketsSummary = sampleRows.map(row => {
-        let perf; try { perf = typeof row.performance_suporte === 'object' ? row.performance_suporte : JSON.parse(row.performance_suporte||'{}'); } catch { perf = {}; }
-        const items = Array.isArray(perf?.items) ? perf.items : [];
-        const ownerItem = items.find(item => { const n = normalizeOwnerName(item.nome||''); return n===ownerNorm||n.includes(ownerFirst)||ownerNorm.includes(n.split(' ')[0]); });
-        const pontos = ownerItem ? (ownerItem.pontos||[]).join(' | ') : '';
-        return `Chamado #${row.ticket_id} (${row.urgencia||'sem urgência'}): ${row.analise_fato||row.fato||''} ${pontos ? '| Pontos: '+pontos : ''}`.trim();
+        const analise = String(row.analise_fato||row.fato||'').substring(0, 100);
+        return `#${row.ticket_id}(${row.urgencia||'N'}): ${analise}`.trim();
     }).filter(Boolean).join('\n');
 
     if (!ticketsSummary) return null;
 
+    // Prompt de competências compacto: só key e label (sem critério extenso)
     const competenciasPrompt = PERF_CATEGORIES.map((cat, i) =>
-        `${i+1}. key="${cat.key}" label="${cat.label}" isNegative=${cat.isNegative}\n   Critério: ${cat.prompt}`
-    ).join('\n\n');
+        `${i+1}. key="${cat.key}" label="${cat.label}"`
+    ).join('\n');
 
-    // Não pedir ticketIds: causa JSON gigante que estoura max_tokens em owners com muitos chamados
-    const systemPrompt = `Você é um avaliador de desempenho de atendentes de suporte. Analise os chamados e avalie cada competência. Para cada competência retorne apenas "count" (número de chamados onde foi observada) e "evidence" (array com até 3 exemplos curtos em português). Responda APENAS em JSON válido sem markdown: {"competencias":{"key":{"count":0,"evidence":["..."]}}}`;
+    // Formato mínimo: count + 1 evidence curta. Sem ticketIds.
+    const systemPrompt = `Avaliador de suporte técnico. Analise os chamados e para cada competência retorne: count (int, nº de chamados onde foi observada) e evidence (array com 1 string curta em português, máx 60 chars). Responda SOMENTE JSON sem markdown nem texto adicional: {"competencias":{"CHAVE":{"count":0,"evidence":["frase"]}}}`;
 
-    const userMsg = `Atendente: ${owner}\nTotal analisado: ${sampleRows.length} chamados${ownerRows.length > sampleRows.length ? ` (amostra de ${ownerRows.length})` : ''}\n\nChamados:\n${ticketsSummary}\n\nCompetências:\n${competenciasPrompt}`;
+    const userMsg = `Atendente: ${owner} | ${sampleRows.length} chamados\n\nCHAMADOS:\n${ticketsSummary}\n\nCOMPETÊNCIAS (avalie cada uma):\n${competenciasPrompt}`;
 
     try {
         const resp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
-            body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, max_tokens: 2500,
+            body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, max_tokens: 4096,
                 messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }] })
         });
         const data = await resp.json();
-        const text = data.choices?.[0]?.message?.content?.trim() || '{}';
-        const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+        const raw = data.choices?.[0]?.message?.content?.trim() || '{}';
+        // Parser robusto: extrai bloco JSON mesmo se vier com texto extra ou markdown
+        let text = raw.replace(/```json|```/g, '').trim();
+        const jsonStart = text.indexOf('{');
+        const jsonEnd   = text.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd > jsonStart) text = text.substring(jsonStart, jsonEnd + 1);
+        const parsed = JSON.parse(text);
         // Registrar usage de tokens no backend
         try {
             const usage = data.usage || {};
