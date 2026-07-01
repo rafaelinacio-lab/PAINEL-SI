@@ -597,73 +597,89 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
     const gptKey = window._gptApiKey || null;
     if (!gptKey || !ownerRows.length) return null;
 
-    const ownerNorm = normalizeOwnerName(owner), ownerFirst = ownerNorm.split(' ')[0];
-
-    // Limita a 60 tickets: cada linha de summary tem ~150 chars → ~60 tickets = ~3000 chars input
-    // evita que o JSON de resposta estoure max_tokens mesmo para owners com 180+ tickets
-    const sampleRows = ownerRows.length > 60 ? ownerRows.slice(0, 60) : ownerRows;
-
-    // Summary enxuto: ticket_id, urgencia e analise_fato truncado (sem pontos longos)
-    const ticketsSummary = sampleRows.map(row => {
-        const analise = String(row.analise_fato||row.fato||'').substring(0, 100);
-        return `#${row.ticket_id}(${row.urgencia||'N'}): ${analise}`.trim();
-    }).filter(Boolean).join('\n');
-
-    if (!ticketsSummary) return null;
-
-    // Prompt de competências compacto: só key e label (sem critério extenso)
-    const competenciasPrompt = PERF_CATEGORIES.map((cat, i) =>
-        `${i+1}. key="${cat.key}" label="${cat.label}"`
-    ).join('\n');
-
-    // Formato mínimo: count + 1 evidence curta. Sem ticketIds.
-    const systemPrompt = `Avaliador de suporte técnico. Analise os chamados e para cada competência retorne: count (int, nº de chamados onde foi observada) e evidence (array com 1 string curta em português, máx 60 chars). Responda SOMENTE JSON sem markdown nem texto adicional: {"competencias":{"CHAVE":{"count":0,"evidence":["frase"]}}}`;
-
-    const userMsg = `Atendente: ${owner} | ${sampleRows.length} chamados\n\nCHAMADOS:\n${ticketsSummary}\n\nCOMPETÊNCIAS (avalie cada uma):\n${competenciasPrompt}`;
-
-    try {
+    // Helper: chama OpenAI e retorna o objeto parsed ou null em caso de falha
+    async function callGPT(sysPrompt, userPrompt, maxTok = 1000) {
         const resp = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
-            body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, max_tokens: 4096,
-                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMsg }] })
+            body: JSON.stringify({
+                model: 'gpt-4o-mini', temperature: 0, max_tokens: maxTok,
+                response_format: { type: 'json_object' },
+                messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: userPrompt }]
+            })
         });
         const data = await resp.json();
-        const raw = data.choices?.[0]?.message?.content?.trim() || '{}';
-        // Parser robusto: extrai bloco JSON mesmo se vier com texto extra ou markdown
-        let text = raw.replace(/```json|```/g, '').trim();
-        const jsonStart = text.indexOf('{');
-        const jsonEnd   = text.lastIndexOf('}');
-        if (jsonStart !== -1 && jsonEnd > jsonStart) text = text.substring(jsonStart, jsonEnd + 1);
-        const parsed = JSON.parse(text);
-        // Registrar usage de tokens no backend
+        const reason = data.choices?.[0]?.finish_reason;
+        const raw    = data.choices?.[0]?.message?.content?.trim() || '{}';
+        if (reason === 'length') console.warn('[AI] resposta truncada (finish_reason=length). Tokens usados:', data.usage);
+        // Registrar tokens
         try {
             const usage = data.usage || {};
-            const inputTok  = usage.prompt_tokens     || 0;
-            const outputTok = usage.completion_tokens || 0;
-            if (inputTok > 0 || outputTok > 0) {
-                const _dbgToken = getToken();
-                console.log('[AI-USAGE-DEBUG] token length:', _dbgToken.length, 'preview:', _dbgToken.slice(0,8)+'...');
+            if ((usage.prompt_tokens || 0) > 0) {
                 fetch(`${API_BASE}/config/ai-usage`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_dbgToken}` },
-                    body: JSON.stringify({
-                        source: 'competencias_curadoria',
-                        model: 'gpt-4o-mini',
-                        input_tokens: inputTok,
-                        output_tokens: outputTok,
-                        meta: { owner }
-                    })
-                }).then(r => { if (!r.ok) console.warn('Falha ao registrar AI usage:', r.status); })
-                  .catch(e => console.warn('Erro ao registrar AI usage:', e.message));
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                    body: JSON.stringify({ source: 'competencias_curadoria', model: 'gpt-4o-mini',
+                        input_tokens: usage.prompt_tokens || 0, output_tokens: usage.completion_tokens || 0,
+                        meta: { owner } })
+                }).catch(() => {});
             }
         } catch (_) {}
+        return JSON.parse(raw);
+    }
 
-        return parsed.competencias || null;
+    // Limita a 40 tickets para manter o input controlado
+    const sample = ownerRows.length > 40 ? ownerRows.slice(0, 40) : ownerRows;
+    const tickets = sample.map(r =>
+        `#${r.ticket_id}: ${String(r.analise_fato || r.fato || '').substring(0, 80)}`
+    ).filter(Boolean).join('\n');
+
+    if (!tickets) return null;
+
+    const keysLine = PERF_CATEGORIES.map(c => `${c.key}="${c.label}"`).join(' | ');
+
+    // ── FASE 1: só contagens ─────────────────────────────────────────────────
+    // Output esperado: {"counts":{"key":N,...}} — máx ~400 chars, sempre cabe em 600 tokens
+    const phase1sys  = `Avaliador de suporte. Retorne SOMENTE JSON: {"counts":{"CHAVE":N}} onde N é quantos chamados demonstram aquela competência. Sem texto adicional.`;
+    const phase1user = `Atendente: ${owner}\n\nCHAMADOS:\n${tickets}\n\nCOMPETÊNCIAS: ${keysLine}`;
+
+    let counts = {};
+    try {
+        const p1 = await callGPT(phase1sys, phase1user, 600);
+        counts = p1.counts || {};
     } catch(e) {
-        console.warn('analyseCompetenciasWithAI falhou:', e.message);
+        console.warn('analyseCompetenciasWithAI fase1 falhou:', e.message);
         return null;
     }
+
+    // Monta resultado base (sem evidence ainda)
+    const result = {};
+    PERF_CATEGORIES.forEach(c => {
+        result[c.key] = { count: Number(counts[c.key]) || 0, evidence: [] };
+    });
+
+    // ── FASE 2: evidence só para top 4 competências positivas ───────────────
+    // Output esperado: {"ev":{"key":"frase"}} — máx ~600 chars, sempre cabe em 800 tokens
+    const positiveKeys = PERF_CATEGORIES.filter(c => !c.isNegative)
+        .sort((a, b) => (counts[b.key] || 0) - (counts[a.key] || 0))
+        .slice(0, 4)
+        .filter(c => (counts[c.key] || 0) > 0);
+
+    if (positiveKeys.length > 0) {
+        const evKeys = positiveKeys.map(c => `${c.key}="${c.label}"`).join(' | ');
+        const phase2sys  = `Avaliador de suporte. Para cada competência abaixo gere 1 frase de exemplo curta (máx 10 palavras em português) baseada nos chamados. Retorne SOMENTE JSON: {"ev":{"CHAVE":"frase"}}`;
+        const phase2user = `Atendente: ${owner}\n\nCHAMADOS (amostra):\n${sample.slice(0,15).map(r=>`#${r.ticket_id}: ${String(r.analise_fato||r.fato||'').substring(0,60)}`).join('\n')}\n\nCOMPETÊNCIAS: ${evKeys}`;
+        try {
+            const p2 = await callGPT(phase2sys, phase2user, 800);
+            const ev = p2.ev || {};
+            positiveKeys.forEach(c => { if (ev[c.key]) result[c.key].evidence = [ev[c.key]]; });
+        } catch(e) {
+            console.warn('analyseCompetenciasWithAI fase2 falhou (não crítico):', e.message);
+            // fase2 é opcional — continua com result sem evidence
+        }
+    }
+
+    return Object.keys(result).length ? result : null;
 }
 
 /* ──────────────────────────────────────────────────────────────
