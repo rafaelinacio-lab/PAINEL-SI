@@ -630,23 +630,40 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
 
     // Limita a 40 tickets para manter o input controlado
     const sample = ownerRows.length > 40 ? ownerRows.slice(0, 40) : ownerRows;
-    const tickets = sample.map(r =>
-        `#${r.ticket_id}: ${String(r.analise_fato || r.fato || '').substring(0, 80)}`
-    ).filter(Boolean).join('\n');
-
-    if (!tickets) return null;
+    // Fallback de conteúdo: analise_fato → fato → resumo → conclusao → padrao_suporte
+    const rowText = r => String(r.analise_fato || r.fato || r.resumo || r.conclusao || r.padrao_suporte || '').trim();
+    const withContent = sample.filter(r => rowText(r).length > 0);
+    console.info(`[AI] competências ${owner}: ${withContent.length}/${sample.length} chamados com texto para análise`);
+    if (!withContent.length) {
+        console.warn('[AI] nenhum chamado deste colaborador tem analise_fato/fato/resumo/conclusao preenchido — análise impossível');
+        return { __noData: true };
+    }
+    const tickets = withContent.map(r =>
+        `#${r.ticket_id}: ${rowText(r).substring(0, 80)}`
+    ).join('\n');
 
     const keysLine = PERF_CATEGORIES.map(c => `${c.key}="${c.label}"`).join(' | ');
 
     // ── FASE 1: só contagens ─────────────────────────────────────────────────
     // Output esperado: {"counts":{"key":N,...}} — máx ~400 chars, sempre cabe em 600 tokens
-    const phase1sys  = `Avaliador de suporte. Retorne SOMENTE JSON: {"counts":{"CHAVE":N}} onde N é quantos chamados demonstram aquela competência. Sem texto adicional.`;
+    const phase1sys  = `Avaliador de suporte. Retorne SOMENTE JSON: {"counts":{"CHAVE":N}} onde N é quantos chamados demonstram aquela competência. Use EXATAMENTE as chaves fornecidas em COMPETÊNCIAS (antes do sinal =), sem alterar acentos, maiúsculas ou trocar por rótulos. Inclua todas as chaves. Sem texto adicional.`;
     const phase1user = `Atendente: ${owner}\n\nCHAMADOS:\n${tickets}\n\nCOMPETÊNCIAS: ${keysLine}`;
+
+    // Normaliza chaves (a IA pode remover acentos/mudar caixa em chaves customizadas)
+    const normKey = k => String(k||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+    const keyByNorm = {};
+    PERF_CATEGORIES.forEach(c => { keyByNorm[normKey(c.key)] = c.key; keyByNorm[normKey(c.label)] = c.key; });
+    const remap = obj => {
+        const out = {};
+        Object.entries(obj || {}).forEach(([k, v]) => { const real = keyByNorm[normKey(k)]; if (real) out[real] = v; });
+        return out;
+    };
 
     let counts = {};
     try {
         const p1 = await callGPT(phase1sys, phase1user, 600);
-        counts = p1.counts || {};
+        counts = remap(p1.counts);
+        console.info('[AI] counts fase1 (bruto):', p1.counts, '→ (mapeado):', counts);
     } catch(e) {
         console.warn('analyseCompetenciasWithAI fase1 falhou:', e.message);
         return null;
@@ -668,10 +685,10 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
     if (positiveKeys.length > 0) {
         const evKeys = positiveKeys.map(c => `${c.key}="${c.label}"`).join(' | ');
         const phase2sys  = `Avaliador de suporte. Para cada competência abaixo gere 1 frase de exemplo curta (máx 10 palavras em português) baseada nos chamados. Retorne SOMENTE JSON: {"ev":{"CHAVE":"frase"}}`;
-        const phase2user = `Atendente: ${owner}\n\nCHAMADOS (amostra):\n${sample.slice(0,15).map(r=>`#${r.ticket_id}: ${String(r.analise_fato||r.fato||'').substring(0,60)}`).join('\n')}\n\nCOMPETÊNCIAS: ${evKeys}`;
+        const phase2user = `Atendente: ${owner}\n\nCHAMADOS (amostra):\n${withContent.slice(0,15).map(r=>`#${r.ticket_id}: ${rowText(r).substring(0,60)}`).join('\n')}\n\nCOMPETÊNCIAS: ${evKeys}`;
         try {
             const p2 = await callGPT(phase2sys, phase2user, 800);
-            const ev = p2.ev || {};
+            const ev = remap(p2.ev);
             positiveKeys.forEach(c => { if (ev[c.key]) result[c.key].evidence = [ev[c.key]]; });
         } catch(e) {
             console.warn('analyseCompetenciasWithAI fase2 falhou (não crítico):', e.message);
@@ -940,7 +957,8 @@ function analysePerformance(rows, owner) {
         }
 
         totalTickets++;
-        const acoes = ownerItem ? (ownerItem.ids || []).length : 0;
+        let acoes = ownerItem ? (ownerItem.ids || []).length : 0;
+        if (!acoes) acoes = Number(row.total_agente) || 0; // fallback quando performance_suporte está vazio
         totalAcoes += acoes; if (acoes > maxAcoes) maxAcoes = acoes;
         const urg = String(row.urgencia || '').trim() || 'Sem urgência';
         urgenciaCount[urg] = (urgenciaCount[urg] || 0) + 1;
@@ -1042,6 +1060,13 @@ async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCou
 
     const aiResult = await analyseCompetenciasWithAI(ownerRows, owner);
 
+    if (aiResult && aiResult.__noData) {
+        barsEl.querySelectorAll('.comp-card-overlay').forEach(el => { el.style.opacity = '0'; setTimeout(() => el.remove(), 350); });
+        barsEl.querySelectorAll('.comp-card').forEach(c => c.classList.add('comp-card--done'));
+        if (sectionBadge) sectionBadge.textContent = 'Sem dados de análise nos chamados';
+        return;
+    }
+
     if (!aiResult) {
         // Sem chave GPT ou erro — remover overlays, manter cards como estão
         barsEl.querySelectorAll('.comp-card-overlay').forEach(el => {
@@ -1082,7 +1107,7 @@ async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCou
     }
 
     const total = PERF_CATEGORIES.reduce((s,c) => s + (catCount[c.key]||0), 0);
-    if (sectionBadge) sectionBadge.textContent = total > 0 ? total + ' chamados avaliados' : 'Análise concluída';
+    if (sectionBadge) sectionBadge.textContent = total > 0 ? total + ' chamados avaliados' : 'IA não identificou competências nos textos';
 
     // Atualizar score card com resultado da IA
     refreshScoreCard(owner, ownerRows, aiResult);
