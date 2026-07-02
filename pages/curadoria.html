@@ -630,23 +630,33 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
 
     // Limita a 40 tickets para manter o input controlado
     const sample = ownerRows.length > 40 ? ownerRows.slice(0, 40) : ownerRows;
-    // Fallback de conteúdo: analise_fato → fato → resumo → conclusao → padrao_suporte
-    const rowText = r => String(r.analise_fato || r.fato || r.resumo || r.conclusao || r.padrao_suporte || '').trim();
+    // Conteúdo COMPORTAMENTAL: as competências avaliam o atendente, não o problema técnico.
+    // Prioriza campos que descrevem como foi o atendimento; analise_fato entra só como contexto curto.
+    const behaviorText = r => [r.padrao_suporte, r.dinamica_conversa, r.recomendacao_atendente, r.pontos_criticos, r.conclusao]
+        .map(v => String(v || '').trim()).filter(Boolean).join(' | ');
+    const rowText = r => {
+        const beh  = behaviorText(r);
+        const fato = String(r.analise_fato || r.fato || r.resumo || '').trim();
+        if (beh)  return (fato ? `PROBLEMA: ${fato.substring(0, 50)} | ATENDIMENTO: ` : 'ATENDIMENTO: ') + beh;
+        return fato; // fallback quando não há campos comportamentais
+    };
     const withContent = sample.filter(r => rowText(r).length > 0);
+    const nBehavior = sample.filter(r => behaviorText(r).length > 0).length;
+    console.info(`[AI] competências: ${nBehavior}/${sample.length} chamados com dados comportamentais (padrao_suporte/dinamica_conversa/etc.)`);
     console.info(`[AI] competências ${owner}: ${withContent.length}/${sample.length} chamados com texto para análise`);
     if (!withContent.length) {
         console.warn('[AI] nenhum chamado deste colaborador tem analise_fato/fato/resumo/conclusao preenchido — análise impossível');
         return { __noData: true };
     }
     const tickets = withContent.map(r =>
-        `#${r.ticket_id}: ${rowText(r).substring(0, 80)}`
+        `#${r.ticket_id}: ${rowText(r).substring(0, 240)}`
     ).join('\n');
 
     const keysLine = PERF_CATEGORIES.map(c => `${c.key}="${c.label}"`).join(' | ');
 
     // ── FASE 1: só contagens ─────────────────────────────────────────────────
     // Output esperado: {"counts":{"key":N,...}} — máx ~400 chars, sempre cabe em 600 tokens
-    const phase1sys  = `Avaliador de suporte. Retorne SOMENTE JSON: {"counts":{"CHAVE":N}} onde N é quantos chamados demonstram aquela competência. Use EXATAMENTE as chaves fornecidas em COMPETÊNCIAS (antes do sinal =), sem alterar acentos, maiúsculas ou trocar por rótulos. Inclua todas as chaves. Sem texto adicional.`;
+    const phase1sys  = `Avaliador de suporte. Retorne SOMENTE JSON: {"counts":{"CHAVE":N}} onde N é quantos chamados demonstram aquela competência (conte evidências claras OU parciais descritas no trecho ATENDIMENTO; competências negativas só com evidência explícita). Use EXATAMENTE as chaves fornecidas em COMPETÊNCIAS (antes do sinal =), sem alterar acentos, maiúsculas ou trocar por rótulos. Inclua todas as chaves. Sem texto adicional.`;
     const phase1user = `Atendente: ${owner}\n\nCHAMADOS:\n${tickets}\n\nCOMPETÊNCIAS: ${keysLine}`;
 
     // Normaliza chaves (a IA pode remover acentos/mudar caixa em chaves customizadas)
@@ -685,7 +695,7 @@ async function analyseCompetenciasWithAI(ownerRows, owner) {
     if (positiveKeys.length > 0) {
         const evKeys = positiveKeys.map(c => `${c.key}="${c.label}"`).join(' | ');
         const phase2sys  = `Avaliador de suporte. Para cada competência abaixo gere 1 frase de exemplo curta (máx 10 palavras em português) baseada nos chamados. Retorne SOMENTE JSON: {"ev":{"CHAVE":"frase"}}`;
-        const phase2user = `Atendente: ${owner}\n\nCHAMADOS (amostra):\n${withContent.slice(0,15).map(r=>`#${r.ticket_id}: ${rowText(r).substring(0,60)}`).join('\n')}\n\nCOMPETÊNCIAS: ${evKeys}`;
+        const phase2user = `Atendente: ${owner}\n\nCHAMADOS (amostra):\n${withContent.slice(0,15).map(r=>`#${r.ticket_id}: ${rowText(r).substring(0,160)}`).join('\n')}\n\nCOMPETÊNCIAS: ${evKeys}`;
         try {
             const p2 = await callGPT(phase2sys, phase2user, 800);
             const ev = remap(p2.ev);
