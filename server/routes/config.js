@@ -459,6 +459,477 @@ router.post('/curadoria-categories', authMiddleware, requireRole('admin'), (req,
   });
 });
 
+// GET - pesos do score de performance da curadoria
+router.get('/score-weights', authMiddleware, (req, res) => {
+  getConfigValue('curadoria_score_weights', (err, row) => {
+    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
+    if (!row) return res.json({ weights: null });
+    try {
+      res.json({ weights: JSON.parse(row.value) });
+    } catch {
+      res.json({ weights: null });
+    }
+  });
+});
+
+// POST - salvar pesos do score de performance da curadoria (somente admin)
+router.post('/score-weights', authMiddleware, requireRole('admin'), (req, res) => {
+  const { weights } = req.body;
+  const keys = ['satisfacao', 'eficiencia', 'pontos', 'competencias'];
+  if (!weights || typeof weights !== 'object') {
+    return res.status(400).json({ error: 'Pesos inválidos' });
+  }
+  for (const k of keys) {
+    const v = Number(weights[k]);
+    if (!Number.isFinite(v) || v < 0 || v > 1) {
+      return res.status(400).json({ error: `Peso inválido para "${k}": deve ser um número entre 0 e 1` });
+    }
+  }
+  const sum = keys.reduce((s, k) => s + Number(weights[k]), 0);
+  if (Math.abs(sum - 1) > 0.01) {
+    return res.status(400).json({ error: `A soma dos pesos deve ser 100% (atual: ${Math.round(sum * 100)}%)` });
+  }
+  const cleanWeights = {};
+  keys.forEach(k => { cleanWeights[k] = Number(weights[k]); });
+  saveConfigValue('curadoria_score_weights', JSON.stringify(cleanWeights), (err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao salvar pesos do score' });
+    res.json({ success: true, weights: cleanWeights });
+  });
+});
+
+// ============================================================
+// CURADORIA AVANÇADO — prompt de análise, prompts client-side,
+// queries SQL e parâmetros das requisições Movidesk, tudo configurável
+// pela aba "Curadoria Avançado" de Configurações, sem editar código.
+// ============================================================
+
+const DEFAULT_CURADORIA_PROMPT_ANALISE = {
+  template: `Voce e um analista senior de suporte critico que analisa tickets de suporte em JSON.
+
+REGRAS ABSOLUTAS:
+- Ignore acoes com type = 1 (acoes internas de escalonamento/atribuicao)
+- Ignore acoes onde createdBy.id = "007" (acoes de sistema)
+- Suporte = createdBy com email contendo @viasoft.com.br OU createdBy.businessName === owner.businessName (quando businessName nao for vazio)
+- Cliente = usuario solicitante do chamado {{solicitante}}
+- Fato relatado = {{fato}}
+- Causa identificada = {{causa}}
+- Modulo X Rotina = {{moduloXRotina}}
+- Owner do ticket = {{owner}}
+- Aberto em = {{abertoEm}}
+- Resolvido em = {{resolvidoEm}}
+- Responda APENAS com um JSON valido, sem markdown, sem texto adicional, sem crases, sem \`\`\`json
+- Preencha TODOS os campos com dados reais do JSON do ticket
+- Nunca use dados ficticios
+- Use SEMPRE os nomes e e-mails reais presentes no JSON fornecido
+
+CAMPOS PRE-CALCULADOS:
+  - aberto_em = {{abertoEm}}
+  - sla_inicio_em = {{slaInicioEm}}
+  - resolvido_em = {{resolvidoEm}}
+  - tempo_resolucao_min_uteis = {{tempoResolucaoMinUteis}}
+  - tempo_resolucao_horas_uteis = {{tempoResolucaoHorasUteis}}
+  - tempo_resolucao_dias_uteis = {{tempoResolucaoDiasUteis}}
+  - tempo_resolucao_legivel = {{tempoResolucaoLegivel}}
+  - abertura_fora_expediente = {{aberturaForaExpediente}}`,
+  model: 'gpt-4.1-mini',
+  temperature: 0
+};
+
+const DEFAULT_CURADORIA_PROMPT_COMPETENCIAS = 'Avaliador de suporte. Para cada chamado listado, identifique quais das competências fornecidas realmente se manifestam no atendimento e atribua um percentual de 0 a 100 indicando a intensidade da evidência. Inclua no JSON apenas as competências que efetivamente se aplicam a cada chamado (omita as que não se aplicam ou têm percentual 0). Use EXATAMENTE as chaves fornecidas em COMPETÊNCIAS, sem alterar acentos ou maiúsculas. Retorne SOMENTE JSON: {"results":{"TICKET_ID":{"CHAVE":percentual}}}. Sem texto adicional.';
+
+const DEFAULT_CURADORIA_PROMPT_NARRATIVA = {
+  system: `Você é um analista de operações de suporte. Escreva uma análise curta e objetiva da equipe, em português, EXATAMENTE nesta estrutura (um parágrafo curto por tópico, sem markdown, sem listas, sem títulos extras):
+
+Produtividade: (texto)
+Eficiência: (texto)
+Feedback: (texto)
+Área de melhoria: (texto)
+
+REGRAS:
+- Use APENAS os números e nomes fornecidos pelo usuário. Não invente, não estime, não arredonde diferente do fornecido.
+- Cite pessoas pelo primeiro nome.
+- Seja direto, sem introduções ou conclusões genéricas.`,
+  userTemplate: `DADOS DA EQUIPE:
+- Total de atendentes: {{totalAtendentes}}
+- Total de chamados no período: {{totalChamados}}
+- % de chamados avaliados pelo cliente (feedback): {{feedbackRateEquipe}}%
+- Cumprimento de SLA da equipe (SLA SUPORTE MOVIDESK.pdf): {{slaEquipe}}%
+
+TOP EM VOLUME DE CHAMADOS: {{topProdutividade}}
+
+TOP EM CUMPRIMENTO DE SLA: {{topSla}}
+
+MENOR TAXA DE FEEDBACK: {{menosFeedback}}
+
+MENOR SCORE (podem precisar de apoio): {{precisamApoio}}`
+};
+
+const DEFAULT_CURADORIA_QUERY_CONFIG = {
+  listagem: {
+    mode: 'guided',
+    guided: { limit: 2000, orderDir: 'DESC', includeSatisfacaoSemProcessar: true },
+    rawWhere: ''
+  },
+  pendentes: {
+    mode: 'guided',
+    guided: { processadoValue: 0, orderDir: 'ASC' },
+    rawWhere: ''
+  }
+};
+
+const DEFAULT_CURADORIA_MOVIDESK_CONFIG = {
+  satisfacao: { selectFields: 'id,satisfactionSurveyResponses' },
+  moduloRotina: { customFieldId: 59786, selectFields: 'id,customFieldValues' },
+  rateLimitMs: 6500,
+  fullLoadTimes: ['08:00', '12:00', '19:00']
+};
+
+// Sanitiza a condição WHERE avançada opcional: aceita só um FRAGMENTO booleano
+// (nunca uma query completa), bloqueando ; comentários e palavras-chave de DDL/DML.
+const RAW_WHERE_FORBIDDEN = /(;|--|\/\*|\b(insert|update|delete|drop|alter|create|truncate|grant|revoke|exec|execute|copy|merge|call)\b)/i;
+function sanitizeRawWhere(fragment) {
+  const trimmed = String(fragment || '').trim();
+  if (!trimmed) throw new Error('Condição SQL avançada não pode estar vazia');
+  if (RAW_WHERE_FORBIDDEN.test(trimmed)) {
+    throw new Error('Condição SQL avançada contém termos não permitidos (apenas uma condição WHERE simples, sem ; -- /* ou comandos DDL/DML)');
+  }
+  return trimmed;
+}
+
+// GET/POST - prompt principal de análise comportamental por IA (backend, chamado por chamado)
+router.get('/curadoria-prompt-analise', authMiddleware, requireRole('admin'), (req, res) => {
+  getConfigValue('curadoria_prompt_analise', (err, row) => {
+    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
+    let config = DEFAULT_CURADORIA_PROMPT_ANALISE;
+    if (row && row.value) {
+      try { config = { ...DEFAULT_CURADORIA_PROMPT_ANALISE, ...JSON.parse(row.value) }; } catch (e) { console.warn('Erro ao parsear curadoria_prompt_analise:', e); }
+    }
+    res.json(config);
+  });
+});
+
+router.post('/curadoria-prompt-analise', authMiddleware, requireRole('admin'), (req, res) => {
+  const { template, model, temperature } = req.body;
+  if (!template || typeof template !== 'string' || !template.trim()) {
+    return res.status(400).json({ error: 'Template do prompt não pode estar vazio' });
+  }
+  const temp = temperature === undefined || temperature === null || temperature === '' ? 0 : Number(temperature);
+  if (!Number.isFinite(temp) || temp < 0 || temp > 2) {
+    return res.status(400).json({ error: 'Temperatura deve ser um número entre 0 e 2' });
+  }
+  const config = { template: template.trim(), model: (model || DEFAULT_CURADORIA_PROMPT_ANALISE.model).trim(), temperature: temp };
+  saveConfigValue('curadoria_prompt_analise', JSON.stringify(config), (err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao salvar prompt de análise' });
+    res.json({ success: true, ...config });
+  });
+});
+
+// GET/POST - prompt de classificação de competências (usado no browser, qualquer usuário autenticado pode ler)
+router.get('/curadoria-prompt-competencias', authMiddleware, (req, res) => {
+  getConfigValue('curadoria_prompt_competencias', (err, row) => {
+    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
+    res.json({ prompt: (row && row.value) || DEFAULT_CURADORIA_PROMPT_COMPETENCIAS });
+  });
+});
+
+router.post('/curadoria-prompt-competencias', authMiddleware, requireRole('admin'), (req, res) => {
+  const { prompt } = req.body;
+  if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 10) {
+    return res.status(400).json({ error: 'Prompt muito curto: descreva melhor o critério de classificação' });
+  }
+  saveConfigValue('curadoria_prompt_competencias', prompt.trim(), (err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao salvar prompt de competências' });
+    res.json({ success: true, prompt: prompt.trim() });
+  });
+});
+
+// GET/POST - prompt da narrativa da equipe (usado no browser, qualquer usuário autenticado pode ler)
+router.get('/curadoria-prompt-narrativa', authMiddleware, (req, res) => {
+  getConfigValue('curadoria_prompt_narrativa', (err, row) => {
+    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
+    let config = DEFAULT_CURADORIA_PROMPT_NARRATIVA;
+    if (row && row.value) {
+      try { config = { ...DEFAULT_CURADORIA_PROMPT_NARRATIVA, ...JSON.parse(row.value) }; } catch (e) { console.warn('Erro ao parsear curadoria_prompt_narrativa:', e); }
+    }
+    res.json(config);
+  });
+});
+
+router.post('/curadoria-prompt-narrativa', authMiddleware, requireRole('admin'), (req, res) => {
+  const { system, userTemplate } = req.body;
+  if (!system || typeof system !== 'string' || !system.trim()) {
+    return res.status(400).json({ error: 'Prompt system não pode estar vazio' });
+  }
+  if (!userTemplate || typeof userTemplate !== 'string' || !userTemplate.trim()) {
+    return res.status(400).json({ error: 'Template do prompt de usuário não pode estar vazio' });
+  }
+  const config = { system: system.trim(), userTemplate: userTemplate.trim() };
+  saveConfigValue('curadoria_prompt_narrativa', JSON.stringify(config), (err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao salvar prompt de narrativa' });
+    res.json({ success: true, ...config });
+  });
+});
+
+// GET/POST - configuração das queries SQL de curadoria (listagem e fila de pendentes)
+router.get('/curadoria-query-config', authMiddleware, requireRole('admin'), (req, res) => {
+  getConfigValue('curadoria_query_config', (err, row) => {
+    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
+    let config = DEFAULT_CURADORIA_QUERY_CONFIG;
+    if (row && row.value) {
+      try {
+        const parsed = JSON.parse(row.value);
+        config = {
+          listagem: { ...DEFAULT_CURADORIA_QUERY_CONFIG.listagem, ...parsed.listagem, guided: { ...DEFAULT_CURADORIA_QUERY_CONFIG.listagem.guided, ...parsed.listagem?.guided } },
+          pendentes: { ...DEFAULT_CURADORIA_QUERY_CONFIG.pendentes, ...parsed.pendentes, guided: { ...DEFAULT_CURADORIA_QUERY_CONFIG.pendentes.guided, ...parsed.pendentes?.guided } }
+        };
+      } catch (e) { console.warn('Erro ao parsear curadoria_query_config:', e); }
+    }
+    res.json(config);
+  });
+});
+
+router.post('/curadoria-query-config', authMiddleware, requireRole('admin'), (req, res) => {
+  const { listagem, pendentes } = req.body;
+  const orderDirs = ['ASC', 'DESC'];
+
+  try {
+    if (!listagem || !pendentes) throw new Error('listagem e pendentes são obrigatórios');
+
+    const listagemMode = listagem.mode === 'raw' ? 'raw' : 'guided';
+    const listagemLimit = parseInt(listagem.guided?.limit, 10) || DEFAULT_CURADORIA_QUERY_CONFIG.listagem.guided.limit;
+    if (listagemLimit < 1 || listagemLimit > 20000) throw new Error('Limite da listagem deve estar entre 1 e 20000');
+    const listagemOrderDir = orderDirs.includes(listagem.guided?.orderDir) ? listagem.guided.orderDir : 'DESC';
+    let listagemRawWhere = '';
+    if (listagemMode === 'raw') listagemRawWhere = sanitizeRawWhere(listagem.rawWhere);
+
+    const pendentesMode = pendentes.mode === 'raw' ? 'raw' : 'guided';
+    const pendentesProcessadoValue = Number.isFinite(Number(pendentes.guided?.processadoValue)) ? Number(pendentes.guided.processadoValue) : 0;
+    const pendentesOrderDir = orderDirs.includes(pendentes.guided?.orderDir) ? pendentes.guided.orderDir : 'ASC';
+    let pendentesRawWhere = '';
+    if (pendentesMode === 'raw') pendentesRawWhere = sanitizeRawWhere(pendentes.rawWhere);
+
+    const config = {
+      listagem: {
+        mode: listagemMode,
+        guided: { limit: listagemLimit, orderDir: listagemOrderDir, includeSatisfacaoSemProcessar: !!listagem.guided?.includeSatisfacaoSemProcessar },
+        rawWhere: listagemRawWhere
+      },
+      pendentes: {
+        mode: pendentesMode,
+        guided: { processadoValue: pendentesProcessadoValue, orderDir: pendentesOrderDir },
+        rawWhere: pendentesRawWhere
+      }
+    };
+
+    saveConfigValue('curadoria_query_config', JSON.stringify(config), (err) => {
+      if (err) return res.status(500).json({ error: 'Erro ao salvar configuração de queries' });
+      res.json({ success: true, ...config });
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// GET/POST - parâmetros das requisições Movidesk específicas da curadoria (satisfação, módulo x rotina, carga agendada)
+router.get('/curadoria-movidesk-config', authMiddleware, requireRole('admin'), (req, res) => {
+  getConfigValue('curadoria_movidesk_config', (err, row) => {
+    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
+    let config = DEFAULT_CURADORIA_MOVIDESK_CONFIG;
+    if (row && row.value) {
+      try {
+        const parsed = JSON.parse(row.value);
+        config = {
+          satisfacao: { ...DEFAULT_CURADORIA_MOVIDESK_CONFIG.satisfacao, ...parsed.satisfacao },
+          moduloRotina: { ...DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina, ...parsed.moduloRotina },
+          rateLimitMs: parsed.rateLimitMs || DEFAULT_CURADORIA_MOVIDESK_CONFIG.rateLimitMs,
+          fullLoadTimes: Array.isArray(parsed.fullLoadTimes) && parsed.fullLoadTimes.length ? parsed.fullLoadTimes : DEFAULT_CURADORIA_MOVIDESK_CONFIG.fullLoadTimes
+        };
+      } catch (e) { console.warn('Erro ao parsear curadoria_movidesk_config:', e); }
+    }
+    res.json(config);
+  });
+});
+
+router.post('/curadoria-movidesk-config', authMiddleware, requireRole('admin'), (req, res) => {
+  const { satisfacao, moduloRotina, rateLimitMs, fullLoadTimes } = req.body;
+
+  const rate = parseInt(rateLimitMs, 10) || DEFAULT_CURADORIA_MOVIDESK_CONFIG.rateLimitMs;
+  if (rate < 1000 || rate > 60000) {
+    return res.status(400).json({ error: 'Intervalo de rate-limit deve estar entre 1000 e 60000 ms' });
+  }
+
+  const customFieldId = parseInt(moduloRotina?.customFieldId, 10);
+  if (!Number.isFinite(customFieldId)) {
+    return res.status(400).json({ error: 'ID do campo customizado (Módulo x Rotina) inválido' });
+  }
+
+  const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  const times = Array.isArray(fullLoadTimes) ? fullLoadTimes.filter(t => timePattern.test(String(t).trim())) : [];
+  if (!times.length) {
+    return res.status(400).json({ error: 'Informe ao menos um horário válido (HH:MM) para a carga agendada' });
+  }
+
+  const config = {
+    satisfacao: { selectFields: (satisfacao?.selectFields || DEFAULT_CURADORIA_MOVIDESK_CONFIG.satisfacao.selectFields).trim() },
+    moduloRotina: { customFieldId, selectFields: (moduloRotina?.selectFields || DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina.selectFields).trim() },
+    rateLimitMs: rate,
+    fullLoadTimes: times
+  };
+
+  saveConfigValue('curadoria_movidesk_config', JSON.stringify(config), (err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao salvar configuração Movidesk da curadoria' });
+    res.json({ success: true, ...config });
+  });
+});
+
+// GET/POST - prazos de SLA de resolução (em horas úteis) por urgência, usados na análise de
+// "Cumprimento de SLA" da tela de Curadoria (KPI da equipe, comparativo, e o detalhe por
+// atendente) — hoje "SLA SUPORTE MOVIDESK.pdf" v2.0: crítica 4h, alta 8h, média 16h, baixa 24h.
+const DEFAULT_CURADORIA_SLA_THRESHOLDS = { critica: 4, alta: 8, media: 16, baixa: 24 };
+
+router.get('/curadoria-sla-thresholds', authMiddleware, (req, res) => {
+  getConfigValue('curadoria_sla_thresholds', (err, row) => {
+    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
+    let config = DEFAULT_CURADORIA_SLA_THRESHOLDS;
+    if (row && row.value) {
+      try { config = { ...DEFAULT_CURADORIA_SLA_THRESHOLDS, ...JSON.parse(row.value) }; } catch (e) { console.warn('Erro ao parsear curadoria_sla_thresholds:', e); }
+    }
+    res.json(config);
+  });
+});
+
+router.post('/curadoria-sla-thresholds', authMiddleware, requireRole('admin'), (req, res) => {
+  const { critica, alta, media, baixa } = req.body;
+  const keys = { critica, alta, media, baixa };
+  const config = {};
+  for (const [key, value] of Object.entries(keys)) {
+    const hours = Number(value);
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 1000) {
+      return res.status(400).json({ error: `Prazo de SLA inválido para "${key}": informe um número de horas maior que 0` });
+    }
+    config[key] = hours;
+  }
+
+  saveConfigValue('curadoria_sla_thresholds', JSON.stringify(config), (err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao salvar prazos de SLA' });
+    res.json({ success: true, ...config });
+  });
+});
+
+function getCuradoriaSlaThresholds(callback) {
+  getConfigValue('curadoria_sla_thresholds', (err, row) => {
+    if (err) return callback(err, null);
+    let config = DEFAULT_CURADORIA_SLA_THRESHOLDS;
+    if (row && row.value) {
+      try { config = { ...DEFAULT_CURADORIA_SLA_THRESHOLDS, ...JSON.parse(row.value) }; } catch (_) {}
+    }
+    callback(null, config);
+  });
+}
+
+// Critério (editável) usado pela IA para decidir, quando um chamado estoura o SLA de
+// resolução, se o atraso foi causado pelo cliente (demorou a responder/confirmar algo que
+// dependia dele) ou pelo próprio suporte. Esse texto é concatenado ao prompt principal de
+// análise (curadoria_prompt_analise) — não dispara uma chamada de IA extra.
+const DEFAULT_CURADORIA_PROMPT_SLA_ESTOURO = `CRITERIO DE ATRIBUICAO DE ESTOURO DE SLA:
+- Prazo de resolucao esperado para a urgencia deste chamado = {{slaResolucaoHoras}} horas uteis
+- Tempo real de resolucao (ja calculado) = {{tempoResolucaoHorasUteis}} horas uteis
+- Se o tempo real for menor ou igual ao prazo esperado, responsavel = "nao_estourou"
+- Se o tempo real for maior que o prazo esperado, analise a tabela de acoes em ordem cronologica (autor, tipo e data) para decidir quem causou o atraso:
+  - "cliente": o suporte respondeu, sinalizou solucao ou pediu uma confirmacao/informacao, e o cliente demorou a responder ou confirmar, sendo essa demora do cliente o principal motivo do estouro
+  - "suporte": o atraso decorreu de demora do proprio suporte em responder, investigar, agir ou dar sequencia
+  - "indisponivel": nao ha acoes ou dados suficientes para decidir com confianca
+- Preencha justificativa em ate 2 frases e liste de 1 a 3 evidencias reais (id da acao, autor e data) que sustentam a decisao`;
+
+router.get('/curadoria-prompt-sla-estouro', authMiddleware, requireRole('admin'), (req, res) => {
+  getConfigValue('curadoria_prompt_sla_estouro', (err, row) => {
+    if (err) return res.status(500).json({ error: 'Erro ao consultar banco de dados' });
+    res.json({ prompt: row?.value || DEFAULT_CURADORIA_PROMPT_SLA_ESTOURO });
+  });
+});
+
+router.post('/curadoria-prompt-sla-estouro', authMiddleware, requireRole('admin'), (req, res) => {
+  const { prompt } = req.body;
+  if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 10) {
+    return res.status(400).json({ error: 'Prompt muito curto: descreva melhor o critério de atribuição' });
+  }
+  saveConfigValue('curadoria_prompt_sla_estouro', prompt.trim(), (err) => {
+    if (err) return res.status(500).json({ error: 'Erro ao salvar prompt de estouro de SLA' });
+    res.json({ success: true, prompt: prompt.trim() });
+  });
+});
+
+function getCuradoriaPromptSlaEstouro(callback) {
+  getConfigValue('curadoria_prompt_sla_estouro', (err, row) => {
+    if (err) return callback(err, null);
+    callback(null, (row && row.value) || DEFAULT_CURADORIA_PROMPT_SLA_ESTOURO);
+  });
+}
+
+function getCuradoriaPromptAnalise(callback) {
+  getConfigValue('curadoria_prompt_analise', (err, row) => {
+    if (err) return callback(err, null);
+    let config = DEFAULT_CURADORIA_PROMPT_ANALISE;
+    if (row && row.value) {
+      try { config = { ...DEFAULT_CURADORIA_PROMPT_ANALISE, ...JSON.parse(row.value) }; } catch (_) {}
+    }
+    callback(null, config);
+  });
+}
+
+function getCuradoriaPromptCompetencias(callback) {
+  getConfigValue('curadoria_prompt_competencias', (err, row) => {
+    if (err) return callback(err, null);
+    callback(null, (row && row.value) || DEFAULT_CURADORIA_PROMPT_COMPETENCIAS);
+  });
+}
+
+function getCuradoriaPromptNarrativa(callback) {
+  getConfigValue('curadoria_prompt_narrativa', (err, row) => {
+    if (err) return callback(err, null);
+    let config = DEFAULT_CURADORIA_PROMPT_NARRATIVA;
+    if (row && row.value) {
+      try { config = { ...DEFAULT_CURADORIA_PROMPT_NARRATIVA, ...JSON.parse(row.value) }; } catch (_) {}
+    }
+    callback(null, config);
+  });
+}
+
+function getCuradoriaQueryConfig(callback) {
+  getConfigValue('curadoria_query_config', (err, row) => {
+    if (err) return callback(err, null);
+    let config = DEFAULT_CURADORIA_QUERY_CONFIG;
+    if (row && row.value) {
+      try {
+        const parsed = JSON.parse(row.value);
+        config = {
+          listagem: { ...DEFAULT_CURADORIA_QUERY_CONFIG.listagem, ...parsed.listagem, guided: { ...DEFAULT_CURADORIA_QUERY_CONFIG.listagem.guided, ...parsed.listagem?.guided } },
+          pendentes: { ...DEFAULT_CURADORIA_QUERY_CONFIG.pendentes, ...parsed.pendentes, guided: { ...DEFAULT_CURADORIA_QUERY_CONFIG.pendentes.guided, ...parsed.pendentes?.guided } }
+        };
+      } catch (_) {}
+    }
+    callback(null, config);
+  });
+}
+
+function getCuradoriaMovideskConfig(callback) {
+  getConfigValue('curadoria_movidesk_config', (err, row) => {
+    if (err) return callback(err, null);
+    let config = DEFAULT_CURADORIA_MOVIDESK_CONFIG;
+    if (row && row.value) {
+      try {
+        const parsed = JSON.parse(row.value);
+        config = {
+          satisfacao: { ...DEFAULT_CURADORIA_MOVIDESK_CONFIG.satisfacao, ...parsed.satisfacao },
+          moduloRotina: { ...DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina, ...parsed.moduloRotina },
+          rateLimitMs: parsed.rateLimitMs || DEFAULT_CURADORIA_MOVIDESK_CONFIG.rateLimitMs,
+          fullLoadTimes: Array.isArray(parsed.fullLoadTimes) && parsed.fullLoadTimes.length ? parsed.fullLoadTimes : DEFAULT_CURADORIA_MOVIDESK_CONFIG.fullLoadTimes
+        };
+      } catch (_) {}
+    }
+    callback(null, config);
+  });
+}
 
 // ============================================================
 // AI USAGE LOG
@@ -625,4 +1096,9 @@ router.get('/performance-history-latest', authMiddleware, (req, res) => {
   );
 });
 
-module.exports = { router, getToken, getPrompt, getDatabaseConfig, getMovideskConditions, getAutoSyncConfig };
+module.exports = {
+  router, getToken, getPrompt, getDatabaseConfig, getMovideskConditions, getAutoSyncConfig,
+  getCuradoriaPromptAnalise, getCuradoriaPromptCompetencias, getCuradoriaPromptNarrativa,
+  getCuradoriaQueryConfig, getCuradoriaMovideskConfig, sanitizeRawWhere,
+  getCuradoriaSlaThresholds, getCuradoriaPromptSlaEstouro
+};

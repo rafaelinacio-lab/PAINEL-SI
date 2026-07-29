@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GCC</title>
+    <script>
+        (function() {
+            const t = localStorage.getItem('theme') || 'light';
+            document.documentElement.className = t;
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'theme') document.documentElement.className = e.newValue || 'light';
+            });
+        })();
+    </script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface":"#191c1e","tertiary":"#000000","secondary-fixed":"#ffddb8","on-primary-fixed-variant":"#3f465c",
+                        "on-primary":"#ffffff","on-secondary":"#ffffff","on-secondary-container":"#684000","tertiary-fixed-dim":"#dec29a",
+                        "surface-bright":"#f7f9fb","primary-fixed":"#dae2fd","error-container":"#ffdad6","surface-container-lowest":"#ffffff",
+                        "surface-variant":"#e0e3e5","on-error-container":"#93000a","background":"#f7f9fb","surface-container-high":"#e6e8ea",
+                        "on-secondary-fixed":"#2a1700","on-tertiary-fixed":"#271901","surface-dim":"#d8dadc","surface-container-highest":"#e0e3e5",
+                        "outline-variant":"#c6c6cd","primary-container":"#131b2e","inverse-primary":"#bec6e0","surface-container":"#eceef0",
+                        "secondary-container":"#fea619","secondary":"#855300","on-error":"#ffffff","on-surface-variant":"#45464d",
+                        "secondary-fixed-dim":"#ffb95f","tertiary-fixed":"#fcdeb5","inverse-on-surface":"#eff1f3","inverse-surface":"#2d3133",
+                        "primary":"#000000","surface-container-low":"#f2f4f6","surface":"#f7f9fb","on-tertiary":"#ffffff",
+                        "primary-fixed-dim":"#bec6e0","on-secondary-fixed-variant":"#653e00","on-tertiary-fixed-variant":"#574425",
+                        "surface-tint":"#565e74","error":"#ba1a1a","tertiary-container":"#271901","on-primary-fixed":"#131b2e",
+                        "outline":"#76777d","on-background":"#191c1e","on-primary-container":"#7c839b","on-tertiary-container":"#98805d"
+                    },
+                    spacing: { "gutter":"24px","widget-gap":"24px","base":"8px","card-padding":"24px","container-padding":"32px" },
+                    fontSize: {
+                        "headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],
+                        "body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],
+                        "display-lg":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}],
+                        "label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"600"}],
+                        "body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html,body{scrollbar-width:none;-ms-overflow-style:none}
+        html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
+        *{scrollbar-width:none;-ms-overflow-style:none}
+        *::-webkit-scrollbar{display:none}
+        body{font-family:'Inter',sans-serif}
+        .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+        .soft-shadow{box-shadow:0px 4px 20px rgba(15,23,42,0.05)}
+        .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+        .no-scrollbar::-webkit-scrollbar{display:none}
+
+        /* ── Dark Mode ───────────────────────────────────────────── */
+        html.dark body{background-color:#0f1117;color:#e8e8e2}
+        html.dark .bg-background{background-color:#0f1117}
+        html.dark .bg-surface{background-color:#1a1d27}
+        html.dark .bg-surface-container-lowest{background-color:#16181f}
+        html.dark .bg-surface-container-low{background-color:#1a1d27}
+        html.dark .bg-surface-container{background-color:#1e2232}
+        html.dark .bg-surface-container-high{background-color:#242840}
+        html.dark .bg-surface-variant{background-color:#2a2d3a}
+        html.dark .text-primary{color:#e2e8f0}
+        html.dark .text-on-surface{color:#e8e8e2}
+        html.dark .text-on-surface-variant{color:#9b9b92}
+        html.dark .text-secondary{color:#ffb95f}
+        html.dark .text-on-secondary-container{color:#ffe0b2}
+        html.dark .bg-secondary-container{background-color:#4a2e00}
+        html.dark .bg-secondary{background-color:#c68a1a}
+        html.dark .border-outline{border-color:#3a3d4a}
+        html.dark .border-outline-variant{border-color:#2a2d3a}
+        html.dark .bg-outline-variant{background-color:#2a2d3a}
+        html.dark .text-outline{color:#6b7280}
+        html.dark .soft-shadow{box-shadow:0px 4px 20px rgba(0,0,0,0.4)}
+        html.dark .hover\:bg-surface-container:hover{background-color:#1e2232}
+        html.dark #gccLoadingOverlay{background-color:#0f1117}
+        html.dark .bg-error-container{background-color:#410002}
+        html.dark .text-error{color:#ffb4ab}
+        html.dark .bg-secondary-container\/15{background-color:rgba(74,46,0,0.35)}
+        html.dark .bg-secondary-container\/40{background-color:rgba(74,46,0,0.4)}
+        html.dark .bg-error-container\/25{background-color:rgba(65,0,2,0.35)}
+        html.dark .bg-error-container\/60{background-color:rgba(65,0,2,0.6)}
+        html.dark .bg-green-100{background-color:rgba(21,128,61,0.25)}
+        html.dark .text-green-700{color:#4ade80}
+        html.dark .bg-orange-100{background-color:rgba(194,65,12,0.25)}
+        html.dark .text-orange-700{color:#fb923c}
+
+        #gccModalBackdrop{position:fixed;inset:0;background:rgba(15,23,42,0.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:9999;opacity:0;pointer-events:none;transition:opacity 0.2s ease}
+        #gccModalBackdrop.open{opacity:1;pointer-events:auto}
+        #gccModalCard{transform:translateY(12px) scale(0.98);transition:transform 0.2s ease}
+        #gccModalBackdrop.open #gccModalCard{transform:translateY(0) scale(1)}
+        #gccDescricaoWrap{transition:max-height 0.25s ease}
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+
+<!-- Loading Overlay -->
+<div id="gccLoadingOverlay" class="fixed inset-0 z-[9998] bg-background flex flex-col items-center justify-center gap-6">
+    <div class="relative w-20 h-20">
+        <svg class="animate-spin w-20 h-20" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="40" r="34" stroke="currentColor" stroke-width="6" class="text-surface-container-high opacity-30"/>
+            <path d="M40 6 A34 34 0 0 1 74 40" stroke="#855300" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+        <span class="material-symbols-outlined absolute inset-0 m-auto w-8 h-8 flex items-center justify-center text-secondary" style="font-size:32px">shield</span>
+    </div>
+    <div class="text-center">
+        <p class="font-headline-lg text-headline-lg text-primary mb-1">Carregando GCC</p>
+        <p class="font-body-md text-body-md text-on-surface-variant">Buscando casos registrados...</p>
+    </div>
+</div>
+
+<main id="gccMain" class="pt-6 pb-12 px-container-padding max-w-[1440px] mx-auto" style="visibility:hidden">
+
+    <section class="mb-6 flex flex-wrap items-center gap-3">
+        <div class="mr-auto">
+            <h2 class="font-headline-lg text-headline-lg text-primary">GCC</h2>
+            <p class="text-body-md text-on-surface-variant">Casos de contas críticas e a análise do que motivou o acompanhamento.</p>
+        </div>
+        <button type="button" class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container" onclick="loadGcc()">
+            <span class="material-symbols-outlined" style="font-size:18px">refresh</span><span>Atualizar dados</span>
+        </button>
+    </section>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-12 gap-widget-gap mb-6" id="gccKpis">
+        <div class="col-span-12 text-center py-8 text-on-surface-variant">Carregando indicadores...</div>
+    </div>
+
+    <!-- Busca / filtro -->
+    <section class="mb-4 flex flex-wrap items-center gap-3">
+        <div class="flex-1 min-w-[240px]">
+            <input id="gccSearchInput" type="text" placeholder="Buscar por organização, assunto ou ticket..."
+                oninput="renderGccTable()"
+                class="w-full rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm text-on-surface outline-none focus:border-secondary">
+        </div>
+        <select id="gccOrderSelect" onchange="renderGccTable()" class="rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface">
+            <option value="recentes" selected>Mais recentes</option>
+            <option value="antigas">Mais antigas</option>
+            <option value="reincidencia">Maior reincidência</option>
+        </select>
+        <div id="gccResultCount" class="text-xs text-on-surface-variant"></div>
+    </section>
+
+    <!-- Tabela -->
+    <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant soft-shadow overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1320px] text-left border-collapse">
+                <thead>
+                    <tr class="bg-surface-container-low text-label-md font-label-md text-on-surface-variant uppercase tracking-wide">
+                        <th class="px-4 py-3">Ticket</th>
+                        <th class="px-4 py-3">Organização</th>
+                        <th class="px-4 py-3">Serviço</th>
+                        <th class="px-4 py-3">Tipo</th>
+                        <th class="px-4 py-3">Locus</th>
+                        <th class="px-4 py-3">Assunto</th>
+                        <th class="px-4 py-3">Problemas do cliente</th>
+                        <th class="px-4 py-3 text-center">Chamados anteriores</th>
+                        <th class="px-4 py-3">Registrado em</th>
+                        <th class="sticky right-0 z-10 min-w-[132px] bg-surface-container-low px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody id="gccTableBody">
+                    <tr><td colspan="10" class="px-4 py-10 text-center text-on-surface-variant">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<!-- Modal de detalhe -->
+<div id="gccModalBackdrop" onclick="if(event.target===this) closeGccModal()">
+    <div id="gccModalCard" class="bg-surface-container-lowest rounded-2xl border border-outline-variant soft-shadow w-[92%] max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <!-- Cabeçalho fixo -->
+        <div class="flex items-start gap-4 p-6 pb-5 border-b border-outline-variant bg-surface-container-low flex-shrink-0">
+            <div class="w-12 h-12 rounded-full bg-secondary-container/40 flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-secondary" style="font-size:24px">apartment</span>
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center flex-wrap gap-2 mb-0.5">
+                    <span class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide" id="gccModalTicket"></span>
+                    <span id="gccModalReincidenciaBadge"></span>
+                </div>
+                <h3 class="font-headline-lg text-headline-lg text-primary truncate" id="gccModalOrg"></h3>
+                <p class="text-body-md text-on-surface-variant" id="gccModalAssunto"></p>
+            </div>
+            <button type="button" onclick="closeGccModal()" class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-full p-1.5 transition-colors flex-shrink-0" title="Fechar">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <!-- Corpo com scroll -->
+        <div class="p-6 overflow-y-auto flex-1">
+            <div class="flex flex-wrap gap-3 mb-6">
+                <div class="flex items-center gap-2.5 rounded-xl bg-surface-container-low px-4 py-2.5">
+                    <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">category</span>
+                    <div>
+                        <p class="text-[10px] font-label-md text-on-surface-variant uppercase leading-none mb-1">Serviço</p>
+                        <p class="text-body-md font-semibold text-primary leading-none" id="gccModalServico"></p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2.5 rounded-xl bg-surface-container-low px-4 py-2.5">
+                    <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">history</span>
+                    <div>
+                        <p class="text-[10px] font-label-md text-on-surface-variant uppercase leading-none mb-1">Chamados anteriores</p>
+                        <p class="text-body-md font-semibold text-primary leading-none" id="gccModalTotalChamados"></p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2.5 rounded-xl bg-surface-container-low px-4 py-2.5">
+                    <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">calendar_month</span>
+                    <div>
+                        <p class="text-[10px] font-label-md text-on-surface-variant uppercase leading-none mb-1">Registrado em</p>
+                        <p class="text-body-md font-semibold text-primary leading-none" id="gccModalData"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h4 class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5 mb-2">
+                    <span class="material-symbols-outlined" style="font-size:16px">flag</span>
+                    Problemas recorrentes do cliente
+                </h4>
+                <div id="gccModalProblemas"></div>
+            </div>
+
+            <div class="mb-6">
+                <h4 class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5 mb-2">
+                    <span class="material-symbols-outlined" style="font-size:16px">confirmation_number</span>
+                    Chamados que motivaram o GCC
+                </h4>
+                <div id="gccModalChamadosRelacionados"></div>
+            </div>
+
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5">
+                        <span class="material-symbols-outlined" style="font-size:16px">format_quote</span>
+                        Descrição do cliente
+                    </h4>
+                    <button type="button" onclick="toggleGccDescricao()" id="gccDescricaoToggle" class="text-xs font-semibold text-secondary hover:underline flex-shrink-0" style="display:none">Ver tudo</button>
+                </div>
+                <div id="gccDescricaoWrap" class="relative rounded-xl bg-surface-container-low border border-outline-variant overflow-hidden" style="max-height:190px">
+                    <div class="p-4" id="gccModalDescricao"></div>
+                    <div id="gccDescricaoFade" class="absolute bottom-0 inset-x-0 h-14 bg-gradient-to-t from-surface-container-low to-transparent pointer-events-none" style="display:none"></div>
+                </div>
+            </div>
+
+            <div class="space-y-4" id="gccAnaliseCards"></div>
+        </div>
+
+        <!-- Rodapé fixo -->
+        <div class="flex justify-end gap-2 p-4 border-t border-outline-variant bg-surface-container-low flex-shrink-0">
+            <button type="button" onclick="closeGccModal()" class="rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container transition-colors">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_BASE = `${window.location.origin}/api`;
+function getToken() { return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
+async function apiCall(endpoint) {
+    const res = await fetch(`${API_BASE}${endpoint}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+    if (!res.ok) throw new Error(`API error: ${res.statusText}`);
+    return res.json();
+}
+function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str ?? ''; return d.innerHTML; }
+
+function ticketEditUrl(ticketId) { return `https://atendimento.viasoft.com.br/Ticket/Edit/${ticketId}`; }
+
+// A coluna `tipo` já vem pronta do banco (a tabela public.gcc nasceu com essa coluna, ao
+// contrário de ouvidoria que ganhou depois — por isso aqui não precisa de fallback de texto).
+function renderTipoBadge(tipo) {
+    if (!tipo) return '<span class="text-xs text-on-surface-variant">—</span>';
+    const tipoLower = String(tipo).toLowerCase();
+    let colorClasses = 'bg-secondary-container/30 text-secondary';
+    if (tipoLower.includes('elogio')) colorClasses = 'bg-green-100 text-green-700';
+    else if (tipoLower.includes('reclama')) colorClasses = 'bg-orange-100 text-orange-700';
+    return `<span class="inline-flex items-center rounded-full ${colorClasses} px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide">${escapeHtml(tipo)}</span>`;
+}
+
+// chamados_relacionados vem pronto do processo externo: uma lista de { motivo, ticket_id },
+// já com a explicação por extenso de por que aquele chamado de suporte do cliente pesa no
+// caso de GCC (não é um rótulo/categoria solta).
+function truncateText(str, max) {
+    const text = String(str || '');
+    return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
+}
+
+// `motivo_churn` é texto livre, com vários motivos separados por vírgula. Transforma-o
+// em itens para preservar, no GCC, a mesma leitura rápida por badges da Ouvidoria.
+function parseMotivosChurn(raw) {
+    return String(raw || '')
+        .split(/\s*,\s*(?=[A-ZÀ-Ý])/)
+        .map(motivo => motivo.trim())
+        .filter(Boolean);
+}
+
+function renderMotivosChurnCompact(raw, limit = 2) {
+    const motivos = parseMotivosChurn(raw);
+    if (!motivos.length) return '<span class="text-xs text-on-surface-variant">—</span>';
+
+    const visiveis = motivos.slice(0, limit);
+    const resto = motivos.length - visiveis.length;
+    const badges = visiveis.map(motivo => `
+        <span class="inline-flex items-center gap-1 rounded-full bg-error-container/60 text-error px-2 py-0.5 text-[11px] font-medium" title="${escapeHtml(motivo)}">
+            <span class="material-symbols-outlined" style="font-size:12px">flag</span>${escapeHtml(truncateText(motivo, 28))}
+        </span>`).join('');
+    const extra = resto > 0 ? `<span class="inline-flex items-center rounded-full bg-surface-container-high text-on-surface-variant px-2 py-0.5 text-[11px] font-medium">+${resto}</span>` : '';
+    return `<div class="flex flex-wrap gap-1 max-w-[260px]">${badges}${extra}</div>`;
+}
+
+function renderMotivosChurnDetalhado(raw) {
+    const motivos = parseMotivosChurn(raw);
+    if (!motivos.length) {
+        return '<p class="text-body-md text-on-surface-variant">Nenhum motivo de churn informado para esta organização.</p>';
+    }
+    return `<div class="space-y-2">${motivos.map(motivo => `
+        <div class="rounded-xl bg-error-container/25 border border-outline-variant border-l-4 border-l-error p-3">
+            <p class="text-sm text-on-surface"><span class="material-symbols-outlined align-middle mr-1 text-error" style="font-size:16px">flag</span>${escapeHtml(motivo)}</p>
+        </div>`).join('')}</div>`;
+}
+
+// Badges compactas de "Problemas do cliente" pra tabela: mostra só as N primeiras
+// (já vêm na ordem definida pelo processo externo) e agrupa o resto num "+X".
+function renderProblemaBadgesCompact(chamadosRelacionados, limit = 2) {
+    const list = Array.isArray(chamadosRelacionados) ? chamadosRelacionados : [];
+    if (!list.length) return '<span class="text-xs text-on-surface-variant">—</span>';
+    const visiveis = list.slice(0, limit);
+    const resto = list.length - visiveis.length;
+    const badges = visiveis.map(c => `
+        <span class="inline-flex items-center gap-1 rounded-full bg-error-container/60 text-error px-2 py-0.5 text-[11px] font-medium" title="${escapeHtml(c.motivo || '')}">
+            <span class="material-symbols-outlined" style="font-size:12px">flag</span>${escapeHtml(truncateText(c.motivo, 28))}
+        </span>`).join('');
+    const extra = resto > 0 ? `<span class="inline-flex items-center rounded-full bg-surface-container-high text-on-surface-variant px-2 py-0.5 text-[11px] font-medium">+${resto}</span>` : '';
+    return `<div class="flex flex-wrap gap-1 max-w-[260px]">${badges}${extra}</div>`;
+}
+
+// Cards completos de "Problemas do cliente" pro modal: mostra o motivo por extenso e um
+// link direto pro chamado de suporte que originou aquele ponto.
+function renderProblemaBadgesDetalhado(chamadosRelacionados) {
+    const list = Array.isArray(chamadosRelacionados) ? chamadosRelacionados : [];
+    if (!list.length) {
+        return `<p class="text-body-md text-on-surface-variant">Nenhum chamado de suporte relacionado foi identificado para esta organização.</p>`;
+    }
+    return `<div class="space-y-2">${list.map(c => `
+        <div class="rounded-xl bg-error-container/25 border border-outline-variant border-l-4 border-l-error p-3">
+            <div class="flex items-start justify-between gap-3">
+                <p class="text-sm text-on-surface flex-1"><span class="material-symbols-outlined align-middle mr-1 text-error" style="font-size:16px">flag</span>${escapeHtml(c.motivo || '')}</p>
+                ${c.ticket_id ? `<a href="${ticketEditUrl(c.ticket_id)}" target="_blank" rel="noopener" class="flex-shrink-0 text-[11px] font-semibold text-secondary hover:underline whitespace-nowrap">#${escapeHtml(String(c.ticket_id))}</a>` : ''}
+            </div>
+        </div>`).join('')}</div>`;
+}
+function formatDateTime(value) {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+let _gccRows = [];
+
+async function loadGcc() {
+    const main = document.getElementById('gccMain');
+    const overlay = document.getElementById('gccLoadingOverlay');
+    try {
+        _gccRows = await apiCall('/gcc');
+        renderGccKpis();
+        renderGccTable();
+        if (main) main.style.visibility = 'visible';
+        if (overlay) overlay.style.display = 'none';
+    } catch (error) {
+        console.error('Erro ao carregar GCC:', error);
+        const tbody = document.getElementById('gccTableBody');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="px-4 py-10 text-center text-error">Erro ao carregar dados: ${escapeHtml(error.message)}</td></tr>`;
+        if (main) main.style.visibility = 'visible';
+        if (overlay) overlay.style.display = 'none';
+    }
+}
+
+function renderGccKpis() {
+    const wrap = document.getElementById('gccKpis');
+    if (!wrap) return;
+    const rows = _gccRows;
+    const total = rows.length;
+    const orgsUnicas = new Set(rows.map(r => r.organizacao_id ?? r.organizacao)).size;
+    const somaReincidencia = rows.reduce((s, r) => s + (Number(r.total_chamados_anteriores) || 0), 0);
+    const mediaReincidencia = total ? (somaReincidencia / total) : 0;
+    const trintaDiasAtras = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const ultimos30d = rows.filter(r => r.criado_em && new Date(r.criado_em).getTime() >= trintaDiasAtras).length;
+
+    const cards = [
+        { label: 'Total de casos', value: total, icon: 'shield' },
+        { label: 'Organizações envolvidas', value: orgsUnicas, icon: 'apartment' },
+        { label: 'Reincidência média', value: mediaReincidencia.toFixed(1), icon: 'history' },
+        { label: 'Últimos 30 dias', value: ultimos30d, icon: 'calendar_month' }
+    ];
+
+    wrap.innerHTML = cards.map(c => `
+        <div class="col-span-12 sm:col-span-6 lg:col-span-3">
+            <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant soft-shadow p-5 flex items-center gap-4">
+                <div class="w-11 h-11 rounded-full bg-secondary-container/30 flex items-center justify-center flex-shrink-0">
+                    <span class="material-symbols-outlined text-secondary" style="font-size:22px">${c.icon}</span>
+                </div>
+                <div>
+                    <p class="text-label-md font-label-md text-on-surface-variant uppercase tracking-wide">${c.label}</p>
+                    <p class="text-headline-lg font-headline-lg text-primary">${c.value}</p>
+                </div>
+            </div>
+        </div>`).join('');
+}
+
+function renderGccTable() {
+    const tbody = document.getElementById('gccTableBody');
+    const countEl = document.getElementById('gccResultCount');
+    if (!tbody) return;
+
+    const search = (document.getElementById('gccSearchInput')?.value || '').toLowerCase().trim();
+    const order = document.getElementById('gccOrderSelect')?.value || 'recentes';
+
+    let rows = _gccRows.filter(r => {
+        if (!search) return true;
+        const problemasTxt = (r.chamados_relacionados || []).map(c => c.motivo).join(' ');
+        const haystack = `${r.organizacao || ''} ${r.assunto_gcc || ''} ${r.ticket_id || ''} ${r.servico_gcc_nome || ''} ${r.tipo || ''} ${r.motivo_churn || ''} ${problemasTxt}`.toLowerCase();
+        return haystack.includes(search);
+    });
+
+    rows = [...rows].sort((a, b) => {
+        if (order === 'reincidencia') return (Number(b.total_chamados_anteriores) || 0) - (Number(a.total_chamados_anteriores) || 0);
+        const da = a.criado_em ? new Date(a.criado_em).getTime() : 0;
+        const db_ = b.criado_em ? new Date(b.criado_em).getTime() : 0;
+        return order === 'antigas' ? da - db_ : db_ - da;
+    });
+
+    if (countEl) countEl.textContent = `${rows.length} caso${rows.length === 1 ? '' : 's'}`;
+
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="10" class="px-4 py-10 text-center text-on-surface-variant">Nenhum caso encontrado.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(r => `
+        <tr class="border-t border-outline-variant hover:bg-surface-container transition-colors">
+            <td class="px-4 py-3 text-body-md font-medium text-primary">#${escapeHtml(r.ticket_id)}</td>
+            <td class="px-4 py-3 text-body-md text-on-surface">${escapeHtml(r.organizacao || '—')}</td>
+            <td class="px-4 py-3 text-body-md text-on-surface-variant">${escapeHtml(r.servico_gcc_nome || '—')}</td>
+            <td class="px-4 py-3">${renderTipoBadge(r.tipo)}</td>
+            <td class="px-4 py-3 text-body-md text-on-surface-variant">${escapeHtml(r.classificacao_locus || '—')}</td>
+            <td class="px-4 py-3 text-body-md text-on-surface-variant max-w-[320px] truncate" title="${escapeHtml(r.assunto_gcc || '')}">${escapeHtml(r.assunto_gcc || '—')}</td>
+            <td class="px-4 py-3">${renderMotivosChurnCompact(r.motivo_churn)}</td>
+            <td class="px-4 py-3 text-body-md text-on-surface text-center">${Number(r.total_chamados_anteriores) || 0}</td>
+            <td class="px-4 py-3 text-body-md text-on-surface-variant">${formatDateTime(r.criado_em)}</td>
+            <td class="sticky right-0 z-[1] min-w-[132px] bg-surface-container-lowest px-4 py-3 text-right">
+                <button type="button" onclick="openGccModal('${escapeHtml(String(r.ticket_id))}')" class="inline-flex whitespace-nowrap items-center gap-1.5 rounded-full border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container transition-colors">
+                    <span class="material-symbols-outlined" style="font-size:16px">visibility</span>Ver análise
+                </button>
+            </td>
+        </tr>`).join('');
+}
+
+/* ── Análise: quebra o texto livre em seções (Motivadores / Padrões / Recomendações) ──
+   O texto vem de um processo externo como parágrafos soltos com um cabeçalho de seção
+   próprio (ex: "Motivadores:") — nem sempre as 3 seções estão presentes ou na mesma ordem,
+   então a extração é por regex ao invés de posição fixa. */
+const GCC_ANALISE_CARDS = [
+    { key: 'motivador', label: 'Motivador', icon: 'psychology', match: /motivador/i },
+    { key: 'padroes', label: 'Padrões', icon: 'insights', match: /padr(?:ão|ões|ao|oes)/i },
+    { key: 'recomendacoes', label: 'Recomendações', icon: 'lightbulb', match: /recomenda(?:c|ç)(?:ão|ões|ao|oes)/i }
+];
+
+function parseGccAnalise(raw) {
+    const text = String(raw || '').trim();
+    const sections = {};
+    if (!text) return { sections, raw: '' };
+
+    const headerRegex = /^[ \t]*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ /]{0,40}?)\s*:[ \t]*$/gim;
+    const matches = [...text.matchAll(headerRegex)].filter(m =>
+        GCC_ANALISE_CARDS.some(c => c.match.test(m[1]))
+    );
+    if (!matches.length) return { sections, raw: text };
+
+    for (let i = 0; i < matches.length; i++) {
+        const m = matches[i];
+        const card = GCC_ANALISE_CARDS.find(c => c.match.test(m[1]));
+        const start = m.index + m[0].length;
+        const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+        if (card) sections[card.key] = text.slice(start, end).trim();
+    }
+    return { sections, raw: text };
+}
+
+function renderGccAnaliseCards(analiseRaw) {
+    const wrap = document.getElementById('gccAnaliseCards');
+    if (!wrap) return;
+
+    const { sections, raw } = parseGccAnalise(analiseRaw);
+    const cardHtml = (icon, label, content) => `
+        <div>
+            <h4 class="text-label-md font-label-md text-secondary uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <span class="material-symbols-outlined" style="font-size:16px">${icon}</span>
+                ${label}
+            </h4>
+            <div class="rounded-xl bg-secondary-container/15 border border-outline-variant border-l-4 border-l-secondary p-4">
+                <p class="text-body-md text-on-surface whitespace-pre-wrap">${escapeHtml(content)}</p>
+            </div>
+        </div>`;
+
+    const hasAnySection = GCC_ANALISE_CARDS.some(c => sections[c.key]);
+    if (!hasAnySection) {
+        wrap.innerHTML = cardHtml('psychology', 'Análise', raw || 'Análise ainda não disponível para este caso.');
+        return;
+    }
+
+    wrap.innerHTML = GCC_ANALISE_CARDS
+        .filter(c => sections[c.key])
+        .map(c => cardHtml(c.icon, c.label, sections[c.key]))
+        .join('');
+}
+
+/* ── Descrição: o cliente preenche um formulário e o texto chega como blocos
+   "Rótulo:\nValor" separados por linhas em branco — em vez de exibir esse dump cru,
+   quebra em pares rótulo/valor pra ficar legível. */
+function parseGccDescricao(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return { intro: '', fields: [] };
+
+    const blocks = text.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+    const fields = [];
+    let intro = '';
+
+    for (const block of blocks) {
+        const m = block.match(/^([^\n:]{1,80}):\s*\n([\s\S]+)$/);
+        if (m) {
+            fields.push({ label: m[1].trim(), value: m[2].trim() });
+        } else if (fields.length) {
+            // Continuação sem rótulo próprio — anexa ao valor do campo anterior
+            fields[fields.length - 1].value += `\n${block}`;
+        } else {
+            intro = intro ? `${intro}\n${block}` : block;
+        }
+    }
+
+    return { intro, fields };
+}
+
+function renderGccDescricao(raw) {
+    const content = document.getElementById('gccModalDescricao');
+    if (!content) return;
+
+    const { intro, fields } = parseGccDescricao(raw);
+
+    if (!fields.length) {
+        content.innerHTML = `<p class="text-body-md text-on-surface whitespace-pre-wrap">${escapeHtml(raw || 'Sem descrição registrada.')}</p>`;
+    } else {
+        const introHtml = intro ? `<p class="text-body-md text-on-surface-variant italic mb-3">${escapeHtml(intro)}</p>` : '';
+        content.innerHTML = introHtml + `<dl class="divide-y divide-outline-variant">${fields.map(f => `
+            <div class="py-2.5 first:pt-0 last:pb-0">
+                <dt class="text-[11px] font-label-md text-on-surface-variant uppercase tracking-wide mb-0.5">${escapeHtml(f.label)}</dt>
+                <dd class="text-body-md text-on-surface whitespace-pre-wrap">${escapeHtml(f.value)}</dd>
+            </div>`).join('')}</dl>`;
+    }
+
+    // Só mostra o botão "Ver tudo"/degradê se o conteúdo realmente ultrapassar a altura recolhida
+    const wrap = document.getElementById('gccDescricaoWrap');
+    const toggle = document.getElementById('gccDescricaoToggle');
+    const fade = document.getElementById('gccDescricaoFade');
+    if (wrap) { wrap.classList.remove('expanded'); wrap.style.maxHeight = '190px'; }
+    if (toggle) toggle.textContent = 'Ver tudo';
+    const overflowing = content.scrollHeight > 190;
+    if (toggle) toggle.style.display = overflowing ? 'inline-block' : 'none';
+    if (fade) fade.style.display = overflowing ? 'block' : 'none';
+}
+
+function toggleGccDescricao() {
+    const wrap = document.getElementById('gccDescricaoWrap');
+    const fade = document.getElementById('gccDescricaoFade');
+    const toggle = document.getElementById('gccDescricaoToggle');
+    if (!wrap) return;
+    const expanded = wrap.classList.toggle('expanded');
+    wrap.style.maxHeight = expanded ? 'none' : '190px';
+    if (fade) fade.style.display = expanded ? 'none' : 'block';
+    if (toggle) toggle.textContent = expanded ? 'Ver menos' : 'Ver tudo';
+}
+
+function openGccModal(ticketId) {
+    const row = _gccRows.find(r => String(r.ticket_id) === String(ticketId));
+    if (!row) return;
+
+    const totalChamados = Number(row.total_chamados_anteriores) || 0;
+    document.getElementById('gccModalTicket').textContent = `Ticket #${row.ticket_id}`;
+    document.getElementById('gccModalOrg').textContent = row.organizacao || 'Organização não informada';
+    document.getElementById('gccModalAssunto').textContent = row.assunto_gcc || '';
+    document.getElementById('gccModalTotalChamados').textContent = totalChamados;
+    document.getElementById('gccModalData').textContent = formatDateTime(row.criado_em);
+    document.getElementById('gccModalServico').textContent = row.servico_gcc_nome || '—';
+    document.getElementById('gccModalProblemas').innerHTML = renderMotivosChurnDetalhado(row.motivo_churn);
+    document.getElementById('gccModalChamadosRelacionados').innerHTML = renderProblemaBadgesDetalhado(row.chamados_relacionados);
+    renderGccDescricao(row.descricao_gcc);
+    renderGccAnaliseCards(row.analise);
+
+    const badge = document.getElementById('gccModalReincidenciaBadge');
+    if (badge) {
+        badge.innerHTML = totalChamados >= 3
+            ? `<span class="inline-flex items-center gap-1 rounded-full bg-error-container text-error px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">Cliente recorrente</span>`
+            : '';
+    }
+
+    document.getElementById('gccModalBackdrop').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeGccModal() {
+    document.getElementById('gccModalBackdrop').classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeGccModal();
+});
+
+document.addEventListener('DOMContentLoaded', loadGcc);
+</script>
+</body>
+</html>

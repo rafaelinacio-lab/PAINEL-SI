@@ -26,7 +26,9 @@ const EMBED_PAGE_ROUTES = {
     dashboard: 'pages/dashboard.html',
     chamados: 'pages/curadoria.html',
     pessoas: 'pages/pessoas.html',
-    configuracoes: 'pages/configuracoes.html'
+    configuracoes: 'pages/configuracoes.html',
+    ouvidoria: 'pages/ouvidoria.html',
+    gcc: 'pages/gcc.html'
 };
 
 function applyRuntimeLayoutMode() {
@@ -198,6 +200,11 @@ function navigateTo(view) {
         loadGptStatus();
         loadAutoSyncStatus();
         loadCategoriesConfig();
+        loadScoreWeightsConfig();
+        loadCuradoriaPendingCount();
+        checkSurveySyncOnLoad();
+        checkModuloSyncOnLoad();
+        checkFullLoadOnLoad();
     }
 }
 
@@ -391,6 +398,58 @@ function setupConfigEvents() {
 
     const resetMovideskCondBtn = document.getElementById('cfgResetMovideskConditions');
     if (resetMovideskCondBtn) resetMovideskCondBtn.addEventListener('click', resetMovideskConditions);
+
+    // Curadoria Avançado
+    const saveCuradoriaPromptAnaliseBtn = document.getElementById('cfgSaveCuradoriaPromptAnalise');
+    if (saveCuradoriaPromptAnaliseBtn) saveCuradoriaPromptAnaliseBtn.addEventListener('click', saveCuradoriaPromptAnalise);
+
+    const resetCuradoriaPromptAnaliseBtn = document.getElementById('cfgResetCuradoriaPromptAnalise');
+    if (resetCuradoriaPromptAnaliseBtn) resetCuradoriaPromptAnaliseBtn.addEventListener('click', resetCuradoriaPromptAnaliseToDefault);
+
+    const testCuradoriaPromptAnaliseBtn = document.getElementById('cfgTestCuradoriaPromptAnalise');
+    if (testCuradoriaPromptAnaliseBtn) testCuradoriaPromptAnaliseBtn.addEventListener('click', testCuradoriaPromptAnalise);
+
+    const saveCuradoriaPromptCompetenciasBtn = document.getElementById('cfgSaveCuradoriaPromptCompetencias');
+    if (saveCuradoriaPromptCompetenciasBtn) saveCuradoriaPromptCompetenciasBtn.addEventListener('click', saveCuradoriaPromptCompetencias);
+
+    const resetCuradoriaPromptCompetenciasBtn = document.getElementById('cfgResetCuradoriaPromptCompetencias');
+    if (resetCuradoriaPromptCompetenciasBtn) resetCuradoriaPromptCompetenciasBtn.addEventListener('click', resetCuradoriaPromptCompetenciasToDefault);
+
+    const saveCuradoriaPromptNarrativaBtn = document.getElementById('cfgSaveCuradoriaPromptNarrativa');
+    if (saveCuradoriaPromptNarrativaBtn) saveCuradoriaPromptNarrativaBtn.addEventListener('click', saveCuradoriaPromptNarrativa);
+
+    const resetCuradoriaPromptNarrativaBtn = document.getElementById('cfgResetCuradoriaPromptNarrativa');
+    if (resetCuradoriaPromptNarrativaBtn) resetCuradoriaPromptNarrativaBtn.addEventListener('click', resetCuradoriaPromptNarrativaToDefault);
+
+    const saveQueryListagemBtn = document.getElementById('cfgSaveQueryListagem');
+    if (saveQueryListagemBtn) saveQueryListagemBtn.addEventListener('click', saveCuradoriaQueryConfig);
+
+    const resetQueryListagemBtn = document.getElementById('cfgResetQueryListagem');
+    if (resetQueryListagemBtn) resetQueryListagemBtn.addEventListener('click', resetCuradoriaQueryListagem);
+
+    const saveQueryPendentesBtn = document.getElementById('cfgSaveQueryPendentes');
+    if (saveQueryPendentesBtn) saveQueryPendentesBtn.addEventListener('click', saveCuradoriaQueryConfig);
+
+    const resetQueryPendentesBtn = document.getElementById('cfgResetQueryPendentes');
+    if (resetQueryPendentesBtn) resetQueryPendentesBtn.addEventListener('click', resetCuradoriaQueryPendentes);
+
+    const saveMovideskCuradoriaBtn = document.getElementById('cfgSaveMovideskCuradoriaConfig');
+    if (saveMovideskCuradoriaBtn) saveMovideskCuradoriaBtn.addEventListener('click', saveCuradoriaMovideskConfig);
+
+    const resetMovideskCuradoriaBtn = document.getElementById('cfgResetMovideskCuradoriaConfig');
+    if (resetMovideskCuradoriaBtn) resetMovideskCuradoriaBtn.addEventListener('click', resetCuradoriaMovideskConfigToDefault);
+
+    const saveSlaThresholdsBtn = document.getElementById('cfgSaveSlaThresholds');
+    if (saveSlaThresholdsBtn) saveSlaThresholdsBtn.addEventListener('click', saveSlaThresholds);
+
+    const resetSlaThresholdsBtn = document.getElementById('cfgResetSlaThresholds');
+    if (resetSlaThresholdsBtn) resetSlaThresholdsBtn.addEventListener('click', resetSlaThresholdsToDefault);
+
+    const saveCuradoriaPromptSlaEstouroBtn = document.getElementById('cfgSaveCuradoriaPromptSlaEstouro');
+    if (saveCuradoriaPromptSlaEstouroBtn) saveCuradoriaPromptSlaEstouroBtn.addEventListener('click', saveCuradoriaPromptSlaEstouro);
+
+    const resetCuradoriaPromptSlaEstouroBtn = document.getElementById('cfgResetCuradoriaPromptSlaEstouro');
+    if (resetCuradoriaPromptSlaEstouroBtn) resetCuradoriaPromptSlaEstouroBtn.addEventListener('click', resetCuradoriaPromptSlaEstouroToDefault);
 }
 
 // Inicializar quando a página carregar

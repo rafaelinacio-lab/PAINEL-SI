@@ -323,6 +323,582 @@ function resetCategoriesConfig() {
     setCfgStatus('cfgCategoriesStatus', 'Padrão restaurado. Clique em "Salvar competências" para confirmar.', 'ok');
 }
 
+/* ── Pesos do score de performance (0-1000) — 4 dimensões configuráveis ──── */
+const DEFAULT_SCORE_WEIGHTS_CFG = { satisfacao: 0.35, eficiencia: 0.25, pontos: 0.25, competencias: 0.15 };
+
+function _cfgWeightInputs() {
+    return {
+        satisfacao: document.getElementById('cfgWeightSatisfacao'),
+        eficiencia: document.getElementById('cfgWeightEficiencia'),
+        pontos: document.getElementById('cfgWeightPontos'),
+        competencias: document.getElementById('cfgWeightCompetencias')
+    };
+}
+
+function renderScoreWeightsEditor(weights) {
+    const inputs = _cfgWeightInputs();
+    if (!inputs.satisfacao) return;
+    inputs.satisfacao.value = Math.round(weights.satisfacao * 100);
+    inputs.eficiencia.value = Math.round(weights.eficiencia * 100);
+    inputs.pontos.value = Math.round(weights.pontos * 100);
+    inputs.competencias.value = Math.round(weights.competencias * 100);
+    updateScoreWeightSum();
+}
+
+function updateScoreWeightSum() {
+    const inputs = _cfgWeightInputs();
+    const sumEl = document.getElementById('cfgWeightSum');
+    if (!inputs.satisfacao || !sumEl) return;
+    const sum = ['satisfacao', 'eficiencia', 'pontos', 'competencias']
+        .reduce((s, k) => s + (Number(inputs[k].value) || 0), 0);
+    sumEl.textContent = `${sum}%`;
+    sumEl.className = sum === 100 ? 'config-token-status config-token-status-on' : 'config-token-status config-token-status-off';
+}
+
+async function loadScoreWeightsConfig() {
+    try {
+        const response = await fetch(`${API_BASE}/config/score-weights`, { headers: authHeaders() });
+        const data = response.ok ? await response.json() : {};
+        renderScoreWeightsEditor(data.weights || DEFAULT_SCORE_WEIGHTS_CFG);
+    } catch {
+        renderScoreWeightsEditor(DEFAULT_SCORE_WEIGHTS_CFG);
+    }
+}
+
+async function saveScoreWeights() {
+    const inputs = _cfgWeightInputs();
+    const weights = {
+        satisfacao: (Number(inputs.satisfacao.value) || 0) / 100,
+        eficiencia: (Number(inputs.eficiencia.value) || 0) / 100,
+        pontos: (Number(inputs.pontos.value) || 0) / 100,
+        competencias: (Number(inputs.competencias.value) || 0) / 100
+    };
+    const sum = Math.round((weights.satisfacao + weights.eficiencia + weights.pontos + weights.competencias) * 100);
+    if (sum !== 100) {
+        setCfgStatus('cfgScoreWeightsStatus', `A soma dos pesos precisa ser 100% (atual: ${sum}%).`, 'error');
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/config/score-weights`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ weights })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar');
+        setCfgStatus('cfgScoreWeightsStatus', '✅ Pesos salvos com sucesso.', 'ok');
+    } catch (e) {
+        setCfgStatus('cfgScoreWeightsStatus', `Erro ao salvar: ${e.message}`, 'error');
+    }
+}
+
+function resetScoreWeights() {
+    renderScoreWeightsEditor(DEFAULT_SCORE_WEIGHTS_CFG);
+    setCfgStatus('cfgScoreWeightsStatus', 'Padrão restaurado. Clique em "Salvar pesos" para confirmar.', 'ok');
+}
+
+// ============================================================
+// CURADORIA AVANÇADO — prompt de análise, prompts client-side,
+// queries SQL e parâmetros das requisições Movidesk (100% configurável, sem editar código)
+// ============================================================
+
+const DEFAULT_CURADORIA_PROMPT_ANALISE_TEMPLATE = `Voce e um analista senior de suporte critico que analisa tickets de suporte em JSON.
+
+REGRAS ABSOLUTAS:
+- Ignore acoes com type = 1 (acoes internas de escalonamento/atribuicao)
+- Ignore acoes onde createdBy.id = "007" (acoes de sistema)
+- Suporte = createdBy com email contendo @viasoft.com.br OU createdBy.businessName === owner.businessName (quando businessName nao for vazio)
+- Cliente = usuario solicitante do chamado {{solicitante}}
+- Fato relatado = {{fato}}
+- Causa identificada = {{causa}}
+- Modulo X Rotina = {{moduloXRotina}}
+- Owner do ticket = {{owner}}
+- Aberto em = {{abertoEm}}
+- Resolvido em = {{resolvidoEm}}
+- Responda APENAS com um JSON valido, sem markdown, sem texto adicional, sem crases, sem \`\`\`json
+- Preencha TODOS os campos com dados reais do JSON do ticket
+- Nunca use dados ficticios
+- Use SEMPRE os nomes e e-mails reais presentes no JSON fornecido
+
+CAMPOS PRE-CALCULADOS:
+  - aberto_em = {{abertoEm}}
+  - sla_inicio_em = {{slaInicioEm}}
+  - resolvido_em = {{resolvidoEm}}
+  - tempo_resolucao_min_uteis = {{tempoResolucaoMinUteis}}
+  - tempo_resolucao_horas_uteis = {{tempoResolucaoHorasUteis}}
+  - tempo_resolucao_dias_uteis = {{tempoResolucaoDiasUteis}}
+  - tempo_resolucao_legivel = {{tempoResolucaoLegivel}}
+  - abertura_fora_expediente = {{aberturaForaExpediente}}`;
+
+async function loadCuradoriaPromptAnalise() {
+    if (!isCurrentUserAdmin()) return;
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-prompt-analise`, { headers: authHeaders() });
+        const data = response.ok ? await response.json() : {};
+        document.getElementById('cfgCuradoriaPromptAnalise').value = data.template || DEFAULT_CURADORIA_PROMPT_ANALISE_TEMPLATE;
+        document.getElementById('cfgCuradoriaPromptModel').value = data.model || 'gpt-4.1-mini';
+        document.getElementById('cfgCuradoriaPromptTemp').value = data.temperature ?? 0;
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaPromptAnaliseStatus', `Erro ao carregar prompt: ${error.message}`, 'error');
+    }
+}
+
+async function saveCuradoriaPromptAnalise() {
+    const template = document.getElementById('cfgCuradoriaPromptAnalise')?.value?.trim();
+    const model = document.getElementById('cfgCuradoriaPromptModel')?.value?.trim();
+    const temperature = document.getElementById('cfgCuradoriaPromptTemp')?.value;
+    if (!template) {
+        setCfgStatus('cfgCuradoriaPromptAnaliseStatus', 'Informe o prompt antes de salvar.', 'error');
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-prompt-analise`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ template, model, temperature })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar prompt');
+        setCfgStatus('cfgCuradoriaPromptAnaliseStatus', 'Prompt salvo com sucesso.', 'ok');
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaPromptAnaliseStatus', `Erro ao salvar prompt: ${error.message}`, 'error');
+    }
+}
+
+function resetCuradoriaPromptAnaliseToDefault() {
+    document.getElementById('cfgCuradoriaPromptAnalise').value = DEFAULT_CURADORIA_PROMPT_ANALISE_TEMPLATE;
+    document.getElementById('cfgCuradoriaPromptModel').value = 'gpt-4.1-mini';
+    document.getElementById('cfgCuradoriaPromptTemp').value = 0;
+    setCfgStatus('cfgCuradoriaPromptAnaliseStatus', 'Padrão restaurado. Clique em "Salvar prompt" para confirmar.', 'ok');
+}
+
+async function testCuradoriaPromptAnalise() {
+    const btn = document.getElementById('cfgTestCuradoriaPromptAnalise');
+    const resultEl = document.getElementById('cfgCuradoriaPromptTestResult');
+    const ticketId = document.getElementById('cfgCuradoriaPromptTestTicket')?.value;
+    const template = document.getElementById('cfgCuradoriaPromptAnalise')?.value?.trim();
+    const model = document.getElementById('cfgCuradoriaPromptModel')?.value?.trim();
+    const temperature = document.getElementById('cfgCuradoriaPromptTemp')?.value;
+
+    if (!ticketId) { setCfgStatus('cfgCuradoriaPromptAnaliseStatus', 'Informe um ticket_id para testar.', 'error'); return; }
+    if (!template) { setCfgStatus('cfgCuradoriaPromptAnaliseStatus', 'Informe o prompt antes de testar.', 'error'); return; }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Testando...'; }
+    if (resultEl) { resultEl.style.display = 'block'; resultEl.textContent = 'Chamando a IA...'; }
+
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/prompt-analise/test`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketId, template, model, temperature })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao testar prompt');
+        const errorsBlock = data.errors?.length ? `\n\n⚠️ Erros de validação:\n${data.errors.join('\n')}` : '';
+        if (resultEl) resultEl.textContent = JSON.stringify(data.raw, null, 2) + errorsBlock;
+    } catch (error) {
+        if (resultEl) resultEl.textContent = `Erro: ${error.message}`;
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Testar com este chamado'; }
+    }
+}
+
+const DEFAULT_CURADORIA_PROMPT_COMPETENCIAS_TEXT = 'Avaliador de suporte. Para cada chamado listado, identifique quais das competências fornecidas realmente se manifestam no atendimento e atribua um percentual de 0 a 100 indicando a intensidade da evidência. Inclua no JSON apenas as competências que efetivamente se aplicam a cada chamado (omita as que não se aplicam ou têm percentual 0). Use EXATAMENTE as chaves fornecidas em COMPETÊNCIAS, sem alterar acentos ou maiúsculas. Retorne SOMENTE JSON: {"results":{"TICKET_ID":{"CHAVE":percentual}}}. Sem texto adicional.';
+
+async function loadCuradoriaPromptCompetencias() {
+    if (!isCurrentUserAdmin()) return;
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-prompt-competencias`, { headers: authHeaders() });
+        const data = response.ok ? await response.json() : {};
+        document.getElementById('cfgCuradoriaPromptCompetencias').value = data.prompt || DEFAULT_CURADORIA_PROMPT_COMPETENCIAS_TEXT;
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaPromptCompetenciasStatus', `Erro ao carregar prompt: ${error.message}`, 'error');
+    }
+}
+
+async function saveCuradoriaPromptCompetencias() {
+    const prompt = document.getElementById('cfgCuradoriaPromptCompetencias')?.value?.trim();
+    if (!prompt || prompt.length < 10) {
+        setCfgStatus('cfgCuradoriaPromptCompetenciasStatus', 'Prompt muito curto: descreva melhor o critério de classificação.', 'error');
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-prompt-competencias`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar prompt');
+        setCfgStatus('cfgCuradoriaPromptCompetenciasStatus', 'Prompt salvo com sucesso.', 'ok');
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaPromptCompetenciasStatus', `Erro ao salvar prompt: ${error.message}`, 'error');
+    }
+}
+
+function resetCuradoriaPromptCompetenciasToDefault() {
+    document.getElementById('cfgCuradoriaPromptCompetencias').value = DEFAULT_CURADORIA_PROMPT_COMPETENCIAS_TEXT;
+    setCfgStatus('cfgCuradoriaPromptCompetenciasStatus', 'Padrão restaurado. Clique em "Salvar prompt" para confirmar.', 'ok');
+}
+
+const DEFAULT_CURADORIA_PROMPT_NARR_SYSTEM = `Você é um analista de operações de suporte. Escreva uma análise curta e objetiva da equipe, em português, EXATAMENTE nesta estrutura (um parágrafo curto por tópico, sem markdown, sem listas, sem títulos extras):
+
+Produtividade: (texto)
+Eficiência: (texto)
+Feedback: (texto)
+Área de melhoria: (texto)
+
+REGRAS:
+- Use APENAS os números e nomes fornecidos pelo usuário. Não invente, não estime, não arredonde diferente do fornecido.
+- Cite pessoas pelo primeiro nome.
+- Seja direto, sem introduções ou conclusões genéricas.`;
+
+const DEFAULT_CURADORIA_PROMPT_NARR_USER = `DADOS DA EQUIPE:
+- Total de atendentes: {{totalAtendentes}}
+- Total de chamados no período: {{totalChamados}}
+- % de chamados avaliados pelo cliente (feedback): {{feedbackRateEquipe}}%
+- Cumprimento de SLA da equipe (SLA SUPORTE MOVIDESK.pdf): {{slaEquipe}}%
+
+TOP EM VOLUME DE CHAMADOS: {{topProdutividade}}
+
+TOP EM CUMPRIMENTO DE SLA: {{topSla}}
+
+MENOR TAXA DE FEEDBACK: {{menosFeedback}}
+
+MENOR SCORE (podem precisar de apoio): {{precisamApoio}}`;
+
+async function loadCuradoriaPromptNarrativa() {
+    if (!isCurrentUserAdmin()) return;
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-prompt-narrativa`, { headers: authHeaders() });
+        const data = response.ok ? await response.json() : {};
+        document.getElementById('cfgCuradoriaPromptNarrSystem').value = data.system || DEFAULT_CURADORIA_PROMPT_NARR_SYSTEM;
+        document.getElementById('cfgCuradoriaPromptNarrUser').value = data.userTemplate || DEFAULT_CURADORIA_PROMPT_NARR_USER;
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaPromptNarrativaStatus', `Erro ao carregar prompt: ${error.message}`, 'error');
+    }
+}
+
+async function saveCuradoriaPromptNarrativa() {
+    const system = document.getElementById('cfgCuradoriaPromptNarrSystem')?.value?.trim();
+    const userTemplate = document.getElementById('cfgCuradoriaPromptNarrUser')?.value?.trim();
+    if (!system || !userTemplate) {
+        setCfgStatus('cfgCuradoriaPromptNarrativaStatus', 'Preencha os dois campos antes de salvar.', 'error');
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-prompt-narrativa`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ system, userTemplate })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar prompt');
+        setCfgStatus('cfgCuradoriaPromptNarrativaStatus', 'Prompt salvo com sucesso.', 'ok');
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaPromptNarrativaStatus', `Erro ao salvar prompt: ${error.message}`, 'error');
+    }
+}
+
+function resetCuradoriaPromptNarrativaToDefault() {
+    document.getElementById('cfgCuradoriaPromptNarrSystem').value = DEFAULT_CURADORIA_PROMPT_NARR_SYSTEM;
+    document.getElementById('cfgCuradoriaPromptNarrUser').value = DEFAULT_CURADORIA_PROMPT_NARR_USER;
+    setCfgStatus('cfgCuradoriaPromptNarrativaStatus', 'Padrão restaurado. Clique em "Salvar prompt" para confirmar.', 'ok');
+}
+
+const DEFAULT_CURADORIA_QUERY_CONFIG = {
+    listagem: { mode: 'guided', guided: { limit: 2000, orderDir: 'DESC', includeSatisfacaoSemProcessar: true }, rawWhere: '' },
+    pendentes: { mode: 'guided', guided: { processadoValue: 0, orderDir: 'ASC' }, rawWhere: '' }
+};
+
+function renderCuradoriaQueryConfig(config) {
+    const l = config.listagem, p = config.pendentes;
+    document.getElementById('cfgQueryListagemLimit').value = l.guided.limit;
+    document.getElementById('cfgQueryListagemOrderDir').value = l.guided.orderDir;
+    document.getElementById('cfgQueryListagemIncludeSatisfacao').checked = !!l.guided.includeSatisfacaoSemProcessar;
+    document.getElementById('cfgQueryListagemRawToggle').checked = l.mode === 'raw';
+    document.getElementById('cfgQueryListagemRaw').value = l.rawWhere || '';
+    document.getElementById('cfgQueryListagemRawWrap').style.display = l.mode === 'raw' ? 'block' : 'none';
+
+    document.getElementById('cfgQueryPendentesProcessado').value = p.guided.processadoValue;
+    document.getElementById('cfgQueryPendentesOrderDir').value = p.guided.orderDir;
+    document.getElementById('cfgQueryPendentesRawToggle').checked = p.mode === 'raw';
+    document.getElementById('cfgQueryPendentesRaw').value = p.rawWhere || '';
+    document.getElementById('cfgQueryPendentesRawWrap').style.display = p.mode === 'raw' ? 'block' : 'none';
+}
+
+async function loadCuradoriaQueryConfig() {
+    if (!isCurrentUserAdmin()) return;
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-query-config`, { headers: authHeaders() });
+        const data = response.ok ? await response.json() : DEFAULT_CURADORIA_QUERY_CONFIG;
+        renderCuradoriaQueryConfig(data);
+    } catch (error) {
+        renderCuradoriaQueryConfig(DEFAULT_CURADORIA_QUERY_CONFIG);
+        setCfgStatus('cfgQueryListagemStatus', `Erro ao carregar consulta: ${error.message}`, 'error');
+    }
+}
+
+function toggleCuradoriaRawWhere(which) {
+    const toggle = document.getElementById(which === 'listagem' ? 'cfgQueryListagemRawToggle' : 'cfgQueryPendentesRawToggle');
+    const wrap = document.getElementById(which === 'listagem' ? 'cfgQueryListagemRawWrap' : 'cfgQueryPendentesRawWrap');
+    if (wrap) wrap.style.display = toggle?.checked ? 'block' : 'none';
+}
+
+// As duas consultas (listagem e fila de pendentes) ficam gravadas juntas numa única chave de
+// config — por isso os dois botões "Salvar consulta" chamam esta mesma função, enviando o
+// estado atual de ambos os cards de uma vez (evita que salvar um sobrescreva o outro com o padrão).
+async function saveCuradoriaQueryConfig() {
+    const listagem = {
+        mode: document.getElementById('cfgQueryListagemRawToggle')?.checked ? 'raw' : 'guided',
+        guided: {
+            limit: parseInt(document.getElementById('cfgQueryListagemLimit')?.value, 10) || 2000,
+            orderDir: document.getElementById('cfgQueryListagemOrderDir')?.value || 'DESC',
+            includeSatisfacaoSemProcessar: !!document.getElementById('cfgQueryListagemIncludeSatisfacao')?.checked
+        },
+        rawWhere: document.getElementById('cfgQueryListagemRaw')?.value?.trim() || ''
+    };
+    const pendentes = {
+        mode: document.getElementById('cfgQueryPendentesRawToggle')?.checked ? 'raw' : 'guided',
+        guided: {
+            processadoValue: Number(document.getElementById('cfgQueryPendentesProcessado')?.value) || 0,
+            orderDir: document.getElementById('cfgQueryPendentesOrderDir')?.value || 'ASC'
+        },
+        rawWhere: document.getElementById('cfgQueryPendentesRaw')?.value?.trim() || ''
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-query-config`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ listagem, pendentes })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar consulta');
+        setCfgStatus('cfgQueryListagemStatus', 'Consultas salvas com sucesso.', 'ok');
+        setCfgStatus('cfgQueryPendentesStatus', 'Consultas salvas com sucesso.', 'ok');
+    } catch (error) {
+        setCfgStatus('cfgQueryListagemStatus', `Erro ao salvar: ${error.message}`, 'error');
+        setCfgStatus('cfgQueryPendentesStatus', `Erro ao salvar: ${error.message}`, 'error');
+    }
+}
+
+function resetCuradoriaQueryListagem() {
+    document.getElementById('cfgQueryListagemLimit').value = DEFAULT_CURADORIA_QUERY_CONFIG.listagem.guided.limit;
+    document.getElementById('cfgQueryListagemOrderDir').value = DEFAULT_CURADORIA_QUERY_CONFIG.listagem.guided.orderDir;
+    document.getElementById('cfgQueryListagemIncludeSatisfacao').checked = true;
+    document.getElementById('cfgQueryListagemRawToggle').checked = false;
+    document.getElementById('cfgQueryListagemRaw').value = '';
+    document.getElementById('cfgQueryListagemRawWrap').style.display = 'none';
+    setCfgStatus('cfgQueryListagemStatus', 'Padrão restaurado. Clique em "Salvar consulta" para confirmar.', 'ok');
+}
+
+function resetCuradoriaQueryPendentes() {
+    document.getElementById('cfgQueryPendentesProcessado').value = DEFAULT_CURADORIA_QUERY_CONFIG.pendentes.guided.processadoValue;
+    document.getElementById('cfgQueryPendentesOrderDir').value = DEFAULT_CURADORIA_QUERY_CONFIG.pendentes.guided.orderDir;
+    document.getElementById('cfgQueryPendentesRawToggle').checked = false;
+    document.getElementById('cfgQueryPendentesRaw').value = '';
+    document.getElementById('cfgQueryPendentesRawWrap').style.display = 'none';
+    setCfgStatus('cfgQueryPendentesStatus', 'Padrão restaurado. Clique em "Salvar consulta" para confirmar.', 'ok');
+}
+
+const DEFAULT_CURADORIA_MOVIDESK_CONFIG = {
+    satisfacao: { selectFields: 'id,satisfactionSurveyResponses' },
+    moduloRotina: { customFieldId: 59786, selectFields: 'id,customFieldValues' },
+    rateLimitMs: 6500,
+    fullLoadTimes: ['08:00', '12:00', '19:00']
+};
+let _cfgFullLoadTimes = [];
+
+function renderFullLoadTimesList() {
+    const wrap = document.getElementById('cfgFullLoadTimesList');
+    if (!wrap) return;
+    wrap.innerHTML = _cfgFullLoadTimes.length
+        ? _cfgFullLoadTimes.map(t => `
+            <span class="config-token-status config-token-status-on" style="display:inline-flex; align-items:center; gap:6px;">
+                ${t}
+                <button type="button" onclick="removeCuradoriaFullLoadTime('${t}')" style="background:none;border:none;color:inherit;cursor:pointer;font-weight:bold;">×</button>
+            </span>`).join('')
+        : '<span style="font-size:12px; color:#888;">Nenhum horário configurado</span>';
+}
+
+function addCuradoriaFullLoadTime() {
+    const input = document.getElementById('cfgFullLoadTimeAdd');
+    const value = input?.value;
+    if (!value) return;
+    if (!_cfgFullLoadTimes.includes(value)) {
+        _cfgFullLoadTimes.push(value);
+        _cfgFullLoadTimes.sort();
+        renderFullLoadTimesList();
+    }
+    input.value = '';
+}
+
+function removeCuradoriaFullLoadTime(time) {
+    _cfgFullLoadTimes = _cfgFullLoadTimes.filter(t => t !== time);
+    renderFullLoadTimesList();
+}
+
+async function loadCuradoriaMovideskConfig() {
+    if (!isCurrentUserAdmin()) return;
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-movidesk-config`, { headers: authHeaders() });
+        const data = response.ok ? await response.json() : DEFAULT_CURADORIA_MOVIDESK_CONFIG;
+        document.getElementById('cfgMovideskSatisfacaoSelect').value = data.satisfacao?.selectFields || DEFAULT_CURADORIA_MOVIDESK_CONFIG.satisfacao.selectFields;
+        document.getElementById('cfgMovideskModuloCustomFieldId').value = data.moduloRotina?.customFieldId || DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina.customFieldId;
+        document.getElementById('cfgMovideskModuloSelect').value = data.moduloRotina?.selectFields || DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina.selectFields;
+        document.getElementById('cfgMovideskRateLimitMs').value = data.rateLimitMs || DEFAULT_CURADORIA_MOVIDESK_CONFIG.rateLimitMs;
+        _cfgFullLoadTimes = Array.isArray(data.fullLoadTimes) && data.fullLoadTimes.length ? [...data.fullLoadTimes] : [...DEFAULT_CURADORIA_MOVIDESK_CONFIG.fullLoadTimes];
+        renderFullLoadTimesList();
+    } catch (error) {
+        setCfgStatus('cfgMovideskCuradoriaConfigStatus', `Erro ao carregar configuração: ${error.message}`, 'error');
+    }
+}
+
+async function saveCuradoriaMovideskConfig() {
+    const satisfacao = { selectFields: document.getElementById('cfgMovideskSatisfacaoSelect')?.value?.trim() };
+    const moduloRotina = {
+        customFieldId: parseInt(document.getElementById('cfgMovideskModuloCustomFieldId')?.value, 10),
+        selectFields: document.getElementById('cfgMovideskModuloSelect')?.value?.trim()
+    };
+    const rateLimitMs = parseInt(document.getElementById('cfgMovideskRateLimitMs')?.value, 10);
+
+    if (!_cfgFullLoadTimes.length) {
+        setCfgStatus('cfgMovideskCuradoriaConfigStatus', 'Informe ao menos um horário para a carga agendada.', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-movidesk-config`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ satisfacao, moduloRotina, rateLimitMs, fullLoadTimes: _cfgFullLoadTimes })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar configuração');
+        setCfgStatus('cfgMovideskCuradoriaConfigStatus', 'Configuração salva com sucesso.', 'ok');
+    } catch (error) {
+        setCfgStatus('cfgMovideskCuradoriaConfigStatus', `Erro ao salvar: ${error.message}`, 'error');
+    }
+}
+
+function resetCuradoriaMovideskConfigToDefault() {
+    document.getElementById('cfgMovideskSatisfacaoSelect').value = DEFAULT_CURADORIA_MOVIDESK_CONFIG.satisfacao.selectFields;
+    document.getElementById('cfgMovideskModuloCustomFieldId').value = DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina.customFieldId;
+    document.getElementById('cfgMovideskModuloSelect').value = DEFAULT_CURADORIA_MOVIDESK_CONFIG.moduloRotina.selectFields;
+    document.getElementById('cfgMovideskRateLimitMs').value = DEFAULT_CURADORIA_MOVIDESK_CONFIG.rateLimitMs;
+    _cfgFullLoadTimes = [...DEFAULT_CURADORIA_MOVIDESK_CONFIG.fullLoadTimes];
+    renderFullLoadTimesList();
+    setCfgStatus('cfgMovideskCuradoriaConfigStatus', 'Padrão restaurado. Clique em "Salvar" para confirmar.', 'ok');
+}
+
+const DEFAULT_CURADORIA_SLA_THRESHOLDS = { critica: 4, alta: 8, media: 16, baixa: 24 };
+
+async function loadCuradoriaSlaThresholds() {
+    if (!isCurrentUserAdmin()) return;
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-sla-thresholds`, { headers: authHeaders() });
+        const data = response.ok ? await response.json() : DEFAULT_CURADORIA_SLA_THRESHOLDS;
+        document.getElementById('cfgSlaCritica').value = data.critica ?? DEFAULT_CURADORIA_SLA_THRESHOLDS.critica;
+        document.getElementById('cfgSlaAlta').value = data.alta ?? DEFAULT_CURADORIA_SLA_THRESHOLDS.alta;
+        document.getElementById('cfgSlaMedia').value = data.media ?? DEFAULT_CURADORIA_SLA_THRESHOLDS.media;
+        document.getElementById('cfgSlaBaixa').value = data.baixa ?? DEFAULT_CURADORIA_SLA_THRESHOLDS.baixa;
+    } catch (error) {
+        setCfgStatus('cfgSlaThresholdsStatus', `Erro ao carregar prazos de SLA: ${error.message}`, 'error');
+    }
+}
+
+async function saveSlaThresholds() {
+    const critica = Number(document.getElementById('cfgSlaCritica')?.value);
+    const alta = Number(document.getElementById('cfgSlaAlta')?.value);
+    const media = Number(document.getElementById('cfgSlaMedia')?.value);
+    const baixa = Number(document.getElementById('cfgSlaBaixa')?.value);
+
+    for (const [label, v] of [['Crítica', critica], ['Alta', alta], ['Média', media], ['Baixa', baixa]]) {
+        if (!Number.isFinite(v) || v <= 0) {
+            setCfgStatus('cfgSlaThresholdsStatus', `Informe um prazo válido (maior que 0) para "${label}".`, 'error');
+            return;
+        }
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-sla-thresholds`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ critica, alta, media, baixa })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar prazos de SLA');
+        setCfgStatus('cfgSlaThresholdsStatus', 'Prazos de SLA salvos com sucesso.', 'ok');
+    } catch (error) {
+        setCfgStatus('cfgSlaThresholdsStatus', `Erro ao salvar prazos de SLA: ${error.message}`, 'error');
+    }
+}
+
+function resetSlaThresholdsToDefault() {
+    document.getElementById('cfgSlaCritica').value = DEFAULT_CURADORIA_SLA_THRESHOLDS.critica;
+    document.getElementById('cfgSlaAlta').value = DEFAULT_CURADORIA_SLA_THRESHOLDS.alta;
+    document.getElementById('cfgSlaMedia').value = DEFAULT_CURADORIA_SLA_THRESHOLDS.media;
+    document.getElementById('cfgSlaBaixa').value = DEFAULT_CURADORIA_SLA_THRESHOLDS.baixa;
+    setCfgStatus('cfgSlaThresholdsStatus', 'Padrão restaurado. Clique em "Salvar prazos" para confirmar.', 'ok');
+}
+
+const DEFAULT_CURADORIA_PROMPT_SLA_ESTOURO_TEXT = `CRITERIO DE ATRIBUICAO DE ESTOURO DE SLA:
+- Prazo de resolucao esperado para a urgencia deste chamado = {{slaResolucaoHoras}} horas uteis
+- Tempo real de resolucao (ja calculado) = {{tempoResolucaoHorasUteis}} horas uteis
+- Se o tempo real for menor ou igual ao prazo esperado, responsavel = "nao_estourou"
+- Se o tempo real for maior que o prazo esperado, analise a tabela de acoes em ordem cronologica (autor, tipo e data) para decidir quem causou o atraso:
+  - "cliente": o suporte respondeu, sinalizou solucao ou pediu uma confirmacao/informacao, e o cliente demorou a responder ou confirmar, sendo essa demora do cliente o principal motivo do estouro
+  - "suporte": o atraso decorreu de demora do proprio suporte em responder, investigar, agir ou dar sequencia
+  - "indisponivel": nao ha acoes ou dados suficientes para decidir com confianca
+- Preencha justificativa em ate 2 frases e liste de 1 a 3 evidencias reais (id da acao, autor e data) que sustentam a decisao`;
+
+async function loadCuradoriaPromptSlaEstouro() {
+    if (!isCurrentUserAdmin()) return;
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-prompt-sla-estouro`, { headers: authHeaders() });
+        const data = response.ok ? await response.json() : {};
+        document.getElementById('cfgCuradoriaPromptSlaEstouro').value = data.prompt || DEFAULT_CURADORIA_PROMPT_SLA_ESTOURO_TEXT;
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaPromptSlaEstouroStatus', `Erro ao carregar prompt: ${error.message}`, 'error');
+    }
+}
+
+async function saveCuradoriaPromptSlaEstouro() {
+    const prompt = document.getElementById('cfgCuradoriaPromptSlaEstouro')?.value?.trim();
+    if (!prompt || prompt.length < 10) {
+        setCfgStatus('cfgCuradoriaPromptSlaEstouroStatus', 'Prompt muito curto: descreva melhor o critério de atribuição.', 'error');
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/config/curadoria-prompt-sla-estouro`, {
+            method: 'POST',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar prompt');
+        setCfgStatus('cfgCuradoriaPromptSlaEstouroStatus', 'Prompt salvo com sucesso.', 'ok');
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaPromptSlaEstouroStatus', `Erro ao salvar prompt: ${error.message}`, 'error');
+    }
+}
+
+function resetCuradoriaPromptSlaEstouroToDefault() {
+    document.getElementById('cfgCuradoriaPromptSlaEstouro').value = DEFAULT_CURADORIA_PROMPT_SLA_ESTOURO_TEXT;
+    setCfgStatus('cfgCuradoriaPromptSlaEstouroStatus', 'Padrão restaurado. Clique em "Salvar prompt" para confirmar.', 'ok');
+}
+
+function loadCuradoriaAvancadoTab() {
+    loadCuradoriaPromptAnalise();
+    loadCuradoriaPromptCompetencias();
+    loadCuradoriaPromptNarrativa();
+    loadCuradoriaQueryConfig();
+    loadCuradoriaMovideskConfig();
+    loadCuradoriaSlaThresholds();
+    loadCuradoriaPromptSlaEstouro();
+}
+
 function switchConfigTab(tab) {
     document.querySelectorAll('.cfg-tab-panel').forEach(p => p.classList.add('cfg-tab-hidden'));
     document.querySelectorAll('.cfg-tab-btn').forEach(b => b.classList.remove('cfg-tab-active'));
@@ -332,6 +908,8 @@ function switchConfigTab(tab) {
     document.querySelector('.main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
     // Carregar consumo de IA ao abrir aba IA
     if (tab === 'ia') loadAiUsage();
+    if (tab === 'curadoria') { loadCuradoriaPendingCount(); checkSurveySyncOnLoad(); checkModuloSyncOnLoad(); loadScoreWeightsConfig(); checkFullLoadOnLoad(); loadSlaEstouroCount(); }
+    if (tab === 'curadoria-avancado') loadCuradoriaAvancadoTab();
 }
 
 async function loadAutoSyncStatus() {
@@ -972,5 +1550,620 @@ async function loadAiUsage() {
     } catch(err) {
         if (statusEl) { statusEl.textContent = 'Erro ao carregar consumo: ' + err.message; statusEl.className = 'config-status config-status-error'; }
     }
+}
+
+/* ── Processamento de chamados pendentes (curadoria) ─────────────────────────
+   O job roda inteiro no servidor (ver server/routes/curadoria.js). O frontend só
+   inicia o job e consulta o progresso via polling — por isso continua rodando
+   mesmo se você sair desta tela ou fechar a aba, e retoma o acompanhamento
+   automaticamente se um job já estiver em andamento quando você voltar. ────── */
+let _curadoriaPollInterval = null;
+
+async function loadCuradoriaPendingCount() {
+    const badge = document.getElementById('cfgCuradoriaPendingCount');
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/pending-count`, { headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar pendentes');
+        if (badge) {
+            badge.textContent = `${data.count} chamado${data.count !== 1 ? 's' : ''}`;
+            badge.className = data.count > 0 ? 'config-token-status config-token-status-off' : 'config-token-status config-token-status-on';
+        }
+    } catch (error) {
+        if (badge) { badge.textContent = 'Erro ao consultar'; badge.className = 'config-token-status config-token-status-off'; }
+    }
+
+    // Se um job já estiver rodando em segundo plano (iniciado antes desta tela abrir),
+    // retoma o acompanhamento automaticamente em vez de mostrar o botão como se nada
+    // estivesse acontecendo. Mesmo se o job já tiver terminado, ainda renderiza o resultado
+    // (inclusive a lista de erros) — o estado fica em memória no servidor até o próximo job,
+    // então sem isso os erros de uma rodada em segundo plano nunca apareceriam pra quem só
+    // reabre a tela depois.
+    try {
+        const statusResponse = await fetch(`${API_BASE}/curadoria/process-pending/status`, { headers: authHeaders() });
+        const statusData = await statusResponse.json();
+        if (statusResponse.ok && statusData.startedAt) {
+            renderCuradoriaProgress(statusData);
+            if (statusData.running) startCuradoriaPolling();
+        }
+    } catch (_) { /* não crítico */ }
+}
+
+async function startCuradoriaProcessing() {
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/process-pending`, {
+            method: 'POST',
+            headers: authHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao iniciar processamento');
+        renderCuradoriaProgress(data);
+        startCuradoriaPolling();
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaProcessStatus', `Erro ao iniciar: ${error.message}`, 'error');
+    }
+}
+
+function startCuradoriaPolling() {
+    if (_curadoriaPollInterval) return; // já tem um polling ativo, não duplica
+    pollCuradoriaProcessingStatus();
+    _curadoriaPollInterval = setInterval(pollCuradoriaProcessingStatus, 1500);
+}
+
+async function pollCuradoriaProcessingStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/process-pending/status`, { headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar status');
+        renderCuradoriaProgress(data);
+        if (!data.running) {
+            clearInterval(_curadoriaPollInterval);
+            _curadoriaPollInterval = null;
+            await loadCuradoriaPendingCount();
+        }
+    } catch (error) {
+        console.warn('[curadoria] erro ao consultar progresso:', error.message);
+    }
+}
+
+// Renderiza a lista de chamados que falharam no processamento (data.recentErrors, já vem
+// limitada a 20 itens mais recentes pelo backend) — sem isso, o único jeito de saber o que
+// deu errado era abrir o console do navegador.
+function renderCuradoriaErrorsList(errors, wrapId, listId) {
+    const wrap = document.getElementById(wrapId);
+    const list = document.getElementById(listId);
+    if (!wrap || !list) return;
+    if (!errors?.length) { wrap.style.display = 'none'; list.innerHTML = ''; return; }
+    wrap.style.display = '';
+    list.innerHTML = errors.map(e => `
+        <div class="config-error-row">
+            <span class="config-error-ticket">#${escapeHtml(String(e.ticket_id))}</span>
+            <span class="config-error-msg">${escapeHtml(e.error)}</span>
+            <span class="config-error-time">${e.at ? new Date(e.at).toLocaleTimeString('pt-BR') : ''}</span>
+        </div>`).join('');
+}
+
+function renderCuradoriaProgress(data) {
+    const btn = document.getElementById('cfgProcessPending');
+    const stopBtn = document.getElementById('cfgStopProcessPending');
+    const wrap = document.getElementById('cfgCuradoriaProgressWrap');
+    const bar = document.getElementById('cfgCuradoriaProgressBar');
+    const pctEl = document.getElementById('cfgCuradoriaProgressPct');
+    const labelEl = document.getElementById('cfgCuradoriaProgressLabel');
+
+    const done = (data.processed || 0) + (data.failed || 0);
+    const pct = data.total > 0 ? Math.round((done / data.total) * 100) : 0;
+
+    if (btn) btn.style.display = data.running ? 'none' : '';
+    if (stopBtn) stopBtn.style.display = data.running ? '' : 'none';
+
+    if (data.running || data.startedAt) {
+        if (wrap) wrap.style.display = '';
+        if (bar) bar.style.width = pct + '%';
+        if (pctEl) pctEl.textContent = `${pct}% (${done}/${data.total})`;
+    }
+
+    if (data.running) {
+        if (labelEl) labelEl.textContent = data.currentTicketId ? `Processando chamado #${data.currentTicketId}...` : 'Processando...';
+        setCfgStatus('cfgCuradoriaProcessStatus', `${data.processed} concluído(s), ${data.failed} com erro`, '');
+    } else if (data.startedAt) {
+        const label = data.stopRequested ? 'Interrompido' : 'Concluído';
+        if (labelEl) labelEl.textContent = label;
+        setCfgStatus(
+            'cfgCuradoriaProcessStatus',
+            `${label}! ${data.processed} chamado(s) processado(s), ${data.failed} com erro.`,
+            data.failed > 0 ? 'error' : 'ok'
+        );
+    }
+    renderCuradoriaErrorsList(data.recentErrors, 'cfgCuradoriaErrorsWrap', 'cfgCuradoriaErrorsList');
+}
+
+async function stopCuradoriaProcessing() {
+    try {
+        await fetch(`${API_BASE}/curadoria/process-pending/stop`, { method: 'POST', headers: authHeaders() });
+        setCfgStatus('cfgCuradoriaProcessStatus', 'Parando após o chamado atual...', '');
+    } catch (error) {
+        setCfgStatus('cfgCuradoriaProcessStatus', `Erro ao parar: ${error.message}`, 'error');
+    }
+}
+
+/* ── Recálculo de estouro de SLA (cliente x suporte) — chamados já processados ───────────────
+   Mesmo padrão de polling do processamento de pendentes acima, mas chamando a IA só com o
+   critério de estouro de SLA (não refaz a análise comportamental inteira). ────────────────── */
+let _slaEstouroPollInterval = null;
+
+async function loadSlaEstouroCount() {
+    const badge = document.getElementById('cfgSlaEstouroCount');
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/sla-estouro/count`, { headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar chamados');
+        if (badge) {
+            badge.textContent = `${data.count} chamado${data.count !== 1 ? 's' : ''}`;
+            badge.className = 'config-token-status config-token-status-on';
+        }
+    } catch (error) {
+        if (badge) { badge.textContent = 'Erro ao consultar'; badge.className = 'config-token-status config-token-status-off'; }
+    }
+
+    // Retoma o acompanhamento se um job já estiver rodando em segundo plano.
+    try {
+        const statusResponse = await fetch(`${API_BASE}/curadoria/sla-estouro/recalcular/status`, { headers: authHeaders() });
+        const statusData = await statusResponse.json();
+        if (statusResponse.ok && statusData.running) {
+            renderSlaEstouroProgress(statusData);
+            startSlaEstouroPolling();
+        }
+    } catch (_) { /* não crítico */ }
+}
+
+async function startSlaEstouroRecalc() {
+    const confirmed = confirm(
+        'Isso vai chamar a IA novamente para TODOS os chamados já processados, só para recalcular ' +
+        'se um eventual estouro de SLA foi por culpa do cliente ou do suporte (vai gastar créditos de IA). Continuar?'
+    );
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/sla-estouro/recalcular`, {
+            method: 'POST',
+            headers: authHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao iniciar recálculo');
+        renderSlaEstouroProgress(data);
+        startSlaEstouroPolling();
+    } catch (error) {
+        setCfgStatus('cfgSlaEstouroStatus', `Erro ao iniciar: ${error.message}`, 'error');
+    }
+}
+
+function startSlaEstouroPolling() {
+    if (_slaEstouroPollInterval) return; // já tem um polling ativo, não duplica
+    pollSlaEstouroStatus();
+    _slaEstouroPollInterval = setInterval(pollSlaEstouroStatus, 1500);
+}
+
+async function pollSlaEstouroStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/sla-estouro/recalcular/status`, { headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar status');
+        renderSlaEstouroProgress(data);
+        if (!data.running) {
+            clearInterval(_slaEstouroPollInterval);
+            _slaEstouroPollInterval = null;
+        }
+    } catch (error) {
+        console.warn('[curadoria] erro ao consultar progresso do recálculo de SLA:', error.message);
+    }
+}
+
+function renderSlaEstouroProgress(data) {
+    const btn = document.getElementById('cfgRecalcSlaEstouro');
+    const stopBtn = document.getElementById('cfgStopSlaEstouroRecalc');
+    const wrap = document.getElementById('cfgSlaEstouroProgressWrap');
+    const bar = document.getElementById('cfgSlaEstouroProgressBar');
+    const pctEl = document.getElementById('cfgSlaEstouroProgressPct');
+    const labelEl = document.getElementById('cfgSlaEstouroProgressLabel');
+
+    const done = (data.processed || 0) + (data.failed || 0);
+    const pct = data.total > 0 ? Math.round((done / data.total) * 100) : 0;
+
+    if (btn) btn.style.display = data.running ? 'none' : '';
+    if (stopBtn) stopBtn.style.display = data.running ? '' : 'none';
+
+    if (data.running || data.startedAt) {
+        if (wrap) wrap.style.display = '';
+        if (bar) bar.style.width = pct + '%';
+        if (pctEl) pctEl.textContent = `${pct}% (${done}/${data.total})`;
+    }
+
+    if (data.running) {
+        if (labelEl) labelEl.textContent = data.currentTicketId ? `Recalculando chamado #${data.currentTicketId}...` : 'Recalculando...';
+        setCfgStatus('cfgSlaEstouroStatus', `${data.processed} concluído(s), ${data.failed} com erro`, '');
+    } else if (data.startedAt) {
+        const label = data.stopRequested ? 'Interrompido' : 'Concluído';
+        if (labelEl) labelEl.textContent = label;
+        setCfgStatus(
+            'cfgSlaEstouroStatus',
+            `${label}! ${data.processed} chamado(s) recalculado(s), ${data.failed} com erro.`,
+            data.failed > 0 ? 'error' : 'ok'
+        );
+        if (data.recentErrors?.length) console.warn('[curadoria] erros no recálculo de SLA:', data.recentErrors);
+    }
+}
+
+async function stopSlaEstouroRecalc() {
+    try {
+        await fetch(`${API_BASE}/curadoria/sla-estouro/recalcular/stop`, { method: 'POST', headers: authHeaders() });
+        setCfgStatus('cfgSlaEstouroStatus', 'Parando após o chamado atual...', '');
+    } catch (error) {
+        setCfgStatus('cfgSlaEstouroStatus', `Erro ao parar: ${error.message}`, 'error');
+    }
+}
+
+async function recalcularCompetencias() {
+    const confirmed = confirm(
+        'Isso apaga as competências já calculadas de TODOS os chamados processados. ' +
+        'Elas serão recalculadas aos poucos, conforme cada atendente for aberto na tela de Curadoria ' +
+        '(vai gastar créditos de IA de novo). Continuar?'
+    );
+    if (!confirmed) return;
+
+    const btn = document.getElementById('cfgRecalcCompetencias');
+    if (btn) { btn.disabled = true; btn.textContent = 'Recalculando...'; }
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/competencias/reset`, {
+            method: 'POST',
+            headers: authHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao recalcular competências');
+        setCfgStatus(
+            'cfgRecalcCompetenciasStatus',
+            `${data.reset} chamado(s) marcados para recálculo. Abra cada atendente na tela de Curadoria para gerar as novas competências.`,
+            'ok'
+        );
+    } catch (error) {
+        setCfgStatus('cfgRecalcCompetenciasStatus', `Erro ao recalcular: ${error.message}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Recalcular competências de todos os chamados'; }
+    }
+}
+
+/* ── Carga bruta — dispara os 3 jobs de enriquecimento de uma vez ────────── */
+function _formatFullLoadTimestamp(iso) {
+    if (!iso) return 'Nunca rodou';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return 'Nunca rodou';
+    return d.toLocaleString('pt-BR');
+}
+
+function _setFullLoadButtonLoading(running) {
+    const btn = document.getElementById('cfgTriggerFullLoad');
+    if (!btn) return;
+    if (!btn.dataset.originalLabel) btn.dataset.originalLabel = btn.textContent;
+    btn.disabled = running;
+    if (running) {
+        btn.innerHTML = '<span class="config-btn-spinner"></span> Rodando...';
+    } else {
+        btn.textContent = btn.dataset.originalLabel;
+    }
+}
+
+function renderFullLoadStatus(data) {
+    const lastRunEl = document.getElementById('cfgFullLoadLastRun');
+    if (lastRunEl) {
+        const sourceLabel = data.lastRun?.source === 'scheduled' ? 'automática' : data.lastRun?.source === 'manual' ? 'manual' : '';
+        lastRunEl.textContent = data.lastRun?.at
+            ? `${_formatFullLoadTimestamp(data.lastRun.at)}${sourceLabel ? ` (${sourceLabel})` : ''}`
+            : 'Nunca rodou';
+    }
+
+    const anyRunning = !!(data.processamento?.running || data.survey?.running || data.modulo?.running);
+    _setFullLoadButtonLoading(anyRunning);
+
+    if (anyRunning) {
+        const parts = [];
+        if (data.processamento?.running) parts.push(`Chamados: ${data.processamento.processed || 0}/${data.processamento.total || 0}`);
+        if (data.survey?.running) parts.push(`Satisfação: ${data.survey.processed || 0}/${data.survey.total || 0}`);
+        if (data.modulo?.running) parts.push(`Módulo x Rotina: ${data.modulo.processed || 0}/${data.modulo.total || 0}`);
+        setCfgStatus('cfgFullLoadStatus', `Em andamento — ${parts.join(' · ')}`, '');
+    } else if (data.lastRun?.at) {
+        setCfgStatus('cfgFullLoadStatus', 'Nenhum processo em andamento no momento.', 'ok');
+    }
+}
+
+async function loadFullLoadStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/full-load/status`, { headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar status');
+        renderFullLoadStatus(data);
+    } catch (error) {
+        setCfgStatus('cfgFullLoadStatus', `Erro ao consultar status: ${error.message}`, 'error');
+    }
+}
+
+async function triggerCuradoriaFullLoad() {
+    _setFullLoadButtonLoading(true);
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/full-load`, { method: 'POST', headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao disparar carga bruta');
+        renderFullLoadStatus(data);
+        setCfgStatus('cfgFullLoadStatus', 'Carga bruta iniciada — os 3 processos estão rodando em segundo plano.', 'ok');
+        startFullLoadPolling();
+        // Também atualiza a contagem de pendentes de cada card individual
+        loadCuradoriaPendingCount();
+        loadSurveyPendingCount();
+        loadModuloPendingCount();
+    } catch (error) {
+        _setFullLoadButtonLoading(false);
+        setCfgStatus('cfgFullLoadStatus', `Erro ao iniciar: ${error.message}`, 'error');
+    }
+}
+
+async function checkFullLoadOnLoad() {
+    await loadFullLoadStatus();
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/full-load/status`, { headers: authHeaders() });
+        const data = await response.json();
+        const anyRunning = response.ok && !!(data.processamento?.running || data.survey?.running || data.modulo?.running);
+        if (anyRunning) startFullLoadPolling();
+    } catch (_) { /* não crítico */ }
+}
+
+let _fullLoadPollInterval = null;
+function startFullLoadPolling() {
+    if (_fullLoadPollInterval) return;
+    _fullLoadPollInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`${API_BASE}/curadoria/full-load/status`, { headers: authHeaders() });
+            const data = await response.json();
+            if (!response.ok) return;
+            renderFullLoadStatus(data);
+            const anyRunning = !!(data.processamento?.running || data.survey?.running || data.modulo?.running);
+            if (!anyRunning) {
+                clearInterval(_fullLoadPollInterval);
+                _fullLoadPollInterval = null;
+            }
+        } catch (_) { /* não crítico */ }
+    }, 1500);
+}
+
+/* ── Satisfação do cliente (pesquisa Movidesk) — busca chamado por chamado ────
+   O job roda no servidor (ver server/routes/curadoria.js), um ticket por vez,
+   respeitando o rate limit do Movidesk. Mesmo padrão de fila+polling do
+   processamento de chamados pendentes. ────────────────────────────────────── */
+let _surveySyncPollInterval = null;
+
+async function loadSurveyPendingCount() {
+    const badge = document.getElementById('cfgSurveyPendingCount');
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/survey/pending-count`, { headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar pendentes');
+        if (badge) {
+            badge.textContent = `${data.count} chamado${data.count !== 1 ? 's' : ''}`;
+            badge.className = data.count > 0 ? 'config-token-status config-token-status-off' : 'config-token-status config-token-status-on';
+        }
+    } catch (error) {
+        if (badge) { badge.textContent = 'Erro ao consultar'; badge.className = 'config-token-status config-token-status-off'; }
+    }
+}
+
+function renderSurveySyncProgress(data) {
+    const btn = document.getElementById('cfgSyncSurvey');
+    const stopBtn = document.getElementById('cfgStopSurveySync');
+    const wrap = document.getElementById('cfgSurveySyncProgressWrap');
+    const labelEl = document.getElementById('cfgSurveySyncProgressLabel');
+    const pctEl = document.getElementById('cfgSurveySyncProgressPct');
+    const bar = document.getElementById('cfgSurveySyncProgressBar');
+
+    if (btn) btn.style.display = data.running ? 'none' : '';
+    if (stopBtn) stopBtn.style.display = data.running ? '' : 'none';
+
+    const done = (data.processed || 0);
+    const pct = data.total > 0 ? Math.round((done / data.total) * 100) : 0;
+
+    if (data.running || data.startedAt) {
+        if (wrap) wrap.style.display = '';
+        if (bar) bar.style.width = pct + '%';
+        if (pctEl) pctEl.textContent = `${pct}% (${done}/${data.total})`;
+    }
+
+    if (data.running) {
+        if (labelEl) labelEl.textContent = data.currentTicketId ? `Verificando chamado #${data.currentTicketId}...` : 'Iniciando...';
+        setCfgStatus('cfgSurveySyncStatus', `${data.updated} atualizado(s), ${data.skipped} sem resposta de pesquisa`, '');
+    } else if (data.startedAt) {
+        if (data.error) {
+            setCfgStatus('cfgSurveySyncStatus', `Erro na sincronização: ${data.error}`, 'error');
+        } else {
+            const label = data.stopRequested ? 'Interrompido' : 'Concluído';
+            if (labelEl) labelEl.textContent = label;
+            setCfgStatus(
+                'cfgSurveySyncStatus',
+                `${label}! ${data.updated} chamado(s) atualizado(s) com nota real de satisfação, ${data.skipped} sem resposta de pesquisa.`,
+                'ok'
+            );
+        }
+    }
+}
+
+async function startSurveySync() {
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/survey/sync`, {
+            method: 'POST',
+            headers: authHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao iniciar sincronização');
+        renderSurveySyncProgress(data);
+        startSurveySyncPolling();
+    } catch (error) {
+        setCfgStatus('cfgSurveySyncStatus', `Erro ao iniciar: ${error.message}`, 'error');
+    }
+}
+
+async function stopSurveySync() {
+    try {
+        await fetch(`${API_BASE}/curadoria/survey/sync/stop`, { method: 'POST', headers: authHeaders() });
+        setCfgStatus('cfgSurveySyncStatus', 'Parando após o chamado atual...', '');
+    } catch (error) {
+        setCfgStatus('cfgSurveySyncStatus', `Erro ao parar: ${error.message}`, 'error');
+    }
+}
+
+function startSurveySyncPolling() {
+    if (_surveySyncPollInterval) return;
+    pollSurveySyncStatus();
+    _surveySyncPollInterval = setInterval(pollSurveySyncStatus, 1500);
+}
+
+async function pollSurveySyncStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/survey/sync/status`, { headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar status');
+        renderSurveySyncProgress(data);
+        if (!data.running) {
+            clearInterval(_surveySyncPollInterval);
+            _surveySyncPollInterval = null;
+            await loadSurveyPendingCount();
+        }
+    } catch (error) {
+        console.warn('[survey] erro ao consultar progresso:', error.message);
+    }
+}
+
+// Retoma o acompanhamento se uma sincronização já estiver rodando (ex: iniciada antes
+// desta tela ser aberta) — mesmo padrão do processamento de chamados pendentes.
+async function checkSurveySyncOnLoad() {
+    await loadSurveyPendingCount();
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/survey/sync/status`, { headers: authHeaders() });
+        const data = await response.json();
+        if (response.ok && data.running) {
+            renderSurveySyncProgress(data);
+            startSurveySyncPolling();
+        }
+    } catch (_) { /* não crítico */ }
+}
+
+/* ── Módulo x Rotina (campo customizado Movidesk) — busca chamado por chamado ──
+   Mesmo padrão de fila+polling da sincronização de satisfação. ─────────────── */
+let _moduloSyncPollInterval = null;
+
+async function loadModuloPendingCount() {
+    const badge = document.getElementById('cfgModuloPendingCount');
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/modulo/pending-count`, { headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar pendentes');
+        if (badge) {
+            badge.textContent = `${data.count} chamado${data.count !== 1 ? 's' : ''}`;
+            badge.className = data.count > 0 ? 'config-token-status config-token-status-off' : 'config-token-status config-token-status-on';
+        }
+    } catch (error) {
+        if (badge) { badge.textContent = 'Erro ao consultar'; badge.className = 'config-token-status config-token-status-off'; }
+    }
+}
+
+function renderModuloSyncProgress(data) {
+    const btn = document.getElementById('cfgSyncModulo');
+    const stopBtn = document.getElementById('cfgStopModuloSync');
+    const wrap = document.getElementById('cfgModuloSyncProgressWrap');
+    const labelEl = document.getElementById('cfgModuloSyncProgressLabel');
+    const pctEl = document.getElementById('cfgModuloSyncProgressPct');
+    const bar = document.getElementById('cfgModuloSyncProgressBar');
+
+    if (btn) btn.style.display = data.running ? 'none' : '';
+    if (stopBtn) stopBtn.style.display = data.running ? '' : 'none';
+
+    const done = (data.processed || 0);
+    const pct = data.total > 0 ? Math.round((done / data.total) * 100) : 0;
+
+    if (data.running || data.startedAt) {
+        if (wrap) wrap.style.display = '';
+        if (bar) bar.style.width = pct + '%';
+        if (pctEl) pctEl.textContent = `${pct}% (${done}/${data.total})`;
+    }
+
+    if (data.running) {
+        if (labelEl) labelEl.textContent = data.currentTicketId ? `Verificando chamado #${data.currentTicketId}...` : 'Iniciando...';
+        setCfgStatus('cfgModuloSyncStatus', `${data.updated} atualizado(s), ${data.skipped} sem módulo x rotina`, '');
+    } else if (data.startedAt) {
+        if (data.error) {
+            setCfgStatus('cfgModuloSyncStatus', `Erro na sincronização: ${data.error}`, 'error');
+        } else {
+            const label = data.stopRequested ? 'Interrompido' : 'Concluído';
+            if (labelEl) labelEl.textContent = label;
+            setCfgStatus(
+                'cfgModuloSyncStatus',
+                `${label}! ${data.updated} chamado(s) atualizado(s) com módulo x rotina, ${data.skipped} sem o campo preenchido.`,
+                'ok'
+            );
+        }
+    }
+}
+
+async function startModuloSync() {
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/modulo/sync`, {
+            method: 'POST',
+            headers: authHeaders()
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao iniciar sincronização');
+        renderModuloSyncProgress(data);
+        startModuloSyncPolling();
+    } catch (error) {
+        setCfgStatus('cfgModuloSyncStatus', `Erro ao iniciar: ${error.message}`, 'error');
+    }
+}
+
+async function stopModuloSync() {
+    try {
+        await fetch(`${API_BASE}/curadoria/modulo/sync/stop`, { method: 'POST', headers: authHeaders() });
+        setCfgStatus('cfgModuloSyncStatus', 'Parando após o chamado atual...', '');
+    } catch (error) {
+        setCfgStatus('cfgModuloSyncStatus', `Erro ao parar: ${error.message}`, 'error');
+    }
+}
+
+function startModuloSyncPolling() {
+    if (_moduloSyncPollInterval) return;
+    pollModuloSyncStatus();
+    _moduloSyncPollInterval = setInterval(pollModuloSyncStatus, 1500);
+}
+
+async function pollModuloSyncStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/modulo/sync/status`, { headers: authHeaders() });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar status');
+        renderModuloSyncProgress(data);
+        if (!data.running) {
+            clearInterval(_moduloSyncPollInterval);
+            _moduloSyncPollInterval = null;
+            await loadModuloPendingCount();
+        }
+    } catch (error) {
+        console.warn('[modulo] erro ao consultar progresso:', error.message);
+    }
+}
+
+async function checkModuloSyncOnLoad() {
+    await loadModuloPendingCount();
+    try {
+        const response = await fetch(`${API_BASE}/curadoria/modulo/sync/status`, { headers: authHeaders() });
+        const data = await response.json();
+        if (response.ok && data.running) {
+            renderModuloSyncProgress(data);
+            startModuloSyncPolling();
+        }
+    } catch (_) { /* não crítico */ }
 }
 

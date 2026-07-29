@@ -11,8 +11,10 @@ const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const pessoasRoutes = require('./routes/pessoas');
 const curadoriaRoutes = require('./routes/curadoria');
+const ouvidoriaRoutes = require('./routes/ouvidoria');
+const gccRoutes = require('./routes/gcc');
 const { runSync, runIncrementalSync } = require('./routes/tickets');
-const { getAutoSyncConfig } = require('./routes/config');
+const { getAutoSyncConfig, getCuradoriaMovideskConfig } = require('./routes/config');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +39,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/pessoas', pessoasRoutes);
 app.use('/api/curadoria', curadoriaRoutes);
+app.use('/api/ouvidoria', ouvidoriaRoutes);
+app.use('/api/gcc', gccRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/tickets', ticketsRoutes);
 
@@ -73,6 +77,39 @@ app.use((err, req, res, next) => {
 setInterval(() => {
   db.query('DELETE FROM sessions WHERE expires_at < NOW()').catch(() => {});
 }, 60 * 60 * 1000);
+
+// ===== Carga bruta agendada da Curadoria (manhã, almoço e fim de tarde) =====
+// Dispara os jobs de enriquecimento (análise de IA, satisfação real, módulo x rotina)
+// automaticamente 3x ao dia, para que os KPIs e o Foco de Atendimento da Visão Geral
+// reflitam dados atualizados sem precisar de acionamento manual. Cada job já é
+// resumível e idempotente (só processa o que ainda não foi verificado), então disparar
+// de novo antes do anterior terminar não duplica trabalho.
+const DEFAULT_CURADORIA_FULL_LOAD_TIMES = ['08:00', '12:00', '19:00'];
+let curadoriaFullLoadFiredKeys = new Set();
+
+// Horários vêm de curadoria_movidesk_config (Configurações → Curadoria Avançado); o array
+// acima só é usado como fallback se ainda não houver nada configurado.
+function checkCuradoriaFullLoadSchedule() {
+  getCuradoriaMovideskConfig((err, cfg) => {
+    const times = (!err && Array.isArray(cfg?.fullLoadTimes) && cfg.fullLoadTimes.length) ? cfg.fullLoadTimes : DEFAULT_CURADORIA_FULL_LOAD_TIMES;
+
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    if (!times.includes(hhmm)) return;
+
+    const dayKey = now.toISOString().slice(0, 10);
+    const fireKey = `${dayKey}T${hhmm}`;
+    if (curadoriaFullLoadFiredKeys.has(fireKey)) return;
+    curadoriaFullLoadFiredKeys.add(fireKey);
+    // Evita crescimento infinito do Set — mantém só as chaves do dia atual
+    curadoriaFullLoadFiredKeys.forEach((k) => { if (!k.startsWith(dayKey)) curadoriaFullLoadFiredKeys.delete(k); });
+
+    console.log(`⏱️  [${now.toLocaleTimeString('pt-BR')}] Disparando carga bruta agendada da Curadoria (${hhmm})`);
+    curadoriaRoutes.runFullLoad('scheduled');
+  });
+}
+
+setInterval(checkCuradoriaFullLoadSchedule, 30 * 1000);
 
 // Iniciar servidor
 app.listen(PORT, () => {

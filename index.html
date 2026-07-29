@@ -59,6 +59,17 @@
                         <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                     </svg>
                 </button>
+                <button class="sidebar-btn" title="Ouvidoria" data-view="ouvidoria" id="navOuvidoria">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m3 11 18-5v12L3 14v-3z"/>
+                        <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>
+                    </svg>
+                </button>
+                <button class="sidebar-btn" title="GCC" data-view="gcc" id="navGcc">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                </button>
             </div>
             <div class="sidebar-bottom">
                 <button class="sidebar-btn" id="logoutBtn" title="Sair">
@@ -142,6 +153,9 @@
                     </button>
                     <button class="cfg-tab-btn" data-tab="curadoria" onclick="switchConfigTab('curadoria')">
                         <span class="material-symbols-outlined">manage_search</span> Curadoria
+                    </button>
+                    <button class="cfg-tab-btn" data-tab="curadoria-avancado" onclick="switchConfigTab('curadoria-avancado')">
+                        <span class="material-symbols-outlined">tune</span> Curadoria Avançado
                     </button>
                     <button class="cfg-tab-btn" data-tab="ia" onclick="switchConfigTab('ia')">
                         <span class="material-symbols-outlined">smart_toy</span> Inteligência Artificial
@@ -284,6 +298,120 @@
                 <!-- ABA: Curadoria -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-curadoria">
                     <div class="config-card">
+                        <h3 class="config-card-title">Carga Bruta (Todos os Processos)</h3>
+                        <p class="config-card-help">Dispara de uma vez os 3 processos abaixo (chamados pendentes, satisfação e módulo x rotina), para que os KPIs e o Foco de Atendimento da Visão Geral reflitam dados atualizados. Roda automaticamente às 08:00, 12:00 e 19:00 todos os dias — use o botão abaixo para forçar uma carga fora desses horários.</p>
+                        <div class="config-status-line">
+                            <span class="config-status-label">Última carga:</span>
+                            <span id="cfgFullLoadLastRun" class="config-token-status config-token-status-off">-</span>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgTriggerFullLoad" class="config-btn" onclick="triggerCuradoriaFullLoad()">Rodar carga bruta agora</button>
+                            <button class="config-btn config-btn-muted" onclick="loadFullLoadStatus()">Recarregar status</button>
+                        </div>
+                        <div id="cfgFullLoadStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Processamento de Chamados Pendentes</h3>
+                        <p class="config-card-help">Chamados sincronizados do Movidesk passam por uma análise de IA (comportamento do atendente, causa, urgência, etc.) antes de aparecerem na tela de Curadoria. Use esta seção para processar manualmente os chamados que ainda não foram analisados. O processamento roda no servidor — pode fechar esta tela que ele continua em segundo plano.</p>
+                        <div class="config-status-line">
+                            <span class="config-status-label">Pendentes:</span>
+                            <span id="cfgCuradoriaPendingCount" class="config-token-status config-token-status-off">-</span>
+                        </div>
+                        <div id="cfgCuradoriaProgressWrap" style="display:none; margin: 14px 0;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
+                                <span id="cfgCuradoriaProgressLabel">Processando...</span>
+                                <span id="cfgCuradoriaProgressPct">0%</span>
+                            </div>
+                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
+                                <div id="cfgCuradoriaProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
+                            </div>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgProcessPending" class="config-btn" onclick="startCuradoriaProcessing()">Processar pendentes</button>
+                            <button id="cfgStopProcessPending" class="config-btn config-btn-muted" onclick="stopCuradoriaProcessing()" style="display:none;">Parar</button>
+                            <button class="config-btn config-btn-muted" onclick="loadCuradoriaPendingCount()">Recarregar contagem</button>
+                        </div>
+                        <div id="cfgCuradoriaProcessStatus" class="config-status"></div>
+                        <div id="cfgCuradoriaErrorsWrap" style="display:none; margin-top: 12px;">
+                            <div style="font-size:12px; font-weight:700; color: var(--muted); text-transform: uppercase; letter-spacing:0.3px; margin-bottom:6px;">Chamados com erro</div>
+                            <div id="cfgCuradoriaErrorsList" class="config-error-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Recalcular Estouro de SLA (Cliente x Suporte)</h3>
+                        <p class="config-card-help">Recalcula, para todos os chamados já processados, se um eventual estouro do SLA de resolução foi causado pelo cliente ou pelo suporte — usando o critério configurável em Configurações → Curadoria Avançado → "Critério de Estouro de SLA". Não refaz o restante da análise comportamental, só este campo. Roda no servidor, pode fechar esta tela.</p>
+                        <div class="config-status-line">
+                            <span class="config-status-label">Chamados processados:</span>
+                            <span id="cfgSlaEstouroCount" class="config-token-status config-token-status-off">-</span>
+                        </div>
+                        <div id="cfgSlaEstouroProgressWrap" style="display:none; margin: 14px 0;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
+                                <span id="cfgSlaEstouroProgressLabel">Processando...</span>
+                                <span id="cfgSlaEstouroProgressPct">0%</span>
+                            </div>
+                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
+                                <div id="cfgSlaEstouroProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
+                            </div>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgRecalcSlaEstouro" class="config-btn" onclick="startSlaEstouroRecalc()">Recalcular estouro de SLA de todos os chamados</button>
+                            <button id="cfgStopSlaEstouroRecalc" class="config-btn config-btn-muted" onclick="stopSlaEstouroRecalc()" style="display:none;">Parar</button>
+                            <button class="config-btn config-btn-muted" onclick="loadSlaEstouroCount()">Recarregar contagem</button>
+                        </div>
+                        <div id="cfgSlaEstouroStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Satisfação do Cliente (Pesquisa Movidesk)</h3>
+                        <p class="config-card-help">Busca, chamado por chamado, a resposta da pesquisa de satisfação embutida no próprio ticket do Movidesk e grava a nota real (1-5) nos chamados já existentes na curadoria — complementa a nota que a IA estima a partir da conversa. Só atualiza chamados que já estão na curadoria. Respeita o limite de ~10 requisições/minuto do Movidesk, então processar todos os chamados pendentes pode levar um tempo — roda em segundo plano, pode fechar esta tela.</p>
+                        <div class="config-status-line">
+                            <span class="config-status-label">Pendentes:</span>
+                            <span id="cfgSurveyPendingCount" class="config-token-status config-token-status-off">-</span>
+                        </div>
+                        <div id="cfgSurveySyncProgressWrap" style="display:none; margin: 14px 0;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
+                                <span id="cfgSurveySyncProgressLabel">Sincronizando...</span>
+                                <span id="cfgSurveySyncProgressPct">0%</span>
+                            </div>
+                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
+                                <div id="cfgSurveySyncProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
+                            </div>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSyncSurvey" class="config-btn" onclick="startSurveySync()">Sincronizar satisfação</button>
+                            <button id="cfgStopSurveySync" class="config-btn config-btn-muted" onclick="stopSurveySync()" style="display:none;">Parar</button>
+                            <button class="config-btn config-btn-muted" onclick="loadSurveyPendingCount()">Recarregar contagem</button>
+                        </div>
+                        <div id="cfgSurveySyncStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Módulo x Rotina (Campo Customizado Movidesk)</h3>
+                        <p class="config-card-help">Busca, chamado por chamado, o campo customizado "Módulo x Rotina" do Movidesk (ex: "Folha &gt; Férias") e grava na coluna correspondente dos chamados já existentes na curadoria. Assim como a sincronização de satisfação, respeita o limite de ~10 requisições/minuto do Movidesk — roda em segundo plano, pode fechar esta tela.</p>
+                        <div class="config-status-line">
+                            <span class="config-status-label">Pendentes:</span>
+                            <span id="cfgModuloPendingCount" class="config-token-status config-token-status-off">-</span>
+                        </div>
+                        <div id="cfgModuloSyncProgressWrap" style="display:none; margin: 14px 0;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted,#9aa0a6);margin-bottom:5px">
+                                <span id="cfgModuloSyncProgressLabel">Sincronizando...</span>
+                                <span id="cfgModuloSyncProgressPct">0%</span>
+                            </div>
+                            <div style="width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">
+                                <div id="cfgModuloSyncProgressBar" style="height:100%;width:0%;background:#3b82f6;transition:width 0.3s ease;border-radius:6px;"></div>
+                            </div>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSyncModulo" class="config-btn" onclick="startModuloSync()">Sincronizar módulo x rotina</button>
+                            <button id="cfgStopModuloSync" class="config-btn config-btn-muted" onclick="stopModuloSync()" style="display:none;">Parar</button>
+                            <button class="config-btn config-btn-muted" onclick="loadModuloPendingCount()">Recarregar contagem</button>
+                        </div>
+                        <div id="cfgModuloSyncStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
                         <h3 class="config-card-title">Competências de Curadoria</h3>
                         <p class="config-card-help">Defina quais aspectos do atendimento o sistema deve analisar. Para cada competência, você escolhe um nome e escreve um <strong>prompt</strong> descrevendo o que a IA deve observar nos chamados — o sistema vai avaliar cada atendente automaticamente com base nesses critérios.</p>
                         <div id="cfgCategoriesList" class="cfg-categories-list"></div>
@@ -295,6 +423,224 @@
                             <button class="config-btn config-btn-muted" onclick="resetCategoriesConfig()">Restaurar padrão</button>
                         </div>
                         <div id="cfgCategoriesStatus" class="config-status"></div>
+
+                        <div class="config-form-stack" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border, #2a2a2a);">
+                            <p class="config-card-help">Se você acrescentou uma competência nova ou alterou o prompt de uma existente, os chamados já analisados continuam com o resultado antigo. Use o botão abaixo para apagar as competências já calculadas — elas serão recalculadas aos poucos, conforme cada atendente for aberto na tela de Curadoria.</p>
+                            <div class="config-actions" style="justify-content:flex-start;">
+                                <button id="cfgRecalcCompetencias" class="config-btn config-btn-muted" onclick="recalcularCompetencias()">Recalcular competências de todos os chamados</button>
+                            </div>
+                            <div id="cfgRecalcCompetenciasStatus" class="config-status"></div>
+                        </div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Peso do Score de Performance</h3>
+                        <p class="config-card-help">O score de cada atendente (0-1000) combina 4 dimensões. Ajuste o peso de cada uma — a soma precisa fechar em 100%. A mudança vale para os próximos cálculos (não recalcula automaticamente o histórico já exibido).</p>
+                        <div class="config-form-stack">
+                            <label class="config-form-label">Satisfação do cliente
+                                <input type="number" id="cfgWeightSatisfacao" class="config-input" min="0" max="100" step="1" style="max-width:100px; display:inline-block; margin-left:10px;" oninput="updateScoreWeightSum()"> %
+                            </label>
+                            <label class="config-form-label">Eficiência de atendimento
+                                <input type="number" id="cfgWeightEficiencia" class="config-input" min="0" max="100" step="1" style="max-width:100px; display:inline-block; margin-left:10px;" oninput="updateScoreWeightSum()"> %
+                            </label>
+                            <label class="config-form-label">Pontos positivos vs gaps
+                                <input type="number" id="cfgWeightPontos" class="config-input" min="0" max="100" step="1" style="max-width:100px; display:inline-block; margin-left:10px;" oninput="updateScoreWeightSum()"> %
+                            </label>
+                            <label class="config-form-label">Competências (IA)
+                                <input type="number" id="cfgWeightCompetencias" class="config-input" min="0" max="100" step="1" style="max-width:100px; display:inline-block; margin-left:10px;" oninput="updateScoreWeightSum()"> %
+                            </label>
+                        </div>
+                        <div class="config-status-line">
+                            <span class="config-status-label">Soma atual:</span>
+                            <span id="cfgWeightSum" class="config-token-status config-token-status-off">-</span>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveScoreWeights" class="config-btn" onclick="saveScoreWeights()">Salvar pesos</button>
+                            <button class="config-btn config-btn-muted" onclick="resetScoreWeights()">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgScoreWeightsStatus" class="config-status"></div>
+                    </div>
+                </div>
+
+                <!-- ABA: Curadoria Avançado -->
+                <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-curadoria-avancado">
+                    <div class="config-card">
+                        <h3 class="config-card-title">Prompt de Análise Principal (IA)</h3>
+                        <p class="config-card-help">Prompt usado para analisar cada chamado (comportamento do atendente/cliente, causa, urgência, etc.) durante o "Processamento de Chamados Pendentes". Você pode reescrever livremente as regras e usar os placeholders: <code>{{solicitante}}</code>, <code>{{fato}}</code>, <code>{{causa}}</code>, <code>{{moduloXRotina}}</code>, <code>{{owner}}</code>, <code>{{abertoEm}}</code>, <code>{{slaInicioEm}}</code>, <code>{{resolvidoEm}}</code>, <code>{{tempoResolucaoMinUteis}}</code>, <code>{{tempoResolucaoHorasUteis}}</code>, <code>{{tempoResolucaoDiasUteis}}</code>, <code>{{tempoResolucaoLegivel}}</code>, <code>{{aberturaForaExpediente}}</code>. O formato JSON de saída é definido pelo sistema (necessário para gravar os dados no banco) e é sempre acrescentado automaticamente ao final — não precisa (e não deve) incluí-lo aqui.</p>
+                        <div class="config-form-stack">
+                            <textarea id="cfgCuradoriaPromptAnalise" class="config-input config-textarea" style="height:220px; font-family: monospace; font-size: 12px;" placeholder="Regras de análise do prompt..."></textarea>
+                        </div>
+                        <div class="config-form-row">
+                            <input id="cfgCuradoriaPromptModel" type="text" class="config-input" placeholder="Modelo (ex: gpt-4.1-mini)">
+                            <input id="cfgCuradoriaPromptTemp" type="number" class="config-input" min="0" max="2" step="0.1" placeholder="Temperatura (0-2)">
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveCuradoriaPromptAnalise" class="config-btn">Salvar prompt</button>
+                            <button id="cfgResetCuradoriaPromptAnalise" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgCuradoriaPromptAnaliseStatus" class="config-status"></div>
+
+                        <div class="config-form-stack" style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border, #2a2a2a);">
+                            <label class="config-form-label"><strong>Testar com um chamado real (não salva nada)</strong></label>
+                            <div class="config-form-row">
+                                <input id="cfgCuradoriaPromptTestTicket" type="number" class="config-input" placeholder="ticket_id (ex: 123456)">
+                                <button id="cfgTestCuradoriaPromptAnalise" class="config-btn config-btn-muted">Testar com este chamado</button>
+                            </div>
+                            <pre id="cfgCuradoriaPromptTestResult" style="display:none; white-space:pre-wrap; font-size:11px; max-height:320px; overflow:auto; background:rgba(255,255,255,0.04); padding:10px; border-radius:6px;"></pre>
+                        </div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Prompt de Classificação de Competências</h3>
+                        <p class="config-card-help">Instrução (system prompt) usada para classificar, em lote, quais competências (definidas na aba Curadoria) se manifestam em cada chamado. A lista de competências e chaves já é injetada automaticamente — este prompt define só o comportamento do avaliador.</p>
+                        <div class="config-form-stack">
+                            <textarea id="cfgCuradoriaPromptCompetencias" class="config-input config-textarea" style="height:120px;" placeholder="Instrução do avaliador..."></textarea>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveCuradoriaPromptCompetencias" class="config-btn">Salvar prompt</button>
+                            <button id="cfgResetCuradoriaPromptCompetencias" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgCuradoriaPromptCompetenciasStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Prompt da Narrativa da Equipe</h3>
+                        <p class="config-card-help">Usado para gerar o resumo em texto da equipe (produtividade, eficiência, feedback, área de melhoria) na Visão Geral da Curadoria. Placeholders disponíveis no template de usuário: <code>{{totalAtendentes}}</code>, <code>{{totalChamados}}</code>, <code>{{feedbackRateEquipe}}</code>, <code>{{slaEquipe}}</code>, <code>{{topProdutividade}}</code>, <code>{{topSla}}</code>, <code>{{menosFeedback}}</code>, <code>{{precisamApoio}}</code>.</p>
+                        <div class="config-form-stack">
+                            <label class="config-form-label">Prompt system (instrução/formato)</label>
+                            <textarea id="cfgCuradoriaPromptNarrSystem" class="config-input config-textarea" style="height:120px;"></textarea>
+                        </div>
+                        <div class="config-form-stack">
+                            <label class="config-form-label">Template do prompt de usuário (dados da equipe)</label>
+                            <textarea id="cfgCuradoriaPromptNarrUser" class="config-input config-textarea" style="height:140px; font-family: monospace; font-size: 12px;"></textarea>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveCuradoriaPromptNarrativa" class="config-btn">Salvar prompt</button>
+                            <button id="cfgResetCuradoriaPromptNarrativa" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgCuradoriaPromptNarrativaStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Consulta ao Banco — Listagem da Curadoria</h3>
+                        <p class="config-card-help">Define quais chamados aparecem na tela de Curadoria. No modo guiado, escolha o limite e a ordenação. Se precisar de uma condição diferente, ative o modo avançado e escreva a condição WHERE (sem <code>;</code>, comentários ou comandos de alteração — apenas a condição booleana).</p>
+                        <div class="config-form-row">
+                            <input id="cfgQueryListagemLimit" type="number" class="config-input" min="1" max="20000" placeholder="Limite de registros (padrão: 2000)">
+                            <select id="cfgQueryListagemOrderDir" class="config-input">
+                                <option value="DESC">Mais recentes primeiro (DESC)</option>
+                                <option value="ASC">Mais antigos primeiro (ASC)</option>
+                            </select>
+                        </div>
+                        <label class="config-checkbox-label">
+                            <input type="checkbox" id="cfgQueryListagemIncludeSatisfacao"> Incluir também chamados com satisfação real, mesmo que a IA ainda não tenha processado
+                        </label>
+                        <label class="config-checkbox-label" style="margin-top:10px;">
+                            <input type="checkbox" id="cfgQueryListagemRawToggle" onchange="toggleCuradoriaRawWhere('listagem')"> Usar condição avançada (SQL) em vez do modo guiado
+                        </label>
+                        <div id="cfgQueryListagemRawWrap" class="config-form-stack" style="display:none; margin-top:10px;">
+                            <p style="font-size:12px; color:#e5a94a;">Atenção: esta condição substitui totalmente o filtro padrão da listagem. Escreva apenas a condição (ex: <code>processado = 1 AND owner_team = 'Equipe X'</code>), sem <code>;</code> nem comandos de alteração de dados.</p>
+                            <textarea id="cfgQueryListagemRaw" class="config-input config-textarea" style="height:70px; font-family: monospace; font-size: 12px;" placeholder="processado = 1 OR satisfacao_pesquisa IS NOT NULL"></textarea>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveQueryListagem" class="config-btn">Salvar consulta</button>
+                            <button id="cfgResetQueryListagem" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgQueryListagemStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Consulta ao Banco — Fila de Processamento (IA)</h3>
+                        <p class="config-card-help">Define quais chamados entram na fila do "Processamento de Chamados Pendentes". No modo guiado, escolha o valor de <code>processado</code> considerado pendente e a ordem de processamento.</p>
+                        <div class="config-form-row">
+                            <input id="cfgQueryPendentesProcessado" type="number" class="config-input" placeholder="Valor de 'processado' considerado pendente (padrão: 0)">
+                            <select id="cfgQueryPendentesOrderDir" class="config-input">
+                                <option value="ASC">Mais antigos primeiro (ASC)</option>
+                                <option value="DESC">Mais recentes primeiro (DESC)</option>
+                            </select>
+                        </div>
+                        <label class="config-checkbox-label">
+                            <input type="checkbox" id="cfgQueryPendentesRawToggle" onchange="toggleCuradoriaRawWhere('pendentes')"> Usar condição avançada (SQL) em vez do modo guiado
+                        </label>
+                        <div id="cfgQueryPendentesRawWrap" class="config-form-stack" style="display:none; margin-top:10px;">
+                            <p style="font-size:12px; color:#e5a94a;">Atenção: esta condição substitui totalmente o filtro padrão da fila. Escreva apenas a condição (ex: <code>processado = 0</code>), sem <code>;</code> nem comandos de alteração de dados.</p>
+                            <textarea id="cfgQueryPendentesRaw" class="config-input config-textarea" style="height:70px; font-family: monospace; font-size: 12px;" placeholder="processado = 0"></textarea>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveQueryPendentes" class="config-btn">Salvar consulta</button>
+                            <button id="cfgResetQueryPendentes" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgQueryPendentesStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Movidesk — Satisfação, Módulo x Rotina e Carga Agendada</h3>
+                        <p class="config-card-help">Parâmetros das requisições que a curadoria faz à API do Movidesk, chamado por chamado.</p>
+                        <div class="config-form-stack">
+                            <label class="config-form-label">Campos ($select) da pesquisa de satisfação</label>
+                            <input id="cfgMovideskSatisfacaoSelect" type="text" class="config-input" style="font-family: monospace; font-size: 12px;" placeholder="id,satisfactionSurveyResponses">
+                        </div>
+                        <div class="config-form-row">
+                            <input id="cfgMovideskModuloCustomFieldId" type="number" class="config-input" placeholder="ID do campo customizado Módulo x Rotina (ex: 59786)">
+                            <input id="cfgMovideskModuloSelect" type="text" class="config-input" style="font-family: monospace; font-size: 12px;" placeholder="id,customFieldValues">
+                        </div>
+                        <div class="config-form-stack">
+                            <label class="config-form-label">Intervalo entre requisições ao Movidesk (ms) — compartilhado entre satisfação e módulo x rotina</label>
+                            <input id="cfgMovideskRateLimitMs" type="number" class="config-input" min="1000" max="60000" placeholder="6500">
+                        </div>
+                        <div class="config-form-stack">
+                            <label class="config-form-label">Horários da carga agendada (HH:MM)</label>
+                            <div id="cfgFullLoadTimesList" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;"></div>
+                            <div class="config-form-row">
+                                <input id="cfgFullLoadTimeAdd" type="time" class="config-input" style="max-width:160px;">
+                                <button type="button" class="config-btn config-btn-muted" onclick="addCuradoriaFullLoadTime()">+ Adicionar horário</button>
+                            </div>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveMovideskCuradoriaConfig" class="config-btn">Salvar</button>
+                            <button id="cfgResetMovideskCuradoriaConfig" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgMovideskCuradoriaConfigStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Análise de SLA</h3>
+                        <p class="config-card-help">Prazo de resolução (em horas úteis) considerado dentro do SLA para cada urgência. Usado no KPI "Cumprimento de SLA" da Visão Geral, no comparativo da equipe e no detalhe por atendente. Padrão oficial: SLA SUPORTE MOVIDESK.pdf v2.0.</p>
+                        <div class="config-form-grid">
+                            <div class="config-form-stack">
+                                <label class="config-form-label">Crítica (horas úteis)</label>
+                                <input id="cfgSlaCritica" type="number" class="config-input" min="0.1" max="1000" step="0.5" placeholder="4">
+                            </div>
+                            <div class="config-form-stack">
+                                <label class="config-form-label">Alta (horas úteis)</label>
+                                <input id="cfgSlaAlta" type="number" class="config-input" min="0.1" max="1000" step="0.5" placeholder="8">
+                            </div>
+                            <div class="config-form-stack">
+                                <label class="config-form-label">Média (horas úteis)</label>
+                                <input id="cfgSlaMedia" type="number" class="config-input" min="0.1" max="1000" step="0.5" placeholder="16">
+                            </div>
+                            <div class="config-form-stack">
+                                <label class="config-form-label">Baixa (horas úteis)</label>
+                                <input id="cfgSlaBaixa" type="number" class="config-input" min="0.1" max="1000" step="0.5" placeholder="24">
+                            </div>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveSlaThresholds" class="config-btn">Salvar prazos</button>
+                            <button id="cfgResetSlaThresholds" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgSlaThresholdsStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Critério de Estouro de SLA por Culpa do Cliente (IA)</h3>
+                        <p class="config-card-help">Quando um chamado estoura o prazo de SLA de resolução, a IA analisa as ações do chamado (autores e datas) para decidir se o atraso foi causado pelo suporte ou pelo cliente (ex: suporte sinalizou a solução e o cliente demorou a confirmar/responder). Esse texto é acrescentado ao "Prompt de Análise Principal" — não precisa repetir o formato JSON. Placeholders disponíveis: <code>{{slaResolucaoHoras}}</code> (prazo da urgência do chamado) e <code>{{tempoResolucaoHorasUteis}}</code> (tempo real já calculado).</p>
+                        <div class="config-form-stack">
+                            <textarea id="cfgCuradoriaPromptSlaEstouro" class="config-input config-textarea" style="height:160px; font-family: monospace; font-size: 12px;" placeholder="Critério de atribuição de estouro de SLA..."></textarea>
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveCuradoriaPromptSlaEstouro" class="config-btn">Salvar prompt</button>
+                            <button id="cfgResetCuradoriaPromptSlaEstouro" class="config-btn config-btn-muted">Restaurar padrão</button>
+                        </div>
+                        <div id="cfgCuradoriaPromptSlaEstouroStatus" class="config-status"></div>
                     </div>
                 </div>
 

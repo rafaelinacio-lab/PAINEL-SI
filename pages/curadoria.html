@@ -16,6 +16,7 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -337,6 +338,41 @@
 
 <main id="curadoriaMain" class="pt-6 pb-12 px-container-padding max-w-[1440px] mx-auto" style="visibility:hidden">
 
+    <!-- Alternância entre Visão Geral (da equipe) e Por Atendente -->
+    <div class="flex justify-center mb-6">
+        <div class="inline-flex items-center gap-1 p-1 rounded-full border border-outline-variant bg-surface-container-lowest">
+            <button id="curadoriaTabGeral" onclick="switchCuradoriaView('geral')" class="px-5 py-1.5 rounded-full text-sm font-semibold transition-colors bg-secondary text-on-secondary">Visão Geral</button>
+            <button id="curadoriaTabAtendente" onclick="switchCuradoriaView('atendente')" class="px-5 py-1.5 rounded-full text-sm font-semibold transition-colors bg-transparent text-on-surface-variant hover:text-on-surface">Por Atendente</button>
+        </div>
+    </div>
+
+    <!-- ═══════════ VISÃO GERAL DA EQUIPE ═══════════ -->
+    <div id="curadoriaGeralView">
+        <section class="mb-6 flex flex-wrap items-center gap-3">
+            <h2 class="font-headline-lg text-headline-lg text-primary mr-auto">Visão Geral da Equipe</h2>
+            <select id="curadoriaPeriodFilter" onchange="renderCuradoriaGeralView()" class="rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface" title="Filtra por data de abertura do chamado">
+                <option value="month" selected>Mês atual</option>
+                <option value="30d">Últimos 30 dias</option>
+                <option value="all">Tudo</option>
+            </select>
+            <button type="button" class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container" onclick="manualCuradoriaRefresh()">
+                <span class="material-symbols-outlined" style="font-size:18px">refresh</span><span>Atualizar dados</span>
+            </button>
+            <button type="button" class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container" onclick="exportCuradoriaCsv('all')" title="Exporta todos os chamados carregados nesta tela em CSV">
+                <span class="material-symbols-outlined" style="font-size:18px">download</span><span>Tudo (CSV)</span>
+            </button>
+            <button type="button" class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container" onclick="exportAllOwnersPdf()" title="Gera um resumo em PDF de todos os atendentes">
+                <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span><span>Resumo geral (PDF)</span>
+            </button>
+        </section>
+        <div class="grid grid-cols-12 gap-widget-gap" id="curadoriaGeralMount">
+            <div class="col-span-12 text-center py-12 text-on-surface-variant">Carregando visão geral...</div>
+        </div>
+    </div>
+
+    <!-- ═══════════ VISÃO POR ATENDENTE (já existia) ═══════════ -->
+    <div id="curadoriaAtendenteView" class="hidden">
+
     <!-- Busca de Owner -->
     <section class="mb-4 flex flex-wrap items-center gap-3">
         <div id="ownerSearchWrapper" onclick="expandOwnerSearch()">
@@ -361,6 +397,46 @@
             <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
             <span id="curadoriaRefreshBtnLabel">Atualizar dados</span>
         </button>
+        <button
+            id="curadoriaExportOwnerBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="exportCuradoriaCsv('owner')"
+            title="Exporta os chamados do atendente selecionado em CSV"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">download</span>
+            <span>Atendente (CSV)</span>
+        </button>
+        <button
+            id="curadoriaExportAllBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="exportCuradoriaCsv('all')"
+            title="Exporta todos os chamados carregados nesta tela em CSV"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">download</span>
+            <span>Tudo (CSV)</span>
+        </button>
+        <button
+            id="curadoriaExportOwnerPdfBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="exportOwnerReportPdf()"
+            title="Gera um relatório em PDF do atendente selecionado"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span>
+            <span>Relatório (PDF)</span>
+        </button>
+        <button
+            id="curadoriaExportAllPdfBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="exportAllOwnersPdf()"
+            title="Gera um resumo em PDF de todos os atendentes"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span>
+            <span>Resumo geral (PDF)</span>
+        </button>
         <div id="curadoriaRefreshMeta" class="text-xs text-on-surface-variant"></div>
     </section>
 
@@ -374,6 +450,7 @@
     <!-- Dashboard Grid -->
     <div class="grid grid-cols-12 gap-widget-gap" id="curadoriaMount">
         <div class="col-span-12 text-center py-12 text-on-surface-variant">Carregando curadoria...</div>
+    </div>
     </div>
 </main>
 
@@ -395,19 +472,19 @@
                 <div class="space-y-3">
                     <div class="flex gap-3 items-start">
                         <span class="material-symbols-outlined text-green-500 mt-0.5">sentiment_satisfied</span>
-                        <div><span class="font-semibold text-on-surface block">Satisfação do cliente · 35%</span><span class="text-sm text-on-surface-variant">Campo <code>satisfacao</code> (1–10) normalizado para 0–100. Mede a percepção do cliente sobre o atendimento.</span></div>
+                        <div><span id="scoringWeightLabel-satisfacao" class="font-semibold text-on-surface block">Satisfação do cliente · 35%</span><span class="text-sm text-on-surface-variant">Campo <code>satisfacao</code> (1–10) normalizado para 0–100. Mede a percepção do cliente sobre o atendimento.</span></div>
                     </div>
                     <div class="flex gap-3 items-start">
                         <span class="material-symbols-outlined text-blue-500 mt-0.5">bolt</span>
-                        <div><span class="font-semibold text-on-surface block">Volume de ações · 25%</span><span class="text-sm text-on-surface-variant">Ações do agente no ticket comparadas à sua própria média histórica. 100% = exatamente na média. Acima = bônus (cap 100).</span></div>
+                        <div><span id="scoringWeightLabel-eficiencia" class="font-semibold text-on-surface block">Volume de ações · 25%</span><span class="text-sm text-on-surface-variant">Ações do agente no ticket comparadas à sua própria média histórica. 100% = exatamente na média. Acima = bônus (cap 100).</span></div>
                     </div>
                     <div class="flex gap-3 items-start">
                         <span class="material-symbols-outlined text-amber-500 mt-0.5">thumb_up</span>
-                        <div><span class="font-semibold text-on-surface block">Pontos positivos vs gaps · 25%</span><span class="text-sm text-on-surface-variant">Proporção de pontos positivos identificados pela IA em relação ao total de pontos do ticket.</span></div>
+                        <div><span id="scoringWeightLabel-pontos" class="font-semibold text-on-surface block">Pontos positivos vs gaps · 25%</span><span class="text-sm text-on-surface-variant">Proporção de pontos positivos identificados pela IA em relação ao total de pontos do ticket.</span></div>
                     </div>
                     <div class="flex gap-3 items-start">
                         <span class="material-symbols-outlined text-violet-400 mt-0.5">workspace_premium</span>
-                        <div><span class="font-semibold text-on-surface block">Competências detectadas · 15%</span><span class="text-sm text-on-surface-variant">Proporção de competências configuradas que a IA identificou nos atendimentos do colaborador.</span></div>
+                        <div><span id="scoringWeightLabel-competencias" class="font-semibold text-on-surface block">Competências detectadas · 15%</span><span class="text-sm text-on-surface-variant">Proporção de competências configuradas que a IA identificou nos atendimentos do colaborador.</span></div>
                     </div>
                 </div>
             </div>
@@ -493,6 +570,77 @@
     </div>
 </div>
 
+<!-- Modal Satisfação -->
+<div id="satisfactionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='satisfactionModal')toggleSatisfactionModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <h2 class="font-headline-lg text-headline-lg text-primary" id="satisfactionModalTitle">Satisfação</h2>
+            <button onclick="toggleSatisfactionModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-6" id="satisfactionModalSubtitle"></p>
+        <div id="satisfactionModalList" class="space-y-2"></div>
+        <button onclick="toggleSatisfactionModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Detalhe do Comentário -->
+<div id="commentDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='commentDetailModal')toggleCommentDetailModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <div class="flex items-center gap-3">
+                <span class="font-headline-lg text-headline-lg text-primary" id="commentDetailTicketId">#</span>
+                <span class="text-xs font-bold px-2 py-1 rounded-full" id="commentDetailNotaBadge"></span>
+            </div>
+            <button onclick="toggleCommentDetailModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-4" id="commentDetailServico"></p>
+        <div class="grid grid-cols-2 gap-3 mb-6 text-sm" id="commentDetailMeta"></div>
+        <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-2 text-xs">Comentário completo</h3>
+        <p class="text-sm text-on-surface whitespace-pre-line bg-surface-container-low border border-outline-variant/30 rounded-lg p-4" id="commentDetailFullText"></p>
+        <button onclick="toggleCommentDetailModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Lista de Módulos -->
+<div id="moduleListModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='moduleListModal')toggleModuleListModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <h2 class="font-headline-lg text-headline-lg text-primary" id="moduleListModalTitle">Módulos Atendidos</h2>
+            <button onclick="toggleModuleListModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-6" id="moduleListModalSubtitle"></p>
+        <div id="moduleListModalContent" class="space-y-2"></div>
+        <button onclick="toggleModuleListModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal SLA -->
+<div id="slaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='slaModal')toggleSlaModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <h2 class="font-headline-lg text-headline-lg text-primary" id="slaModalTitle">SLA</h2>
+            <button onclick="toggleSlaModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-6" id="slaModalSubtitle"></p>
+        <div id="slaModalList" class="space-y-2"></div>
+        <button onclick="toggleSlaModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Detalhe de Estouro de SLA por Culpa do Cliente -->
+<div id="slaEstouroModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='slaEstouroModal')toggleSlaEstouroModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <h2 class="font-headline-lg text-headline-lg text-primary">Estouro de SLA #<span id="slaEstouroModalTicketId"></span></h2>
+            <button onclick="toggleSlaEstouroModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="mb-4"><span class="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-900 text-blue-300">Atraso do cliente</span></p>
+        <p class="text-sm text-on-surface-variant mb-4" id="slaEstouroModalJustificativa"></p>
+        <div id="slaEstouroModalEvidencias" class="space-y-2"></div>
+        <button onclick="toggleSlaEstouroModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
 <script>
 /* ── Busca expandível ─────────────────────────────────────────── */
 let _ownerSearchExpanded = false;
@@ -528,10 +676,862 @@ function filterOwnerStrip(query) {
 }
 
 /* ── Modais ───────────────────────────────────────────────────── */
-function toggleScoringModal()       { document.getElementById('scoringModal').classList.toggle('hidden'); }
+const SCORE_WEIGHT_LABELS = {
+    satisfacao: 'Satisfação do cliente',
+    eficiencia: 'Volume de ações',
+    pontos: 'Pontos positivos vs gaps',
+    competencias: 'Competências detectadas'
+};
+function renderScoringModalWeights() {
+    Object.keys(SCORE_WEIGHT_LABELS).forEach(key => {
+        const el = document.getElementById(`scoringWeightLabel-${key}`);
+        if (!el) return;
+        const pct = Math.round((SCORE_WEIGHTS[key] || 0) * 100);
+        el.textContent = `${SCORE_WEIGHT_LABELS[key]} · ${pct}%`;
+    });
+}
+function toggleScoringModal()       { renderScoringModalWeights(); document.getElementById('scoringModal').classList.toggle('hidden'); }
 function toggleTicketsSampleModal() { document.getElementById('ticketsSampleModal').classList.toggle('hidden'); }
 function toggleUrgencyModal()       { document.getElementById('urgencyModal').classList.toggle('hidden'); }
 function toggleCompetenciaModal()   { document.getElementById('competenciaModal').classList.toggle('hidden'); }
+
+/* ── Exportação CSV ───────────────────────────────────────────── */
+// Colunas legíveis pra exportação — evita despejar os blobs JSON brutos
+// (actions, diagnostico_raw, analise_completa, etc.), que não servem pra leitura em planilha.
+const CURADORIA_EXPORT_COLUMNS = [
+    'ticket_id', 'aberto_em', 'owner', 'owner_team', 'organizacao', 'solicitante',
+    'status', 'urgencia', 'urgencia_sugerida', 'nota_urgencia', 'servico', 'modulo_x_rotina',
+    'causa', 'causa_normalizada', 'fato_categoria_principal', 'fato', 'resumo', 'analise_fato',
+    'conclusao', 'recomendacao_atendente', 'justificativa_urgencia', 'impacto_real',
+    'sentimento', 'satisfacao', 'perfil_cliente', 'total_acoes', 'total_cliente', 'total_agente',
+    'tempo_resol_dias', 'tempo_resol_h_uteis', 'tempo_resp_owner', 'processado', 'processado_em'
+];
+
+function formatCompetenciasForExport(competencias) {
+    if (!competencias || typeof competencias !== 'object') return '';
+    return Object.entries(competencias)
+        .map(([key, pct]) => {
+            const cat = PERF_CATEGORIES.find(c => c.key === key);
+            return `${cat ? cat.label : key}:${pct}%`;
+        })
+        .join('; ');
+}
+
+function csvEscape(value) {
+    const str = value === null || value === undefined ? '' : String(value);
+    return /[",\n;]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
+function buildCuradoriaCsv(rows) {
+    const headers = [...CURADORIA_EXPORT_COLUMNS, 'competencias'];
+    const lines = [headers.join(',')];
+    rows.forEach(row => {
+        const values = CURADORIA_EXPORT_COLUMNS.map(col => csvEscape(row[col]));
+        values.push(csvEscape(formatCompetenciasForExport(row.competencias)));
+        lines.push(values.join(','));
+    });
+    return '﻿' + lines.join('\r\n'); // BOM pra acentuação abrir certo no Excel
+}
+
+function downloadCsv(csvText, filename) {
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function slugifyName(text) {
+    return String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_');
+}
+
+function exportCuradoriaCsv(scope) {
+    const rows = scope === 'owner' ? allRows.filter(r => r.owner === currentOwner) : allRows;
+    if (!rows.length) { alert('Nenhum chamado para exportar.'); return; }
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const ownerSlug = scope === 'owner' && currentOwner ? slugifyName(currentOwner) : 'todos';
+    downloadCsv(buildCuradoriaCsv(rows), `curadoria_${ownerSlug}_${dateStr}.csv`);
+}
+
+/* ── Exportação PDF (jsPDF) ───────────────────────────────────── */
+// Score final de um atendente com as competências reais já persistidas — a.scoreData (de
+// analysePerformance) usa aiResult=null (score provisório), então recalcula aqui do jeito
+// que a tela de fato mostra. Centraliza o que antes estava duplicado em 3 lugares.
+function computeOwnerScoreData(ownerRows, ownerName) {
+    const a = analysePerformance(ownerRows, ownerName);
+    const { catCount, avgPct } = aggregateCompetencias(ownerRows);
+    const aiResult = {};
+    PERF_CATEGORIES.forEach(c => { aiResult[c.key] = { count: catCount[c.key] || 0, avgPct: avgPct[c.key] || 0, evidence: [] }; });
+    const scoreData = calcScore1000(a.ownerRows, aiResult);
+    const seniority = classifySeniority(scoreData.metrics, a.totalTickets, scoreData.score);
+    return { a, catCount, avgPct, aiResult, scoreData, seniority };
+}
+
+function exportOwnerReportPdf() {
+    if (!currentOwner) { alert('Selecione um atendente primeiro.'); return; }
+    if (!window.jspdf) { alert('Biblioteca de PDF não carregou. Verifique sua conexão e tente novamente.'); return; }
+
+    const ownerRows = allRows.filter(r => r.owner === currentOwner);
+    if (!ownerRows.length) { alert('Nenhum chamado encontrado para este atendente.'); return; }
+
+    const { a, catCount, avgPct, scoreData, seniority } = computeOwnerScoreData(ownerRows, currentOwner);
+    const sortedComp = [...PERF_CATEGORIES]
+        .filter(c => (catCount[c.key] || 0) > 0)
+        .sort((x, y) => catCount[y.key] - catCount[x.key])
+        .slice(0, 8);
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 16;
+    const maxY = 280;
+    let y = 20;
+
+    const ensureSpace = (needed = 6) => { if (y + needed > maxY) { doc.addPage(); y = 20; } };
+    const writeBullets = (items, emptyMsg) => {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+        if (!items.length) { doc.text(emptyMsg, marginX, y); y += 6; return; }
+        items.forEach(g => {
+            const line = `- ${g.reason}${g.count > 1 ? ` (${g.count} chamados)` : ''}`;
+            const wrapped = doc.splitTextToSize(line, pageWidth - marginX * 2);
+            ensureSpace(wrapped.length * 5.5);
+            doc.text(wrapped, marginX, y);
+            y += wrapped.length * 5.5;
+        });
+    };
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+    doc.text('Relatorio de Atendimento', marginX, y); y += 8;
+
+    doc.setFontSize(13); doc.setFont('helvetica', 'normal');
+    doc.text(currentOwner, marginX, y); y += 6;
+
+    const teamLine = ownerRows[0]?.owner_team ? `Equipe: ${ownerRows[0].owner_team}` : '';
+    doc.setFontSize(10); doc.setTextColor(100);
+    doc.text(`${teamLine}${teamLine ? '  -  ' : ''}Gerado em ${new Date().toLocaleString('pt-BR')}`, marginX, y);
+    doc.setTextColor(0);
+    y += 8;
+
+    doc.setDrawColor(200); doc.line(marginX, y, pageWidth - marginX, y); y += 8;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Resumo', marginX, y); y += 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(`Score: ${scoreData.score} / 1000  (${seniority.label})`, marginX, y); y += 6;
+    doc.text(`Total de chamados: ${a.totalTickets}`, marginX, y); y += 6;
+    doc.text(`Media de acoes por chamado: ${a.mediaAcoes}`, marginX, y); y += 6;
+    doc.text(`Total de acoes: ${a.totalAcoes}`, marginX, y); y += 10;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Competencias em destaque', marginX, y); y += 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    if (sortedComp.length) {
+        sortedComp.forEach(c => {
+            ensureSpace();
+            doc.text(`- ${c.label}: ${catCount[c.key]} chamado(s) - intensidade media ${avgPct[c.key]}%`, marginX, y);
+            y += 6;
+        });
+    } else {
+        doc.text('Nenhuma competencia identificada ainda.', marginX, y); y += 6;
+    }
+    y += 4;
+
+    ensureSpace(13);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Evidencias positivas', marginX, y); y += 7;
+    writeBullets(a.positiveEvidenceDisplay, 'Sem evidencias positivas registradas.');
+    y += 4;
+
+    ensureSpace(13);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Lacunas identificadas', marginX, y); y += 7;
+    writeBullets(a.gapEvidenceDisplay, 'Sem lacunas identificadas.');
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    doc.save(`relatorio_${slugifyName(currentOwner)}_${dateStr}.pdf`);
+}
+
+function exportAllOwnersPdf() {
+    if (!window.jspdf) { alert('Biblioteca de PDF não carregou. Verifique sua conexão e tente novamente.'); return; }
+    if (!allRows.length) { alert('Nenhum dado carregado para exportar.'); return; }
+
+    const owners = uniqueOwners(allRows);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 14;
+    const maxY = 285;
+    let y = 20;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+    doc.text('Resumo Geral de Atendentes', marginX, y); y += 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100);
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}  -  ${owners.length} atendente(s)`, marginX, y);
+    doc.setTextColor(0);
+    y += 9;
+
+    const cols = [
+        { label: 'Atendente', x: marginX, chars: 32 },
+        { label: 'Equipe', x: marginX + 60, chars: 20 },
+        { label: 'Chamados', x: marginX + 100, chars: 10 },
+        { label: 'Score', x: marginX + 128, chars: 8 },
+        { label: 'Senioridade', x: marginX + 150, chars: 26 }
+    ];
+    const drawHeader = () => {
+        doc.setFillColor(240, 240, 240);
+        doc.rect(marginX, y - 5, pageWidth - marginX * 2, 7, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        cols.forEach(c => doc.text(c.label, c.x, y));
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+    };
+    drawHeader();
+
+    owners.forEach(owner => {
+        const ownerRows = allRows.filter(r => r.owner === owner.name);
+        const { a, scoreData, seniority } = computeOwnerScoreData(ownerRows, owner.name);
+
+        doc.setFontSize(8.5);
+        doc.text(owner.name.substring(0, cols[0].chars), cols[0].x, y);
+        doc.text((owner.team || '-').substring(0, cols[1].chars), cols[1].x, y);
+        doc.text(String(a.totalTickets), cols[2].x, y);
+        doc.text(String(scoreData.score), cols[3].x, y);
+        doc.text(seniority.label.substring(0, cols[4].chars), cols[4].x, y);
+        y += 6;
+        if (y > maxY) { doc.addPage(); y = 20; drawHeader(); }
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    doc.save(`curadoria_resumo_geral_${dateStr}.pdf`);
+}
+
+/* ── Visão Geral da Equipe ────────────────────────────────────── */
+// SLA oficial de resolução (em horas úteis) por severidade — "SLA SUPORTE MOVIDESK.pdf" v2.0.
+// Chaves normalizadas (sem acento/minúsculo) porque a IA às vezes grava "Critica" sem acento.
+// Editável em Configurações → Curadoria Avançado; loadPerfCategories() sobrescreve os valores
+// abaixo (que continuam servindo de fallback caso a config ainda não tenha sido salva).
+const SLA_RESOLUTION_HOURS = { critica: 4, alta: 8, media: 16, baixa: 24 };
+function normalizeUrgencia(u) {
+    return String(u || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+}
+// null = não dá pra avaliar (urgência ou tempo de resolução ausente); true/false = dentro/fora do SLA
+function ticketSlaCompliant(row) {
+    const target = SLA_RESOLUTION_HOURS[normalizeUrgencia(row.urgencia)];
+    const actual = Number(row.tempo_resol_h_uteis);
+    if (target === undefined || !Number.isFinite(actual)) return null;
+    return actual <= target;
+}
+
+// sla_estouro é preenchido pela IA (mesma análise comportamental do chamado) só quando o
+// processamento roda depois que esse critério foi adicionado — chamados antigos ficam null.
+function slaEstouroInfo(row) {
+    return row && row.sla_estouro && typeof row.sla_estouro === 'object' ? row.sla_estouro : null;
+}
+
+// Anel de porcentagem em SVG (sem depender de nenhuma lib de gráfico)
+function renderPercentCircle(pct, color, size = 72, strokeWidth = 7) {
+    const p = Math.max(0, Math.min(100, pct || 0));
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference * (1 - p / 100);
+    return `
+        <div class="relative inline-flex items-center justify-center shrink-0" style="width:${size}px;height:${size}px">
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg)">
+                <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="rgba(148,163,184,0.18)" stroke-width="${strokeWidth}"></circle>
+                <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"
+                    stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"
+                    style="transition:stroke-dashoffset 0.6s ease"></circle>
+            </svg>
+            <span class="absolute text-sm font-bold" style="color:${color}">${p}%</span>
+        </div>`;
+}
+
+function toggleSlaModal() { document.getElementById('slaModal').classList.toggle('hidden'); }
+
+// Abre o modal com os chamados dentro ou fora do SLA de resolução de um atendente
+function showSlaModal(dentro, ownerName) {
+    const ownerRows = allRows.filter(r => r.owner === ownerName);
+    const matching = ownerRows
+        .filter(r => ticketSlaCompliant(r) === dentro)
+        .sort((a, b) => String(b.resolvido_em || '').localeCompare(String(a.resolvido_em || '')));
+
+    const target = (r) => SLA_RESOLUTION_HOURS[normalizeUrgencia(r.urgencia)];
+
+    document.getElementById('slaModalTitle').textContent = dentro ? 'Dentro do SLA' : 'Fora do SLA';
+    document.getElementById('slaModalSubtitle').textContent =
+        `${matching.length} chamado${matching.length !== 1 ? 's' : ''} ${dentro ? 'resolvidos dentro' : 'que estouraram'} o prazo de SLA`;
+
+    document.getElementById('slaModalList').innerHTML = matching.length
+        ? matching.map(r => {
+            const resolvidoEm = r.resolvido_em ? new Date(r.resolvido_em).toLocaleDateString('pt-BR') : '';
+            const tempo = Number(r.tempo_resol_h_uteis);
+            const detalhe = `${escapeHtml(String(r.urgencia || '-'))} · ${Number.isFinite(tempo) ? tempo.toFixed(1) : '?'}h (limite ${target(r) ?? '?'}h)`;
+            const estouro = !dentro ? slaEstouroInfo(r) : null;
+            const isClienteFault = estouro?.responsavel === 'cliente';
+            const badge = isClienteFault
+                ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-900 text-blue-300 shrink-0">Atraso do cliente</span>`
+                : '';
+            return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 flex items-center justify-between gap-3 ${isClienteFault ? 'cursor-pointer hover:bg-surface-container transition-colors' : ''}"${isClienteFault ? ` onclick="showSlaEstouroDetail('${escapeHtml(String(r.ticket_id))}')"` : ''}>
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="font-label-md text-label-md text-primary font-bold shrink-0">#${escapeHtml(String(r.ticket_id))}</span>
+                    <span class="text-xs text-on-surface-variant truncate">${detalhe}</span>
+                    ${badge}
+                </div>
+                <span class="text-xs text-on-surface-variant shrink-0">${escapeHtml(resolvidoEm)}</span>
+            </div>`;
+        }).join('')
+        : '<p class="text-on-surface-variant text-sm">Nenhum chamado encontrado.</p>';
+
+    toggleSlaModal();
+}
+
+function toggleSlaEstouroModal() { document.getElementById('slaEstouroModal').classList.toggle('hidden'); }
+
+// Abre o modal de detalhe (motivo + evidências) de um chamado cujo estouro de SLA foi
+// atribuído ao cliente pela IA (ver sla_estouro, preenchido em processOneCuradoriaTicket).
+function showSlaEstouroDetail(ticketId) {
+    const row = allRows.find(r => String(r.ticket_id) === String(ticketId));
+    const info = slaEstouroInfo(row);
+    if (!info) return;
+
+    document.getElementById('slaEstouroModalTicketId').textContent = String(ticketId);
+    document.getElementById('slaEstouroModalJustificativa').textContent = info.justificativa || 'Sem justificativa registrada.';
+
+    const evidencias = Array.isArray(info.evidencias) ? info.evidencias : [];
+    document.getElementById('slaEstouroModalEvidencias').innerHTML = evidencias.length
+        ? evidencias.map(ev => `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="text-xs font-bold text-primary">${escapeHtml(String(ev.autor || '-'))}</span>
+                    <span class="text-xs text-on-surface-variant">${escapeHtml(String(ev.data || ''))}</span>
+                </div>
+                <span class="text-xs text-on-surface-variant">${escapeHtml(String(ev.trecho || ''))}</span>
+            </div>`).join('')
+        : '<p class="text-on-surface-variant text-sm">Nenhuma evidência registrada.</p>';
+
+    toggleSlaEstouroModal();
+}
+
+function buildTeamOverview(rows) {
+    const owners = uniqueOwners(rows);
+
+    const ownerStats = owners.map(owner => {
+        const ownerRows = rows.filter(r => r.owner === owner.name);
+        const { a, scoreData, seniority } = computeOwnerScoreData(ownerRows, owner.name);
+
+        const slaEvaluable = ownerRows.map(ticketSlaCompliant).filter(v => v !== null);
+        const slaComplianceRate = slaEvaluable.length
+            ? Math.round((slaEvaluable.filter(Boolean).length / slaEvaluable.length) * 100)
+            : null;
+
+        const withFeedback = ownerRows.filter(r => r.satisfacao_pesquisa != null && r.satisfacao_pesquisa !== '').length;
+        const feedbackRate = ownerRows.length ? Math.round((withFeedback / ownerRows.length) * 100) : 0;
+
+        const resolTimes = ownerRows.map(r => Number(r.tempo_resol_h_uteis)).filter(Number.isFinite);
+        const avgResolHoras = resolTimes.length ? resolTimes.reduce((s, v) => s + v, 0) / resolTimes.length : null;
+
+        return {
+            name: owner.name, team: owner.team, totalTickets: a.totalTickets, score: scoreData.score,
+            seniorityLabel: seniority.label, slaComplianceRate, slaEvaluatedCount: slaEvaluable.length,
+            feedbackRate, avgResolHoras
+        };
+    }).sort((x, y) => y.score - x.score);
+
+    const validScores = ownerStats.filter(o => o.totalTickets > 0).map(o => o.score);
+    const avgScore = validScores.length ? Math.round(validScores.reduce((s, v) => s + v, 0) / validScores.length) : 0;
+
+    const comCompetencia = rows.filter(r => r.competencias && typeof r.competencias === 'object' && Object.keys(r.competencias).length > 0).length;
+    const pctComCompetencia = rows.length ? Math.round((comCompetencia / rows.length) * 100) : 0;
+
+    const { catCount: teamCatCount, avgPct: teamAvgPct } = aggregateCompetencias(rows);
+
+    const seniorityCount = {};
+    ownerStats.forEach(o => { seniorityCount[o.seniorityLabel] = (seniorityCount[o.seniorityLabel] || 0) + 1; });
+
+    const urgenciaCount = {};
+    rows.forEach(r => { const u = String(r.urgencia || '').trim() || 'Sem urgência'; urgenciaCount[u] = (urgenciaCount[u] || 0) + 1; });
+
+    const causaCount = {};
+    rows.forEach(r => { const c = String(r.causa || 'Não especificado').trim(); causaCount[c] = (causaCount[c] || 0) + 1; });
+    const causaMais = Object.entries(causaCount).sort((x, y) => y[1] - x[1])[0];
+
+    const moduloCount = {};
+    rows.forEach(r => { const m = String(r.modulo_x_rotina || 'Sem módulo').trim(); moduloCount[m] = (moduloCount[m] || 0) + 1; });
+    const moduloMais = Object.entries(moduloCount).sort((x, y) => y[1] - x[1])[0];
+
+    // Conformidade de SLA e taxa de feedback agregadas da equipe toda (mesmo cálculo do
+    // SLA SUPORTE MOVIDESK.pdf, agregado em vez de por atendente).
+    const slaEvaluableTeam = rows.map(ticketSlaCompliant).filter(v => v !== null);
+    const teamSlaComplianceRate = slaEvaluableTeam.length
+        ? Math.round((slaEvaluableTeam.filter(Boolean).length / slaEvaluableTeam.length) * 100)
+        : null;
+    const teamFeedbackCount = rows.filter(r => r.satisfacao_pesquisa != null && r.satisfacao_pesquisa !== '').length;
+    const teamFeedbackRate = rows.length ? Math.round((teamFeedbackCount / rows.length) * 1000) / 10 : 0; // 1 casa decimal
+
+    return {
+        totalChamados: rows.length, totalAtendentes: owners.length, avgScore, pctComCompetencia,
+        ownerStats, teamCatCount, teamAvgPct, seniorityCount, urgenciaCount, causaMais, moduloMais,
+        teamSlaComplianceRate, teamFeedbackRate
+    };
+}
+
+// Filtra por data de abertura do chamado (aberto_em). 'month' = mês corrente (calendário),
+// '30d' = últimos 30 dias corridos a partir de agora, 'all' = sem filtro.
+function filterRowsByPeriod(rows, period) {
+    if (period === 'all') return rows;
+    const now = new Date();
+    const cutoff = period === '30d'
+        ? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        : new Date(now.getFullYear(), now.getMonth(), 1); // início do mês atual
+    return rows.filter(r => {
+        if (!r.aberto_em) return false;
+        const d = new Date(r.aberto_em);
+        return !isNaN(d.getTime()) && d >= cutoff;
+    });
+}
+
+// Evolução de chamados por mês — sempre usa TODO o histórico (allRows), independente do
+// filtro de período dos KPIs/ranking, já que o objetivo aqui é justamente ver a tendência
+// ao longo de vários meses (filtrar por "mês atual" deixaria só 1 barra).
+function buildMonthlyTicketVolume(rows) {
+    const byMonth = new Map();
+    rows.forEach(r => {
+        if (!r.aberto_em) return;
+        const d = new Date(r.aberto_em);
+        if (isNaN(d.getTime())) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        byMonth.set(key, (byMonth.get(key) || 0) + 1);
+    });
+    return [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, count]) => {
+        const [year, month] = key.split('-').map(Number);
+        return { year, month, count };
+    });
+}
+
+function renderMonthlyVolumeChart(rows) {
+    const monthly = buildMonthlyTicketVolume(rows);
+    if (!monthly.length) {
+        return '<p class="text-on-surface-variant text-sm">Sem data de abertura disponível para montar o gráfico.</p>';
+    }
+    const maxCount = Math.max(...monthly.map(m => m.count), 1);
+    const bars = monthly.map(m => {
+        const heightPct = Math.max(6, Math.round((m.count / maxCount) * 100));
+        const label = `${MONTH_NAMES_PT[m.month - 1]}/${m.year} · ${m.count} chamado${m.count !== 1 ? 's' : ''}`;
+        return `<div class="flex-1 rounded-t cursor-pointer transition-opacity hover:opacity-80" style="height:${heightPct}%;background:#3b82f6;min-height:4px" title="${label}"></div>`;
+    }).join('');
+    const first = monthly[0], last = monthly[monthly.length - 1];
+    return `
+        <div class="w-full">
+            <div class="flex items-end gap-1.5 h-32">${bars}</div>
+            <div class="flex justify-between mt-1.5">
+                <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[first.month - 1]}/${first.year}</span>
+                <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[last.month - 1]}/${last.year}</span>
+            </div>
+        </div>`;
+}
+
+/* ── Comparativo da Equipe — barras horizontais comparando atendentes numa métrica
+   por vez (Score, SLA, Feedback, Volume, Tempo de Resolução), com uma linha de
+   referência (tracinho vertical recessivo) marcando a média da equipe em cada barra,
+   assim cada atendente é lido tanto pelo ranking quanto pela distância até a média. */
+let curadoriaComparisonMetric = 'score';
+
+const COMPARISON_METRICS = [
+    { key: 'score', label: 'Score', description: 'Score de performance (0–1000) de cada atendente no período selecionado.',
+      valueOf: o => o.score, max: 1000, sortAsc: false,
+      formatValue: v => String(Math.round(v)), colorFor: v => scoreVisuals(v).color },
+    { key: 'sla', label: 'SLA', description: '% de chamados resolvidos dentro do prazo de SLA da severidade (SLA SUPORTE MOVIDESK.pdf).',
+      valueOf: o => o.slaComplianceRate, max: 100, sortAsc: false,
+      formatValue: v => `${Math.round(v)}%`, colorFor: v => v >= 90 ? '#22c55e' : v >= 70 ? '#f59e0b' : '#ef4444' },
+    { key: 'feedback', label: 'Feedback', description: '% de chamados com resposta real de pesquisa de satisfação.',
+      valueOf: o => o.feedbackRate, max: 100, sortAsc: false,
+      formatValue: v => `${Math.round(v)}%`, colorFor: () => '#8b5cf6' },
+    { key: 'volume', label: 'Volume', description: 'Total de chamados atendidos por cada atendente no período selecionado.',
+      valueOf: o => o.totalTickets, max: null, sortAsc: false,
+      formatValue: v => String(Math.round(v)), colorFor: () => '#3b82f6' },
+    { key: 'tempo', label: 'Tempo de Resolução', description: 'Tempo médio de resolução em horas úteis — menor é melhor. O tamanho da barra representa o desempenho (mais cheia = mais rápido), não as horas em si.',
+      valueOf: o => o.avgResolHoras, max: null, sortAsc: true, invert: true,
+      formatValue: v => `${v.toFixed(1)}h`, colorFor: () => '#06b6d4' },
+];
+
+function setComparisonMetric(key) {
+    curadoriaComparisonMetric = key;
+    renderCuradoriaGeralView();
+}
+
+function renderComparisonBars(metric, ownerStats) {
+    const items = ownerStats
+        .map(o => ({ name: o.name, value: metric.valueOf(o) }))
+        .filter(it => it.value != null && Number.isFinite(it.value) && it.value >= 0);
+
+    if (!items.length) {
+        return '<p class="text-on-surface-variant text-sm py-4">Sem dados suficientes para este comparativo no período selecionado.</p>';
+    }
+
+    items.sort((a, b) => metric.sortAsc ? a.value - b.value : b.value - a.value);
+
+    const max = metric.max || Math.max(...items.map(it => it.value), 1);
+    const avg = items.reduce((s, it) => s + it.value, 0) / items.length;
+
+    // Métricas "invert" (ex: tempo de resolução) são melhores quanto MENOR o valor —
+    // a barra representa desempenho (mais cheia = melhor), então o comprimento é
+    // invertido em relação ao intervalo min–max, mas o rótulo continua mostrando o
+    // valor real (ex: "3.1h"). Sem isso, o melhor colaborador ficaria com a barra
+    // mais curta, o que contraria a leitura de "barra maior = melhor" das outras métricas.
+    const min = metric.invert ? Math.min(...items.map(it => it.value)) : 0;
+    const pctFor = (v) => metric.invert
+        ? Math.max(2, Math.min(100, max > min ? ((max - v) / (max - min)) * 100 : 100))
+        : Math.max(2, Math.min(100, (v / max) * 100));
+    const avgPct = pctFor(avg);
+
+    const rows = items.map(it => {
+        const pct = pctFor(it.value);
+        const color = metric.colorFor(it.value);
+        const shortName = it.name.split(' ').slice(0, 2).join(' ');
+        return `
+        <div class="flex items-center gap-3 py-1 px-1 -mx-1 rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors"
+             title="${escapeHtml(it.name)}: ${escapeHtml(metric.formatValue(it.value))}"
+             onclick="switchCuradoriaView('atendente');selectOwner('${escapeHtml(it.name)}')">
+            <span class="text-xs text-on-surface-variant w-28 truncate shrink-0">${escapeHtml(shortName)}</span>
+            <div class="flex-1 h-4 rounded-r bg-surface-container relative overflow-hidden">
+                <div class="h-full rounded-r transition-all duration-500" style="width:${pct}%;background:${color}"></div>
+                <div class="absolute top-0 bottom-0 w-px bg-on-surface-variant/40" style="left:${avgPct}%"></div>
+            </div>
+            <span class="text-xs font-bold w-14 text-right shrink-0" style="color:${color}">${escapeHtml(metric.formatValue(it.value))}</span>
+        </div>`;
+    }).join('');
+
+    return `
+        <div class="max-h-[420px] overflow-y-auto pr-1 space-y-0.5">${rows}</div>
+        <p class="text-[11px] text-on-surface-variant opacity-70 mt-3 flex items-center gap-1.5">
+            <span class="inline-block w-3 border-t border-dashed border-on-surface-variant/60"></span>
+            Média da equipe: ${escapeHtml(metric.formatValue(avg))}
+        </p>`;
+}
+
+function renderComparisonSection(t) {
+    const metric = COMPARISON_METRICS.find(m => m.key === curadoriaComparisonMetric) || COMPARISON_METRICS[0];
+    const pills = COMPARISON_METRICS.map(m => `
+        <button onclick="setComparisonMetric('${m.key}')" class="px-4 py-1 rounded-full text-xs font-semibold transition-colors ${m.key === metric.key ? 'bg-secondary text-on-secondary' : 'bg-transparent text-on-surface-variant hover:text-on-surface'}">${escapeHtml(m.label)}</button>`).join('');
+
+    return `<div class="col-span-12 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <div class="flex items-center justify-between mb-1 flex-wrap gap-3">
+            <h3 class="font-headline-lg text-headline-lg text-primary">Comparativo da Equipe</h3>
+            <div class="flex items-center gap-1.5 flex-wrap">${pills}</div>
+        </div>
+        <p class="text-xs text-on-surface-variant mb-4">${escapeHtml(metric.description)}</p>
+        ${renderComparisonBars(metric, t.ownerStats)}
+    </div>`;
+}
+
+/* ── Análise narrativa da equipe (IA, com grounding nos números reais) ───────
+   A IA só recebe números já calculados (produtividade, SLA, feedback) e escreve
+   o texto corrido em cima deles — não recalcula nem inventa nada. Resultado fica
+   em cache no localStorage; só é regenerado quando o usuário clicar "Atualizar". */
+const TEAM_NARRATIVE_CACHE_KEY = 'curadoriaTeamNarrativeCache';
+
+function buildTeamNarrativeFacts(t) {
+    const withData = t.ownerStats.filter(o => o.totalTickets >= 5); // amostra mínima confiável
+    const firstName = (name) => String(name || '').split(' ')[0];
+
+    const byProdutividade = [...withData].sort((a, b) => b.totalTickets - a.totalTickets);
+    const bySla = [...withData].filter(o => o.slaComplianceRate != null).sort((a, b) => b.slaComplianceRate - a.slaComplianceRate);
+    const byFeedbackAsc = [...withData].sort((a, b) => a.feedbackRate - b.feedbackRate);
+    const byScoreAsc = [...withData].sort((a, b) => a.score - b.score);
+
+    return {
+        totalAtendentes: t.totalAtendentes,
+        totalChamados: t.totalChamados,
+        feedbackRateEquipe: t.teamFeedbackRate,
+        slaEquipe: t.teamSlaComplianceRate,
+        topProdutividade: byProdutividade.slice(0, 3).map(o => ({ nome: firstName(o.name), chamados: o.totalTickets, sla: o.slaComplianceRate, feedback: o.feedbackRate })),
+        topSla: bySla.slice(0, 3).map(o => ({ nome: firstName(o.name), sla: o.slaComplianceRate, chamados: o.totalTickets })),
+        menosFeedback: byFeedbackAsc.slice(0, 3).map(o => ({ nome: firstName(o.name), feedback: o.feedbackRate })),
+        precisamApoio: byScoreAsc.slice(0, 3).map(o => ({ nome: firstName(o.name), score: o.score, sla: o.slaComplianceRate, chamados: o.totalTickets }))
+    };
+}
+
+function buildNarrativePrompt(facts) {
+    const values = {
+        totalAtendentes: facts.totalAtendentes,
+        totalChamados: facts.totalChamados,
+        feedbackRateEquipe: facts.feedbackRateEquipe,
+        slaEquipe: facts.slaEquipe ?? 'sem dado',
+        topProdutividade: facts.topProdutividade.map(o => `${o.nome} (${o.chamados} chamados, SLA ${o.sla ?? 'sem dado'}%, feedback ${o.feedback}%)`).join('; ') || 'sem dados suficientes',
+        topSla: facts.topSla.map(o => `${o.nome} (SLA ${o.sla}%, ${o.chamados} chamados)`).join('; ') || 'sem dados suficientes',
+        menosFeedback: facts.menosFeedback.map(o => `${o.nome} (${o.feedback}%)`).join('; ') || 'sem dados suficientes',
+        precisamApoio: facts.precisamApoio.map(o => `${o.nome} (score ${o.score}, SLA ${o.sla ?? 'sem dado'}%, ${o.chamados} chamados)`).join('; ') || 'sem dados suficientes'
+    };
+
+    if (CURADORIA_PROMPT_NARRATIVA) {
+        return {
+            sys: CURADORIA_PROMPT_NARRATIVA.system,
+            user: renderCuradoriaTemplate(CURADORIA_PROMPT_NARRATIVA.userTemplate, values)
+        };
+    }
+
+    const sys = `Você é um analista de operações de suporte. Escreva uma análise curta e objetiva da equipe, em português, EXATAMENTE nesta estrutura (um parágrafo curto por tópico, sem markdown, sem listas, sem títulos extras):
+
+Produtividade: (texto)
+Eficiência: (texto)
+Feedback: (texto)
+Área de melhoria: (texto)
+
+REGRAS:
+- Use APENAS os números e nomes fornecidos pelo usuário. Não invente, não estime, não arredonde diferente do fornecido.
+- Cite pessoas pelo primeiro nome.
+- Seja direto, sem introduções ou conclusões genéricas.`;
+
+    const user = `DADOS DA EQUIPE:
+- Total de atendentes: ${values.totalAtendentes}
+- Total de chamados no período: ${values.totalChamados}
+- % de chamados avaliados pelo cliente (feedback): ${values.feedbackRateEquipe}%
+- Cumprimento de SLA da equipe (SLA SUPORTE MOVIDESK.pdf): ${values.slaEquipe}%
+
+TOP EM VOLUME DE CHAMADOS: ${values.topProdutividade}
+
+TOP EM CUMPRIMENTO DE SLA: ${values.topSla}
+
+MENOR TAXA DE FEEDBACK: ${values.menosFeedback}
+
+MENOR SCORE (podem precisar de apoio): ${values.precisamApoio}`;
+
+    return { sys, user };
+}
+
+async function callTeamNarrativeLLM(systemPrompt, userPrompt) {
+    const gptKey = window._gptApiKey || null;
+    if (!gptKey) throw new Error('Chave da API GPT não configurada em Configurações → Inteligência Artificial.');
+
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
+        body: JSON.stringify({
+            model: 'gpt-4o-mini', temperature: 0.3, max_tokens: 700,
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }]
+        })
+    });
+    const data = await resp.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error(data.error?.message || 'A IA não retornou nenhum texto.');
+
+    try {
+        const usage = data.usage || {};
+        if ((usage.prompt_tokens || 0) > 0) {
+            fetch(`${API_BASE}/config/ai-usage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                body: JSON.stringify({ source: 'team_narrative_curadoria', model: 'gpt-4o-mini',
+                    input_tokens: usage.prompt_tokens || 0, output_tokens: usage.completion_tokens || 0 })
+            }).catch(() => {});
+        }
+    } catch (_) {}
+
+    return text;
+}
+
+function renderTeamNarrativeSection() {
+    let cache = null;
+    try { cache = JSON.parse(localStorage.getItem(TEAM_NARRATIVE_CACHE_KEY) || 'null'); } catch (_) {}
+
+    const header = `
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-headline-lg text-headline-lg text-primary">Análise da Equipe (IA)</h3>
+            ${cache?.text
+                ? `<div class="flex items-center gap-3">
+                       <span class="text-xs text-on-surface-variant">Gerado em ${escapeHtml(new Date(cache.generatedAt).toLocaleString('pt-BR'))}</span>
+                       <button class="text-secondary text-xs font-bold hover:underline" id="btnGenTeamNarrative" onclick="generateTeamNarrative()">Atualizar</button>
+                   </div>`
+                : `<button class="config-btn" id="btnGenTeamNarrative" onclick="generateTeamNarrative()">Gerar análise</button>`
+            }
+        </div>`;
+
+    const body = cache?.text
+        ? `<div id="teamNarrativeContent" class="text-sm text-on-surface leading-relaxed whitespace-pre-line">${escapeHtml(cache.text)}</div>`
+        : `<p class="text-sm text-on-surface-variant" id="teamNarrativeContent">Gera um resumo em texto (produtividade, eficiência, feedback e pontos de atenção) com base nos números reais da equipe — a IA só recebe dados já calculados, não inventa números.</p>`;
+
+    return `<div class="col-span-12 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">${header}${body}</div>`;
+}
+
+async function generateTeamNarrative() {
+    const btn = document.getElementById('btnGenTeamNarrative');
+    const contentEl = document.getElementById('teamNarrativeContent');
+    if (btn) { btn.disabled = true; btn.textContent = 'Gerando...'; }
+    if (contentEl) contentEl.textContent = 'Gerando análise...';
+
+    try {
+        const period = document.getElementById('curadoriaPeriodFilter')?.value || 'month';
+        const periodRows = filterRowsByPeriod(allRows, period);
+        const t = buildTeamOverview(periodRows);
+        const facts = buildTeamNarrativeFacts(t);
+        const { sys, user } = buildNarrativePrompt(facts);
+        const text = await callTeamNarrativeLLM(sys, user);
+
+        localStorage.setItem(TEAM_NARRATIVE_CACHE_KEY, JSON.stringify({ text, generatedAt: new Date().toISOString() }));
+        renderCuradoriaGeralView();
+    } catch (error) {
+        if (contentEl) contentEl.textContent = `Erro ao gerar análise: ${error.message}`;
+        if (btn) { btn.disabled = false; btn.textContent = 'Gerar análise'; }
+    }
+}
+
+function renderCuradoriaGeralView() {
+    const mount = document.getElementById('curadoriaGeralMount');
+    if (!mount) return;
+    if (!allRows.length) {
+        mount.innerHTML = '<div class="col-span-12 py-16 text-center text-on-surface-variant">Nenhum dado carregado ainda.</div>';
+        return;
+    }
+
+    const period = document.getElementById('curadoriaPeriodFilter')?.value || 'month';
+    const periodRows = filterRowsByPeriod(allRows, period);
+    if (!periodRows.length) {
+        mount.innerHTML = '<div class="col-span-12 py-16 text-center text-on-surface-variant">Nenhum chamado processado neste período.</div>';
+        return;
+    }
+
+    const t = buildTeamOverview(periodRows);
+    const volumeChartHtml = renderMonthlyVolumeChart(allRows);
+
+    const aiResult = {};
+    PERF_CATEGORIES.forEach(c => { aiResult[c.key] = { count: t.teamCatCount[c.key] || 0, avgPct: t.teamAvgPct[c.key] || 0, evidence: [] }; });
+    const sortedComp = [...PERF_CATEGORIES].sort((x, y) => (t.teamCatCount[y.key] || 0) - (t.teamCatCount[x.key] || 0));
+    const compCardsHtml = sortedComp.map((c, idx) => renderSingleCompCard(c, idx, t.teamCatCount, aiResult, false, 'team')).join('');
+
+    const rankingRows = t.ownerStats.map((o, idx) => `
+        <tr class="border-b border-outline-variant/30 cursor-pointer transition-colors ${idx === 0 ? 'bg-secondary/25 hover:bg-secondary/35' : 'hover:bg-surface-container-low'}" onclick="switchCuradoriaView('atendente');selectOwner('${escapeHtml(o.name)}')">
+            <td class="py-2 px-3 text-on-surface-variant">${idx + 1}</td>
+            <td class="py-2 px-3 font-medium">
+                <div class="flex items-center gap-2.5">
+                    <img class="w-7 h-7 rounded-full object-cover" src="${escapeHtml(photoByName(o.name))}" alt="" loading="lazy">
+                    <span>${escapeHtml(o.name)}</span>
+                </div>
+            </td>
+            <td class="py-2 px-3 text-on-surface-variant">${escapeHtml(o.team || '-')}</td>
+            <td class="py-2 px-3 text-center">${o.totalTickets}</td>
+            <td class="py-2 px-3 text-center font-bold">${o.score}</td>
+            <td class="py-2 px-3">${escapeHtml(o.seniorityLabel)}</td>
+        </tr>`).join('');
+
+    const distributionList = (obj) => Object.entries(obj).sort((x, y) => y[1] - x[1]).map(([label, count]) => `
+        <div class="flex justify-between items-center py-1.5 border-b border-outline-variant/20">
+            <span class="text-sm">${escapeHtml(label)}</span>
+            <span class="text-sm font-bold">${count}</span>
+        </div>`).join('') || '<p class="text-on-surface-variant text-sm">Sem dados</p>';
+
+    const distributionPills = (obj) => Object.entries(obj).sort((x, y) => y[1] - x[1]).map(([label, count]) => `
+        <div class="flex justify-between items-center gap-3">
+            <span class="inline-flex items-center px-3.5 py-1.5 rounded-full bg-surface-container-low text-sm font-medium">${escapeHtml(label)}</span>
+            <span class="inline-flex items-center justify-center min-w-[3rem] px-3.5 py-1.5 rounded-full bg-surface-container-low text-sm font-semibold">${count}</span>
+        </div>`).join('') || '<p class="text-on-surface-variant text-sm">Sem dados</p>';
+
+    const slaColorStyle = t.teamSlaComplianceRate == null ? '' : t.teamSlaComplianceRate >= 90 ? 'color:#22c55e' : t.teamSlaComplianceRate >= 70 ? 'color:#f59e0b' : 'color:#ef4444';
+
+    mount.innerHTML = `
+        <div class="col-span-12 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-2">
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Total de Chamados</span>
+                <span class="text-3xl font-bold text-primary">${t.totalChamados}</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Atendentes</span>
+                <span class="text-3xl font-bold text-primary">${t.totalAtendentes}</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Score Médio da Equipe</span>
+                <span class="text-3xl font-bold text-primary">${t.avgScore}</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Chamados c/ Competência</span>
+                <span class="text-3xl font-bold text-primary">${t.pctComCompetencia}%</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center" title="% de chamados resolvidos dentro do prazo de SLA da severidade (SLA SUPORTE MOVIDESK.pdf)">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Cumprimento de SLA</span>
+                <span class="text-3xl font-bold" style="${slaColorStyle}">${t.teamSlaComplianceRate == null ? '—' : t.teamSlaComplianceRate + '%'}</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center" title="% de chamados com resposta real de pesquisa de satisfação">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Chamados Avaliados</span>
+                <span class="text-3xl font-bold text-primary">${t.teamFeedbackRate}%</span>
+            </div>
+        </div>
+
+        ${renderTeamNarrativeSection()}
+
+        ${renderComparisonSection(t)}
+
+        <div class="col-span-12 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+            <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Evolução de Chamados por Mês</h3>
+            ${volumeChartHtml}
+        </div>
+
+        <div class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+            <h3 class="font-headline-lg text-headline-lg text-primary mb-6">Ranking de Atendentes</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead><tr class="border-b border-outline-variant text-left">
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant">#</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant">Atendente</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant">Equipe</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant text-center">Chamados</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant text-center">Score</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant">Senioridade</th>
+                    </tr></thead>
+                    <tbody>${rankingRows}</tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-4 grid grid-cols-1 gap-6">
+            <div class="bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Senioridade da Equipe</h3>
+                ${distributionList(t.seniorityCount)}
+            </div>
+            <div class="bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Urgência dos Chamados</h3>
+                <div class="space-y-2.5">${distributionPills(t.urgenciaCount)}</div>
+            </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-6 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+            <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Foco de Atendimento da Equipe</h3>
+            <div class="space-y-4">
+                <div><span class="text-xs text-on-surface-variant uppercase block mb-1">Causa Mais Comum</span><span class="font-semibold">${t.causaMais ? escapeHtml(t.causaMais[0]) + ' (' + t.causaMais[1] + ' chamados)' : 'Sem dados'}</span></div>
+                <div><span class="text-xs text-on-surface-variant uppercase block mb-1">Módulo Mais Atendido</span><span class="font-semibold">${t.moduloMais ? escapeHtml(t.moduloMais[0]) + ' (' + t.moduloMais[1] + ' chamados)' : 'Sem dados'}</span></div>
+            </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-6 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+            <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Competências da Equipe</h3>
+            <div class="comp-cards-grid">${compCardsHtml}</div>
+        </div>
+    `;
+}
+
+function switchCuradoriaView(view) {
+    const geralView = document.getElementById('curadoriaGeralView');
+    const atendenteView = document.getElementById('curadoriaAtendenteView');
+    const tabGeral = document.getElementById('curadoriaTabGeral');
+    const tabAtendente = document.getElementById('curadoriaTabAtendente');
+    const activeCls = ['bg-secondary', 'text-on-secondary'];
+    const inactiveCls = ['bg-transparent', 'text-on-surface-variant'];
+
+    if (view === 'geral') {
+        geralView?.classList.remove('hidden');
+        atendenteView?.classList.add('hidden');
+        tabGeral?.classList.add(...activeCls); tabGeral?.classList.remove(...inactiveCls);
+        tabAtendente?.classList.add(...inactiveCls); tabAtendente?.classList.remove(...activeCls);
+        renderCuradoriaGeralView();
+    } else {
+        geralView?.classList.add('hidden');
+        atendenteView?.classList.remove('hidden');
+        tabAtendente?.classList.add(...activeCls); tabAtendente?.classList.remove(...inactiveCls);
+        tabGeral?.classList.add(...inactiveCls); tabGeral?.classList.remove(...activeCls);
+    }
+}
 
 function showTicketsSampleModal(tickets) {
     const tbody = document.getElementById('ticketsSampleBody');
@@ -597,6 +1597,26 @@ const DEFAULT_PERF_CATEGORIES = [
      prompt:'O chamado ficou sem solução, com falta de retorno ou foi encerrado sem resolver o problema do cliente? Identifique se houve abandono, falta de follow-up ou encerramento indevido.'},
 ];
 let PERF_CATEGORIES = DEFAULT_PERF_CATEGORIES.map(c=>({...c}));
+
+// Prompts configuráveis em Configurações → Curadoria Avançado (fallback = comportamento
+// hoje hardcoded, usado até o admin abrir a aba e salvar algo).
+const DEFAULT_CURADORIA_PROMPT_COMPETENCIAS = 'Avaliador de suporte. Para cada chamado listado, identifique quais das competências fornecidas realmente se manifestam no atendimento e atribua um percentual de 0 a 100 indicando a intensidade da evidência. Inclua no JSON apenas as competências que efetivamente se aplicam a cada chamado (omita as que não se aplicam ou têm percentual 0). Use EXATAMENTE as chaves fornecidas em COMPETÊNCIAS, sem alterar acentos ou maiúsculas. Retorne SOMENTE JSON: {"results":{"TICKET_ID":{"CHAVE":percentual}}}. Sem texto adicional.';
+let CURADORIA_PROMPT_COMPETENCIAS = DEFAULT_CURADORIA_PROMPT_COMPETENCIAS;
+let CURADORIA_PROMPT_NARRATIVA = null; // preenchido em loadPerfCategories(); null = usa fallback hardcoded de buildNarrativePrompt
+
+function renderCuradoriaTemplate(str, map) {
+    let out = str;
+    for (const [key, value] of Object.entries(map)) {
+        out = out.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value ?? '');
+    }
+    return out;
+}
+
+// Pesos das 4 dimensões do score de performance (0-1000) — ver calcScore1000.
+// Padrão histórico: satisfação 35%, eficiência 25%, pontos positivos/gaps 25%, competências 15%.
+const DEFAULT_SCORE_WEIGHTS = { satisfacao: 0.35, eficiencia: 0.25, pontos: 0.25, competencias: 0.15 };
+let SCORE_WEIGHTS = { ...DEFAULT_SCORE_WEIGHTS };
+
 async function loadPerfCategories() {
     // Cada chamada é independente — falha de uma não quebra as outras
     try {
@@ -606,6 +1626,31 @@ async function loadPerfCategories() {
                 key:c.key, label:c.label, prompt:c.prompt||'', icon:c.icon||'star',
                 description:c.description||'', isNegative:!!c.isNegative
             }));
+    } catch(_) { /* mantém defaults */ }
+
+    try {
+        const weightData = await apiCall('/config/score-weights').catch(()=>({weights:null}));
+        if(weightData.weights) SCORE_WEIGHTS = { ...DEFAULT_SCORE_WEIGHTS, ...weightData.weights };
+    } catch(_) { /* mantém defaults */ }
+
+    try {
+        const compPromptData = await apiCall('/config/curadoria-prompt-competencias').catch(()=>null);
+        if(compPromptData?.prompt) CURADORIA_PROMPT_COMPETENCIAS = compPromptData.prompt;
+    } catch(_) { /* mantém default */ }
+
+    try {
+        const narrPromptData = await apiCall('/config/curadoria-prompt-narrativa').catch(()=>null);
+        if(narrPromptData?.system && narrPromptData?.userTemplate) CURADORIA_PROMPT_NARRATIVA = narrPromptData;
+    } catch(_) { /* mantém fallback hardcoded */ }
+
+    try {
+        const slaData = await apiCall('/config/curadoria-sla-thresholds').catch(()=>null);
+        if(slaData) Object.assign(SLA_RESOLUTION_HOURS, {
+            critica: Number(slaData.critica) || SLA_RESOLUTION_HOURS.critica,
+            alta: Number(slaData.alta) || SLA_RESOLUTION_HOURS.alta,
+            media: Number(slaData.media) || SLA_RESOLUTION_HOURS.media,
+            baixa: Number(slaData.baixa) || SLA_RESOLUTION_HOURS.baixa
+        });
     } catch(_) { /* mantém defaults */ }
 
     // Carrega chave GPT separadamente, sem bloquear
@@ -625,9 +1670,23 @@ async function loadPerfCategories() {
 
 // Conteúdo COMPORTAMENTAL: as competências avaliam o atendente, não o problema técnico.
 // Prioriza campos que descrevem como foi o atendimento; analise_fato entra só como contexto curto.
+// dinamica_conversa/pontos_criticos são jsonb (o driver já entrega objeto JS, não string) —
+// String(objeto) viraria "[object Object]", então precisamos extrair o texto de dentro.
+function stringifyCompField(v) {
+    if (v == null) return '';
+    if (typeof v === 'string') return v.trim();
+    if (typeof v !== 'object') return String(v).trim();
+    const payload = ('items' in v) ? v.items : v;
+    if (typeof payload === 'string') return payload.trim();
+    if (Array.isArray(payload)) return payload.map(x => stringifyCompField(x)).filter(Boolean).join(', ');
+    if (payload && typeof payload === 'object') {
+        return Object.values(payload).map(x => stringifyCompField(x)).filter(Boolean).join(' | ');
+    }
+    return '';
+}
 function competenciaBehaviorText(r) {
     return [r.padrao_suporte, r.dinamica_conversa, r.recomendacao_atendente, r.pontos_criticos, r.conclusao]
-        .map(v => String(v || '').trim()).filter(Boolean).join(' | ');
+        .map(v => stringifyCompField(v)).filter(Boolean).join(' | ');
 }
 function competenciaRowText(r) {
     const beh  = competenciaBehaviorText(r);
@@ -670,16 +1729,21 @@ function aggregateCompetencias(ownerRows) {
 }
 
 // Abre o modal explicando o critério da competência e os chamados que mais evidenciaram o resultado
-function showCompetenciaModal(key) {
+function showCompetenciaModal(key, scope = 'owner') {
     const c = PERF_CATEGORIES.find(x => x.key === key);
-    if (!c || !currentOwner) return;
+    if (!c) return;
+    if (scope === 'owner' && !currentOwner) return;
 
-    const ownerRows = allRows.filter(r => r.owner === currentOwner);
-    const { catCount, avgPct } = aggregateCompetencias(ownerRows);
+    // Escopo 'team' respeita o filtro de período da Visão Geral, senão o modal mostraria
+    // números diferentes dos cards que o abriram (ex: card filtrado no mês, modal com tudo)
+    const teamPeriod = document.getElementById('curadoriaPeriodFilter')?.value || 'month';
+    const scopeRows = scope === 'team' ? filterRowsByPeriod(allRows, teamPeriod) : allRows.filter(r => r.owner === currentOwner);
+    const scopeLabel = scope === 'team' ? 'da equipe' : 'do atendente';
+    const { catCount, avgPct } = aggregateCompetencias(scopeRows);
     const count = catCount[key] || 0;
-    const total = ownerRows.length;
+    const total = scopeRows.length;
 
-    const evidencing = ownerRows
+    const evidencing = scopeRows
         .filter(r => r.competencias && typeof r.competencias === 'object' && Number(r.competencias[key]) > 0)
         .map(r => ({ ticket_id: r.ticket_id, pct: Number(r.competencias[key]), text: competenciaRowText(r) }))
         .sort((a, b) => b.pct - a.pct)
@@ -693,8 +1757,8 @@ function showCompetenciaModal(key) {
     const rawPct = total ? Math.round((count / total) * 100) : 0;
 
     const explanation = count === 0
-        ? 'Nenhum chamado deste atendente apresentou evidência desta competência até agora, por isso o status é "—".'
-        : `Identificada em ${count} de ${total} chamado${total!==1?'s':''} (${rawPct}% do total), com intensidade média de ${avgPct[key]||0}% nas evidências. Isso equivale a ${relPct}% do volume da competência mais frequente do atendente ("${topCat.label}", ${catCount[topCat.key]||0} chamado${catCount[topCat.key]!==1?'s':''}) — por isso o status foi classificado como "${badgeLabel}".`;
+        ? `Nenhum chamado ${scopeLabel} apresentou evidência desta competência até agora, por isso o status é "—".`
+        : `Identificada em ${count} de ${total} chamado${total!==1?'s':''} (${rawPct}% do total), com intensidade média de ${avgPct[key]||0}% nas evidências. Isso equivale a ${relPct}% do volume da competência mais frequente ${scopeLabel} ("${topCat.label}", ${catCount[topCat.key]||0} chamado${catCount[topCat.key]!==1?'s':''}) — por isso o status foi classificado como "${badgeLabel}".`;
 
     document.getElementById('competenciaModalIcon').textContent = c.icon || 'star';
     document.getElementById('competenciaModalTitle').textContent = c.label;
@@ -739,7 +1803,7 @@ async function classifyCompetenciasBatch(batchRows, owner, gptKey, keyByNorm) {
             model: 'gpt-4o-mini', temperature: 0, max_tokens: 1600,
             response_format: { type: 'json_object' },
             messages: [
-                { role: 'system', content: 'Avaliador de suporte. Para cada chamado listado, identifique quais das competências fornecidas realmente se manifestam no atendimento e atribua um percentual de 0 a 100 indicando a intensidade da evidência. Inclua no JSON apenas as competências que efetivamente se aplicam a cada chamado (omita as que não se aplicam ou têm percentual 0). Use EXATAMENTE as chaves fornecidas em COMPETÊNCIAS, sem alterar acentos ou maiúsculas. Retorne SOMENTE JSON: {"results":{"TICKET_ID":{"CHAVE":percentual}}}. Sem texto adicional.' },
+                { role: 'system', content: CURADORIA_PROMPT_COMPETENCIAS },
                 { role: 'user', content: `Atendente: ${owner}\n\nCOMPETÊNCIAS: ${PERF_CATEGORIES.map(c => `${c.key}="${c.label}"`).join(' | ')}\n\nCHAMADOS:\n${batchRows.map(r => `#${r.ticket_id}: ${competenciaRowText(r).substring(0, 240)}`).join('\n')}` }
             ]
         })
@@ -870,6 +1934,7 @@ function calcScore1000(ownerRows, aiResult) {
 
     let sumTicketScores = 0;
     let sumSat = 0, satCount = 0;
+    let sumSatScore = 0;
     let totalGaps = 0, totalPontos = 0;
     let openTicketsCount = 0;
     const ticketDetails = [];
@@ -878,12 +1943,22 @@ function calcScore1000(ownerRows, aiResult) {
         const ownerItem = row._ownerItem || {};
         const pontos    = ownerItem.pontos || [];
 
-        // Dimensão 1 — Satisfação do cliente (35%)
+        // Dimensão 1 — Satisfação do cliente (peso configurável em SCORE_WEIGHTS.satisfacao)
+        // Prioriza a nota REAL da pesquisa de satisfação do Movidesk (satisfacao_pesquisa,
+        // 1-5, respondida pelo próprio cliente) sobre a estimativa da IA (satisfacao, 1-10,
+        // lida a partir do texto da conversa) — só cai pra estimativa quando o cliente não
+        // respondeu a pesquisa daquele chamado. Sem isso, um atendente com 132 respostas
+        // "Ótimo" e só 22 "Bom" não tinha essa distribuição real refletida na pontuação.
+        const notaReal = Number(row.satisfacao_pesquisa) || 0;
         const sat = Number(row.satisfacao) || 0;
-        const satScore = sat > 0 ? Math.round((sat / 10) * 100) : 50; // neutro se ausente
-        if (sat > 0) { sumSat += sat; satCount++; }
+        const satScore = notaReal > 0
+            ? Math.round((notaReal / 5) * 100)
+            : (sat > 0 ? Math.round((sat / 10) * 100) : 50); // neutro se não há nem pesquisa nem estimativa
+        if (notaReal > 0) { sumSat += notaReal * 2; satCount++; } // *2 pra manter a mesma escala 0-10 da estimativa da IA
+        else if (sat > 0) { sumSat += sat; satCount++; }
+        sumSatScore += satScore;
 
-        // Dimensão 2 — Eficiência de Atendimento (25%)
+        // Dimensão 2 — Eficiência de Atendimento (peso configurável em SCORE_WEIGHTS.eficiencia)
         // 50% velocidade (tempo_resol_dias vs mediana do time) + 50% dedicação (total_agente vs média do time)
         const tempoTicket = Number(row.tempo_resol_dias);
         let velocidadeScore = 50; // neutro se sem dado
@@ -900,7 +1975,7 @@ function calcScore1000(ownerRows, aiResult) {
         }
         const volScore = Math.round(velocidadeScore * 0.5 + dedicacaoScore * 0.5);
 
-        // Dimensão 3 — Pontos positivos vs gaps (25%)
+        // Dimensão 3 — Pontos positivos vs gaps (peso configurável em SCORE_WEIGHTS.pontos)
         const positivos = pontos.filter(p =>
             !/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(p)
         ).length;
@@ -918,10 +1993,10 @@ function calcScore1000(ownerRows, aiResult) {
         }
 
         const rawScore =
-            satScore * 0.35 +
-            volScore * 0.25 +
-            posScore * 0.25 +
-            compScore * 0.15;
+            satScore * SCORE_WEIGHTS.satisfacao +
+            volScore * SCORE_WEIGHTS.eficiencia +
+            posScore * SCORE_WEIGHTS.pontos +
+            compScore * SCORE_WEIGHTS.competencias;
 
         const penalty  = gaps * 5;
         const ticketScore = Math.max(0, Math.round(rawScore - penalty));
@@ -939,10 +2014,11 @@ function calcScore1000(ownerRows, aiResult) {
     const avgVolScore = ticketDetails.length
         ? Math.round(ticketDetails.reduce((s,t) => s + t.volScore, 0) / ticketDetails.length)
         : 50;
+    const avgSatScore = ownerRows.length > 0 ? Math.round(sumSatScore / ownerRows.length) : 50;
 
     return {
         score,
-        breakdown: { compScore, compHits, totalComp, avgVolScore, medianTempoResolTeam: team.medianTempoResol, meanTotalAgenteTeam: team.meanTotalAgente },
+        breakdown: { compScore, compHits, totalComp, avgVolScore, avgSatScore, medianTempoResolTeam: team.medianTempoResol, meanTotalAgenteTeam: team.meanTotalAgente },
         ticketDetails,
         metrics: {
             avgSatisfaction,        // % satisfação (proxy do entregável "Satisfação >= 95%")
@@ -1005,8 +2081,8 @@ function classifySeniority(metrics, totalTickets, score) {
 
 /* ──────────────────────────────────────────────────────────────
    calcMonthlyScoreHistory — agrupa os tickets de um owner por
-   mês (com base em ticket_created_date, data real de criação
-   do chamado) e calcula o score 0–1000 + senioridade de cada mês.
+   mês (com base em aberto_em, data real de abertura do chamado)
+   e calcula o score 0–1000 + senioridade de cada mês.
    Não depende de IA (compScore fica neutro/0 no histórico mensal,
    pois rodar IA retroativa por mês teria custo desproporcional).
    ────────────────────────────────────────────────────────────── */
@@ -1016,7 +2092,7 @@ function calcMonthlyScoreHistory(ownerRows, aiResult) {
     const byMonth = new Map(); // 'YYYY-MM' -> rows[]
 
     ownerRows.forEach(row => {
-        const dateStr = row.ticket_created_date;
+        const dateStr = row.aberto_em;
         if (!dateStr) return;
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return;
@@ -1094,6 +2170,11 @@ function analysePerformance(rows, owner) {
     });
     const norm = (map, limit = 5) => [...map.values()].map(item => ({ ticketId: item.ticketId, categories: [...item.categories], reasons: item.reasons, score: item.reasons.length + item.categories.length })).sort((a, b) => b.score - a.score).slice(0, limit);
     const positiveEvidence = norm(positiveByTicket, 5), gapEvidence = norm(gapByTicket, 5);
+    // Listas pra exibição: a IA gera uma frase nova por chamado, então o mesmo tipo de lacuna/acerto
+    // (ex: "encerrou sem retorno do cliente") aparece com palavras diferentes em cada ticket. Agrupa
+    // por similaridade de palavras-chave antes de mostrar, senão a lista vira a mesma coisa repetida.
+    const positiveEvidenceDisplay = dedupeSimilarEvidence(norm(positiveByTicket, 20), 5);
+    const gapEvidenceDisplay = dedupeSimilarEvidence(norm(gapByTicket, 20), 5);
     const diffScore  = PERF_CATEGORIES.filter(c =>  c.isNegative).reduce((s, c) => s + (catCount[c.key] || 0), 0);
     const totalPositive = PERF_CATEGORIES.filter(c => !c.isNegative).reduce((s, c) => s + (catCount[c.key] || 0), 0);
 
@@ -1106,7 +2187,41 @@ function analysePerformance(rows, owner) {
     const verdictLabel = seniority.label;
     const verdict = seniority.reason;
 
-    return { totalTickets, totalAcoes, mediaAcoes: totalTickets ? (totalAcoes / totalTickets).toFixed(1) : '0', maxAcoes, urgenciaCount, urgenciaTickets, catCount, positiveEvidence, gapEvidence, verdictLabel, verdict, ownerRows, scoreData };
+    return { totalTickets, totalAcoes, mediaAcoes: totalTickets ? (totalAcoes / totalTickets).toFixed(1) : '0', maxAcoes, urgenciaCount, urgenciaTickets, catCount, positiveEvidence, gapEvidence, positiveEvidenceDisplay, gapEvidenceDisplay, verdictLabel, verdict, ownerRows, scoreData };
+}
+
+// Palavras muito comuns em português que não ajudam a diferenciar o significado de uma frase
+const EVIDENCE_STOPWORDS = new Set(['de','a','o','e','do','da','em','um','uma','para','com','que','apos','por','os','as','ao','no','na','se','sem','foi','ser','ter','ate','mas','ou','the']);
+function evidenceKeywords(text) {
+    return String(text || '')
+        .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !EVIDENCE_STOPWORDS.has(w));
+}
+// Agrupa evidências (uma por chamado) que descrevem o mesmo padrão de comportamento com palavras
+// diferentes — se 60%+ das palavras-chave batem, é a mesma lacuna/acerto contada de novo.
+function dedupeSimilarEvidence(evidenceList, limit = 5) {
+    const groups = [];
+    evidenceList.forEach(ev => {
+        const reason = ev.reasons?.[0] || '';
+        if (!reason) return;
+        const words = new Set(evidenceKeywords(reason));
+        // Compara com o vocabulário ACUMULADO do grupo (não só com o 1º item) — senão duas frases
+        // que só se parecem "em cadeia" (A~B, B~C, mas A não bate direto com C) viram grupos separados.
+        const match = groups.find(g => {
+            if (!words.size) return false;
+            const overlap = [...words].filter(w => g.words.has(w)).length;
+            return overlap / words.size >= 0.5;
+        });
+        if (match) {
+            match.count++; match.ticketIds.push(ev.ticketId);
+            words.forEach(w => match.words.add(w));
+        } else {
+            groups.push({ reason, words, count: 1, ticketIds: [ev.ticketId] });
+        }
+    });
+    return groups.sort((a, b) => b.count - a.count).slice(0, limit);
 }
 
 // Deriva cor/selo a partir do % relativo à competência mais frequente do owner
@@ -1121,7 +2236,7 @@ function competenciaBadgeMeta(pct, count) {
 
 // Enriquece o card com dados da IA após renderização inicial
 // ── Renderiza cards de competências (compartilhado pelo render inicial e pelo enrich da IA)
-function renderSingleCompCard(c, idx, catCount, aiResult, isLoading) {
+function renderSingleCompCard(c, idx, catCount, aiResult, isLoading, scope = 'owner') {
     const count = catCount[c.key] || 0;
     const maxCat = Math.max(...PERF_CATEGORIES.map(x => (catCount[x.key]||0)), 1);
     const pct = count > 0 ? Math.round((count / maxCat) * 100) : 0;
@@ -1134,7 +2249,7 @@ function renderSingleCompCard(c, idx, catCount, aiResult, isLoading) {
         ? `<div class="comp-card-overlay"><div class="comp-card-spinner"></div></div>`
         : '';
     const doneClass = !isLoading ? ' comp-card--done' : '';
-    const clickAttr = !isLoading ? ` onclick="showCompetenciaModal('${escapeHtml(c.key)}')"` : '';
+    const clickAttr = !isLoading ? ` onclick="showCompetenciaModal('${escapeHtml(c.key)}','${scope}')"` : '';
     return `<div class="comp-card${doneClass}" data-comp-key="${escapeHtml(c.key)}" style="--accent:${accentColor};--bg:${bgColor};animation-delay:${idx*60}ms;${!isLoading ? 'cursor:pointer' : ''}"${clickAttr}>
         ${overlayHtml}
         <div class="comp-card-header">
@@ -1281,41 +2396,279 @@ function renderOwnerCard(owner, rows=[]) {
 function renderFocusCard(owner, rows) {
     const ownerRows=rows.filter(r=>r.owner===owner);
     const causaCount={};ownerRows.forEach(row=>{const c=String(row.causa||'Não especificado').trim();causaCount[c]=(causaCount[c]||0)+1;});
-    const causaMais=Object.entries(causaCount).sort((a,b)=>b[1]-a[1])[0];
+    const causaEntries=Object.entries(causaCount).sort((a,b)=>b[1]-a[1]);
+    const causaMais=causaEntries[0];
+    const causaOnclick = causaMais
+        ? `showCausaModal(${JSON.stringify(causaEntries).replace(/"/g,'&quot;')}, '${escapeHtml(owner)}')`
+        : '';
     const moduloCount={};ownerRows.forEach(row=>{const m=String(row.modulo_x_rotina||'Sem módulo').trim();moduloCount[m]=(moduloCount[m]||0)+1;});
-    const moduloMais=Object.entries(moduloCount).sort((a,b)=>b[1]-a[1])[0];
+    const moduloEntries=Object.entries(moduloCount).sort((a,b)=>b[1]-a[1]);
+    const moduloMais=moduloEntries[0];
+    const moduloOnclick = moduloMais
+        ? `showModuloModal(${JSON.stringify(moduloEntries).replace(/"/g,'&quot;')}, '${escapeHtml(owner)}')`
+        : '';
     return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
         <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-6">Foco de Atendimento</h3>
         <div class="space-y-6">
-            <div class="flex gap-4 items-start">
+            <div class="flex gap-4 items-start ${causaMais?'cursor-pointer group':''}" ${causaMais?`onclick="${causaOnclick}"`:''} title="${causaMais?'Ver todas as causas atendidas':''}">
                 <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-blue-600">help</span></div>
-                <div><span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Causa Mais Atendida</span><span class="font-body-md text-body-md text-primary font-semibold">${causaMais?escapeHtml(causaMais[0]):'Sem dados'}</span></div>
+                <div>
+                    <span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Causa Mais Atendida</span>
+                    <span class="font-body-md text-body-md text-primary font-semibold ${causaMais?'group-hover:underline':''}">${causaMais?escapeHtml(causaMais[0]):'Sem dados'}</span>
+                </div>
             </div>
-            <div class="flex gap-4 items-start">
+            <div class="flex gap-4 items-start ${moduloMais?'cursor-pointer group':''}" ${moduloMais?`onclick="${moduloOnclick}"`:''} title="${moduloMais?'Ver todos os módulos atendidos':''}">
                 <div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-yellow-600">dashboard</span></div>
-                <div><span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Módulo Mais Atendido</span><span class="font-body-md text-body-md text-primary font-semibold">${moduloMais?escapeHtml(moduloMais[0]):'Sem dados'}</span></div>
+                <div>
+                    <span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Módulo Mais Atendido</span>
+                    <span class="font-body-md text-body-md text-primary font-semibold ${moduloMais?'group-hover:underline':''}">${moduloMais?escapeHtml(moduloMais[0]):'Sem dados'}</span>
+                </div>
             </div>
         </div>
     </div>`;
 }
+
+function toggleModuleListModal() { document.getElementById('moduleListModal').classList.toggle('hidden'); }
+
+// Abre o modal com a lista completa de um agrupamento (módulo ou causa) atendido por um
+// atendente e a quantidade de chamados vinculados a cada item — não só o "mais atendido"
+// mostrado no card. showModuloModal/showCausaModal só fixam o rótulo e a cor da barra.
+function showFocusBreakdownModal(entries, ownerName, { title, itemLabel, color }) {
+    const total = entries.reduce((s, [, count]) => s + count, 0);
+    const maxCount = Math.max(...entries.map(([, count]) => count), 1);
+
+    document.getElementById('moduleListModalTitle').textContent = `${title} — ${ownerName}`;
+    document.getElementById('moduleListModalSubtitle').textContent =
+        `${entries.length} ${itemLabel}${entries.length !== 1 ? 's' : ''} diferente${entries.length !== 1 ? 's' : ''} · ${total} chamado${total !== 1 ? 's' : ''} no total`;
+
+    document.getElementById('moduleListModalContent').innerHTML = entries.map(([name, count]) => {
+        const pct = Math.round((count / total) * 100);
+        const barPct = Math.max(4, Math.round((count / maxCount) * 100));
+        return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
+            <div class="flex justify-between items-center mb-1.5 gap-3">
+                <span class="text-sm font-semibold truncate">${escapeHtml(name)}</span>
+                <span class="text-sm font-bold text-primary shrink-0">${count} (${pct}%)</span>
+            </div>
+            <div class="h-2 rounded-r bg-surface-container overflow-hidden">
+                <div class="h-full rounded-r" style="width:${barPct}%;background:${color}"></div>
+            </div>
+        </div>`;
+    }).join('');
+
+    toggleModuleListModal();
+}
+
+function showModuloModal(entries, ownerName) {
+    showFocusBreakdownModal(entries, ownerName, { title: 'Módulos Atendidos', itemLabel: 'módulo', color: '#f59e0b' });
+}
+
+function showCausaModal(entries, ownerName) {
+    showFocusBreakdownModal(entries, ownerName, { title: 'Causas Atendidas', itemLabel: 'causa', color: '#3b82f6' });
+}
+// Nota REAL do cliente (pesquisa de satisfação Movidesk) — diferente de `satisfacao`,
+// que é a estimativa da IA lendo a conversa. Ver server/routes/curadoria.js (survey/sync).
+const SURVEY_NOTA_LABELS = { 5: 'Ótimo', 4: 'Bom', 3: 'Neutro', 2: 'Ruim', 1: 'Péssimo' };
+
+function toggleSatisfactionModal() { document.getElementById('satisfactionModal').classList.toggle('hidden'); }
+
+function toggleCommentDetailModal() { document.getElementById('commentDetailModal').classList.toggle('hidden'); }
+
+// Abre o modal com o comentário completo da pesquisa de satisfação de UM chamado —
+// texto integral (sem truncar), quem respondeu (solicitante do chamado) e as datas
+// relevantes (resposta da pesquisa, abertura e resolução do chamado).
+function showCommentDetailModal(ticketId) {
+    const r = allRows.find(row => String(row.ticket_id) === String(ticketId));
+    if (!r) return;
+
+    const nota = Number(r.satisfacao_pesquisa);
+    const color = nota >= 4 ? '#22c55e' : nota === 3 ? '#f59e0b' : '#ef4444';
+    const fmtDate = (v) => v ? new Date(v).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'sem data';
+
+    document.getElementById('commentDetailTicketId').textContent = `#${r.ticket_id}`;
+    const badge = document.getElementById('commentDetailNotaBadge');
+    badge.textContent = SURVEY_NOTA_LABELS[nota] || `Nota ${nota}`;
+    badge.style.color = color;
+    badge.style.backgroundColor = `${color}1a`;
+    document.getElementById('commentDetailServico').textContent = r.servico ? `Serviço: ${r.servico}` : '';
+
+    document.getElementById('commentDetailMeta').innerHTML = `
+        <div><span class="text-on-surface-variant text-xs uppercase block">Escrito por</span><span class="font-semibold">${escapeHtml(r.solicitante || 'Não identificado')}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Atendente</span><span class="font-semibold">${escapeHtml(r.owner || '—')}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Respondido em</span><span class="font-semibold">${escapeHtml(fmtDate(r.satisfacao_pesquisa_respondido_em))}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Chamado aberto em</span><span class="font-semibold">${escapeHtml(fmtDate(r.aberto_em))}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Chamado resolvido em</span><span class="font-semibold">${escapeHtml(fmtDate(r.resolvido_em))}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Organização</span><span class="font-semibold">${escapeHtml(r.organizacao || '—')}</span></div>
+    `;
+
+    document.getElementById('commentDetailFullText').textContent = String(r.satisfacao_pesquisa_comentario || '');
+
+    toggleCommentDetailModal();
+}
+
+// Abre o modal com os chamados que tiraram uma nota específica na pesquisa de satisfação
+function showSatisfactionModal(nota, ownerName) {
+    const matching = allRows
+        .filter(r => r.owner === ownerName && Number(r.satisfacao_pesquisa) === nota)
+        .sort((a, b) => String(b.satisfacao_pesquisa_respondido_em || '').localeCompare(String(a.satisfacao_pesquisa_respondido_em || '')));
+
+    document.getElementById('satisfactionModalTitle').textContent = SURVEY_NOTA_LABELS[nota] || `Nota ${nota}`;
+    document.getElementById('satisfactionModalSubtitle').textContent =
+        `${matching.length} chamado${matching.length !== 1 ? 's' : ''} com essa avaliação`;
+
+    document.getElementById('satisfactionModalList').innerHTML = matching.length
+        ? matching.map(r => {
+            const respondidoEm = r.satisfacao_pesquisa_respondido_em
+                ? new Date(r.satisfacao_pesquisa_respondido_em).toLocaleDateString('pt-BR')
+                : '';
+            const comentarioTexto = r.satisfacao_pesquisa_comentario ? String(r.satisfacao_pesquisa_comentario) : '';
+            const comentario = comentarioTexto
+                ? `<span class="text-xs text-on-surface-variant italic truncate" title="${escapeHtml(comentarioTexto)}">"${escapeHtml(comentarioTexto.substring(0, 80))}${comentarioTexto.length > 80 ? '…' : ''}"</span>`
+                : '';
+            return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="font-label-md text-label-md text-primary font-bold shrink-0">#${escapeHtml(String(r.ticket_id))}</span>
+                    ${comentario}
+                </div>
+                <span class="text-xs text-on-surface-variant shrink-0">${escapeHtml(respondidoEm)}</span>
+            </div>`;
+        }).join('')
+        : '<p class="text-on-surface-variant text-sm">Nenhum chamado encontrado.</p>';
+
+    toggleSatisfactionModal();
+}
+// Evolução mês a mês da nota REAL de satisfação (agrupa por aberto_em, igual aos outros
+// gráficos mensais desta tela). Só faz sentido mostrar "evolução" com 2+ meses de dados.
+function buildMonthlySatisfactionHistory(ownerRows) {
+    const byMonth = new Map();
+    ownerRows.forEach(r => {
+        if (r.satisfacao_pesquisa == null || r.satisfacao_pesquisa === '' || !r.aberto_em) return;
+        const d = new Date(r.aberto_em);
+        if (isNaN(d.getTime())) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!byMonth.has(key)) byMonth.set(key, []);
+        byMonth.get(key).push(Number(r.satisfacao_pesquisa));
+    });
+    return [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, notas]) => {
+        const [year, month] = key.split('-').map(Number);
+        return { year, month, avg: notas.reduce((s, v) => s + v, 0) / notas.length, count: notas.length };
+    });
+}
+
+// Mesmo layout do "Evolução do Score" (score-history-chart): cabeçalho com selo de
+// período, barras que crescem de baixo pra cima numa faixa de 56px, mesma escala de
+// cores por faixa, e destaque em anel no último mês.
+function renderMonthlySatisfactionChart(ownerRows) {
+    const monthly = buildMonthlySatisfactionHistory(ownerRows);
+    if (monthly.length < 2) {
+        return `
+        <div class="border-t border-surface-container pt-4 mt-4">
+            <span class="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Evolução da Satisfação</span>
+            <div class="min-h-[56px] flex items-center justify-center">
+                <span class="text-xs text-on-surface-variant opacity-50">Ainda não há meses suficientes para montar o histórico.</span>
+            </div>
+        </div>`;
+    }
+
+    const first = monthly[0], last = monthly[monthly.length - 1];
+    const bars = monthly.map((m, i) => {
+        const heightPct = Math.max(6, Math.round((m.avg / 5) * 100));
+        const isLast = i === monthly.length - 1;
+        const barColor = m.avg >= 4.5 ? '#22c55e' : m.avg >= 3.5 ? '#3b82f6' : m.avg >= 2.5 ? '#f59e0b' : m.avg >= 1.5 ? '#f97316' : '#94a3b8';
+        const label = `${MONTH_NAMES_PT[m.month - 1]}/${m.year} · ${m.avg.toFixed(1)}/5 · ${m.count} resposta${m.count !== 1 ? 's' : ''}`;
+        return `<div class="flex-1 rounded-t cursor-pointer transition-opacity hover:opacity-80 score-history-bar"
+                     style="height:${heightPct}%;background:${barColor};${isLast ? 'box-shadow:0 0 0 1.5px ' + barColor + '33' : ''}"
+                     title="${escapeHtml(label)}"></div>`;
+    }).join('');
+
+    return `
+        <div class="border-t border-surface-container pt-4 mt-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Evolução da Satisfação</span>
+                <span class="text-[10px] text-on-surface-variant opacity-60">${monthly.length} mês${monthly.length !== 1 ? 'es' : ''}</span>
+            </div>
+            <div class="min-h-[56px] flex items-center justify-center">
+                <div class="w-full">
+                    <div class="flex items-end gap-1.5 h-14">${bars}</div>
+                    <div class="flex justify-between mt-1.5">
+                        <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[first.month - 1]}/${first.year}</span>
+                        <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[last.month - 1]}/${last.year}</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+}
+
+function renderSatisfactionCard(owner, rows) {
+    const ownerRows = rows.filter(r => r.owner === owner);
+    const withSurvey = ownerRows.filter(r => r.satisfacao_pesquisa != null && r.satisfacao_pesquisa !== '');
+    const avgSurvey = withSurvey.length
+        ? withSurvey.reduce((s, r) => s + Number(r.satisfacao_pesquisa), 0) / withSurvey.length
+        : null;
+    const pctResponded = ownerRows.length ? Math.round((withSurvey.length / ownerRows.length) * 100) : 0;
+
+    const distCount = {};
+    withSurvey.forEach(r => { const n = Number(r.satisfacao_pesquisa); distCount[n] = (distCount[n] || 0) + 1; });
+    const distHtml = [5, 4, 3, 2, 1].filter(n => distCount[n]).map(n => `
+        <div class="flex items-center justify-between text-sm py-1 px-1 -mx-1 rounded cursor-pointer hover:bg-surface-container-low transition-colors" onclick="showSatisfactionModal(${n}, '${escapeHtml(owner)}')">
+            <span>${SURVEY_NOTA_LABELS[n]}</span>
+            <span class="font-bold">${distCount[n]}</span>
+        </div>`).join('');
+
+    const comments = withSurvey
+        .filter(r => r.satisfacao_pesquisa_comentario)
+        .sort((a, b) => String(b.satisfacao_pesquisa_respondido_em || '').localeCompare(String(a.satisfacao_pesquisa_respondido_em || '')));
+    const commentsHtml = comments.map(r => {
+        const nota = Number(r.satisfacao_pesquisa);
+        const color = nota >= 4 ? '#22c55e' : nota === 3 ? '#f59e0b' : '#ef4444';
+        const texto = String(r.satisfacao_pesquisa_comentario);
+        return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 mb-2 cursor-pointer hover:border-primary/50 transition-colors" onclick="showCommentDetailModal('${escapeHtml(String(r.ticket_id))}')">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-bold text-primary">#${escapeHtml(String(r.ticket_id))}</span>
+                <span class="text-xs font-bold" style="color:${color}">${SURVEY_NOTA_LABELS[nota] || nota}</span>
+            </div>
+            <p class="text-xs text-on-surface-variant">${escapeHtml(texto.substring(0, 180))}${texto.length > 180 ? '…' : ''}</p>
+        </div>`;
+    }).join('');
+
+    const body = avgSurvey !== null ? `
+        <div class="flex items-center gap-4 mb-6">
+            <span class="text-4xl font-bold text-primary">${avgSurvey.toFixed(1)}</span>
+            <span class="text-sm text-on-surface-variant">de 5.0 · ${withSurvey.length} de ${ownerRows.length} chamados avaliados (${pctResponded}%)</span>
+        </div>
+        <div class="space-y-0.5 mb-2">${distHtml}</div>
+        ${renderMonthlySatisfactionChart(withSurvey)}
+        ${commentsHtml ? `<h4 class="font-label-md text-label-md text-on-surface-variant uppercase text-xs font-bold mt-5 mb-2">Comentários (${comments.length})</h4><div class="max-h-[360px] overflow-y-auto pr-1">${commentsHtml}</div>` : ''}
+    ` : `<p class="text-on-surface-variant text-sm">Nenhuma resposta de pesquisa de satisfação ainda para este atendente. Sincronize em Configurações → Curadoria.</p>`;
+
+    return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-6">Satisfação do Cliente (Pesquisa)</h3>
+        ${body}
+    </div>`;
+}
+// Faixas de cor/selo pelo score — usada tanto no render inicial (renderScoreCard, score
+// ainda sem a dimensão Competências da IA) quanto no refresh (refreshScoreCard, score já
+// recalculado com aiResult). As duas chamadas precisam do MESMO critério, senão o selo de
+// texto (ex: "Bom"/"Excelente") fica desatualizado em relação ao número exibido.
+function scoreVisuals(score) {
+    if (score >= 800)      return { color:'#22c55e', bg:'rgba(34,197,94,0.10)',  label:'Excelente' };
+    if (score >= 600)      return { color:'#3b82f6', bg:'rgba(59,130,246,0.10)', label:'Bom' };
+    if (score >= 400)      return { color:'#f59e0b', bg:'rgba(245,158,11,0.10)', label:'Regular' };
+    if (score >= 200)      return { color:'#f97316', bg:'rgba(249,115,22,0.10)', label:'Em desenvolvimento' };
+    return                        { color:'#94a3b8', bg:'rgba(148,163,184,0.08)', label:'Sem dados suficientes' };
+}
+
 function renderScoreCard(owner, rows) {
     const a = analysePerformance(rows, owner);
     const sd = a.scoreData;
     const score = sd.score;
     const pct = Math.round((score / 1000) * 100);
 
-    // Faixas de cor pelo score
-    let scoreColor, scoreBg, scoreLabel;
-    if (score >= 800)      { scoreColor='#22c55e'; scoreBg='rgba(34,197,94,0.10)';  scoreLabel='Excelente'; }
-    else if (score >= 600) { scoreColor='#3b82f6'; scoreBg='rgba(59,130,246,0.10)'; scoreLabel='Bom'; }
-    else if (score >= 400) { scoreColor='#f59e0b'; scoreBg='rgba(245,158,11,0.10)'; scoreLabel='Regular'; }
-    else if (score >= 200) { scoreColor='#f97316'; scoreBg='rgba(249,115,22,0.10)'; scoreLabel='Em desenvolvimento'; }
-    else                   { scoreColor='#94a3b8'; scoreBg='rgba(148,163,184,0.08)'; scoreLabel='Sem dados suficientes'; }
+    const { color: scoreColor, bg: scoreBg, label: scoreLabel } = scoreVisuals(score);
 
     // Mini breakdown das dimensões (sem aiResult ainda — competências = 0)
     const bd = sd.breakdown || {};
     const dimRows = [
-        { label:'Satisfação',    pct: Math.round((a.ownerRows.reduce((s,r)=>s+(Number(r.satisfacao)||5),0)/Math.max(a.ownerRows.length,1)/10)*100), icon:'sentiment_satisfied', color:'#22c55e' },
+        { label:'Satisfação',    pct: bd.avgSatScore != null ? bd.avgSatScore : 50, icon:'sentiment_satisfied', color:'#22c55e' },
         { label:'Eficiência',    pct: bd.avgVolScore != null ? bd.avgVolScore : 50,  icon:'bolt', color:'#3b82f6' },
         { label:'Pontos positivos', pct: Math.round((a.positiveEvidence.length / Math.max(a.positiveEvidence.length + a.gapEvidence.length, 1))*100), icon:'thumb_up', color:'#f59e0b' },
         { label:'Competências',  pct: bd.compHits != null ? Math.round((bd.compHits/Math.max(bd.totalComp,1))*100) : 0, icon:'workspace_premium', color:'#a78bfa' },
@@ -1336,7 +2689,7 @@ function renderScoreCard(owner, rows) {
             <span class="font-label-md text-label-md text-on-surface-variant">/ 1000</span>
         </div>
         <div class="flex items-center gap-2 mb-5">
-            <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:${scoreColor};background:${scoreBg}">${scoreLabel}</span>
+            <span id="score-label-badge" class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:${scoreColor};background:${scoreBg}">${scoreLabel}</span>
             <span class="text-xs text-on-surface-variant">${a.totalTickets} ticket${a.totalTickets!==1?'s':''} analisado${a.totalTickets!==1?'s':''}</span>
         </div>
 
@@ -1439,12 +2792,7 @@ function refreshScoreCard(owner, rows, aiResult) {
     const score = sd.score;
     const pct   = Math.round((score / 1000) * 100);
 
-    let scoreColor;
-    if (score >= 800)      scoreColor = '#22c55e';
-    else if (score >= 600) scoreColor = '#3b82f6';
-    else if (score >= 400) scoreColor = '#f59e0b';
-    else if (score >= 200) scoreColor = '#f97316';
-    else                   scoreColor = '#94a3b8';
+    const { color: scoreColor, bg: scoreBg, label: scoreLabel } = scoreVisuals(score);
 
     // Animar o número principal
     const numEl = root.querySelector('[data-score-target]');
@@ -1453,6 +2801,16 @@ function refreshScoreCard(owner, rows, aiResult) {
         numEl.dataset.scoreTarget = score;
         numEl.style.color = scoreColor;
         animateCount(numEl, prev, score, 900);
+    }
+
+    // Atualizar selo de texto (Excelente/Bom/Regular/...) — sem isso, o selo ficava com a
+    // classificação calculada ANTES da IA entrar (score sem a dimensão Competências), podendo
+    // divergir do número já atualizado (ex: número em 837 com selo ainda mostrando "Bom").
+    const labelBadge = root.querySelector('#score-label-badge');
+    if (labelBadge) {
+        labelBadge.textContent = scoreLabel;
+        labelBadge.style.color = scoreColor;
+        labelBadge.style.background = scoreBg;
     }
 
     // Atualizar barra principal
@@ -1478,8 +2836,8 @@ function refreshScoreCard(owner, rows, aiResult) {
     renderMonthlyScoreHistory(owner, a.ownerRows, aiResult);
 
     // Snapshot agregado do período completo selecionado (não um mês específico)
-    const firstDate = a.ownerRows.map(r => r.ticket_created_date).filter(Boolean).sort()[0];
-    const lastDate  = a.ownerRows.map(r => r.ticket_created_date).filter(Boolean).sort().slice(-1)[0];
+    const firstDate = a.ownerRows.map(r => r.aberto_em).filter(Boolean).sort()[0];
+    const lastDate  = a.ownerRows.map(r => r.aberto_em).filter(Boolean).sort().slice(-1)[0];
     const period = (firstDate && lastDate)
         ? { start: String(firstDate).slice(0,10), end: String(lastDate).slice(0,10) }
         : null;
@@ -1530,6 +2888,13 @@ async function savePerformanceSnapshot(owner, scoreData, seniority, totalTickets
 
 function renderAnalysisCard(owner, rows) {
     const a=analysePerformance(rows,owner);
+    // Cumprimento de SLA (mesmo cálculo da Visão Geral — SLA SUPORTE MOVIDESK.pdf)
+    const slaResults = rows.map(ticketSlaCompliant);
+    const slaDentro = slaResults.filter(v => v === true).length;
+    const slaFora = slaResults.filter(v => v === false).length;
+    const slaAvaliaveis = slaDentro + slaFora;
+    const slaDentroPct = slaAvaliaveis ? Math.round((slaDentro / slaAvaliaveis) * 100) : 0;
+    const slaForaPct = slaAvaliaveis ? Math.round((slaFora / slaAvaliaveis) * 100) : 0;
     const maxCat=Math.max(...PERF_CATEGORIES.map(c=>a.catCount[c.key]),1);
     const CAT_META={};PERF_CATEGORIES.forEach(c=>{CAT_META[c.key]={icon:c.icon||'star',desc:c.description||''};});
     const positiveCats=PERF_CATEGORIES.filter(c=>!c.isNegative&&a.catCount[c.key]>0).sort((x,y)=>a.catCount[y.key]-a.catCount[x.key]);
@@ -1538,16 +2903,34 @@ function renderAnalysisCard(owner, rows) {
     const compCards=PERF_CATEGORIES.map((c,idx)=>renderSingleCompCard(c,idx,a.catCount,null,true)).join('');
     const diffBadge=diffCount===0?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-900 text-green-300">Nenhuma</span>`:diffCount<=2?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-300">${diffCount} ocorrência${diffCount>1?'s':''}</span>`:`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-900 text-red-300">${diffCount} ocorrências</span>`;
     const diffPct=Math.round((diffCount/Math.max(totalPositive,1))*100);
-    const posHtml=a.positiveEvidence.length?a.positiveEvidence.map(ev=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-green-600">check_circle</span><span>${escapeHtml(ev.reasons[0]||'Evidência positiva identificada')}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem evidências positivas registradas</li>';
-    const gapHtml=a.gapEvidence.length?a.gapEvidence.map(ev=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-red-600">warning</span><span>${escapeHtml(ev.reasons[0]||'Lacuna identificada')}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem lacunas identificadas</li>';
+    const posHtml=a.positiveEvidenceDisplay.length?a.positiveEvidenceDisplay.map(g=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-green-600">check_circle</span><span>${escapeHtml(g.reason)}${g.count>1?` <span class="text-xs text-on-surface-variant">(${g.count} chamados)</span>`:''}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem evidências positivas registradas</li>';
+    const gapHtml=a.gapEvidenceDisplay.length?a.gapEvidenceDisplay.map(g=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-red-600">warning</span><span>${escapeHtml(g.reason)}${g.count>1?` <span class="text-xs text-on-surface-variant">(${g.count} chamados)</span>`:''}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem lacunas identificadas</li>';
     return `<div id="curadoria-analysis-card" class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
         <div class="flex justify-between items-center mb-8"><h3 class="font-headline-lg text-headline-lg text-primary">Análise de Padrão de Atendimento</h3></div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
             <div class="bg-surface-container-low p-4 rounded-lg cursor-pointer hover:bg-surface-container transition-colors" onclick="showTicketsByUrgencyModal(${JSON.stringify(a.urgenciaTickets).replace(/"/g,'&quot;')})">
                 <span class="font-label-md text-label-md text-outline block mb-1">Total de Tickets</span><span class="text-3xl font-bold text-primary" data-count-target="${a.totalTickets}">0</span>
             </div>
             <div class="bg-surface-container-low p-4 rounded-lg"><span class="font-label-md text-label-md text-outline block mb-1">Média de Ações</span><span class="text-3xl font-bold text-primary" data-count-target="${a.mediaAcoes}">0</span></div>
             <div class="bg-surface-container-low p-4 rounded-lg"><span class="font-label-md text-label-md text-outline block mb-1">Total de Ações</span><span class="text-3xl font-bold text-primary" data-count-target="${a.totalAcoes}">0</span></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10" title="Baseado no SLA de resolução por severidade (SLA SUPORTE MOVIDESK.pdf)">
+            <div class="bg-surface-container-low p-4 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-surface-container transition-colors" onclick="showSlaModal(true, '${escapeHtml(owner)}')">
+                ${renderPercentCircle(slaDentroPct, '#22c55e')}
+                <div>
+                    <span class="font-label-md text-label-md text-outline block mb-1">Dentro do SLA</span>
+                    <span class="text-2xl font-bold" style="color:#22c55e">${slaDentro}</span>
+                    <span class="text-xs text-on-surface-variant"> chamado${slaDentro !== 1 ? 's' : ''}</span>
+                </div>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-surface-container transition-colors" onclick="showSlaModal(false, '${escapeHtml(owner)}')">
+                ${renderPercentCircle(slaForaPct, '#ef4444')}
+                <div>
+                    <span class="font-label-md text-label-md text-outline block mb-1">Fora do SLA</span>
+                    <span class="text-2xl font-bold" style="color:#ef4444">${slaFora}</span>
+                    <span class="text-xs text-on-surface-variant"> chamado${slaFora !== 1 ? 's' : ''}</span>
+                </div>
+            </div>
         </div>
         <div class="space-y-3 mb-10">
             <div class="comp-section-header">
@@ -1604,7 +2987,8 @@ function renderCards() {
     mount.innerHTML=renderOwnerCard(currentOwner,ownerRows)
         +renderFocusCard(currentOwner,ownerRows)
         +renderScoreCard(currentOwner,ownerRows)
-        +renderAnalysisCard(currentOwner,ownerRows);
+        +renderAnalysisCard(currentOwner,ownerRows)
+        +renderSatisfactionCard(currentOwner,ownerRows);
 
     /* cada card "flui" da posição do avatar até seu lugar */
     Array.from(mount.children).forEach((card,i)=>{
@@ -1697,6 +3081,7 @@ function applyCuradoriaRows(rows) {
 
     allRows = filteredRows;
     renderOwnerStrip(allRows);
+    renderCuradoriaGeralView();
 
     if (allRows.length > 0) {
         const owners = uniqueOwners(allRows);
@@ -1785,11 +3170,26 @@ async function manualCuradoriaRefresh() {
     }
 }
 
+// Carga bruta 3x ao dia (manhã, almoço, 19h) — mesmos horários do agendamento no
+// servidor (ver server/server.js) que dispara o enriquecimento (IA, satisfação,
+// módulo x rotina). Isso só recarrega a TELA com o que já estiver no banco; o
+// enriquecimento em si roda no servidor independente da aba estar aberta ou não.
+const CURADORIA_REFRESH_TIMES = [{ h: 8, m: 0 }, { h: 12, m: 0 }, { h: 19, m: 0 }];
+
+function nextCuradoriaRefreshTime(now = new Date()) {
+    const candidates = CURADORIA_REFRESH_TIMES.map(({ h, m }) => {
+        const d = new Date(now);
+        d.setHours(h, m, 0, 0);
+        if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
+        return d;
+    });
+    return candidates.reduce((min, d) => d.getTime() < min.getTime() ? d : min);
+}
+
 function scheduleCuradoriaDailyRefresh() {
     clearTimeout(_curadoriaDailyRefreshTimeout);
     const now = new Date();
-    const nextRun = new Date(now);
-    nextRun.setHours(24, 0, 0, 0);
+    const nextRun = nextCuradoriaRefreshTime(now);
     const delay = Math.max(60 * 1000, nextRun.getTime() - now.getTime());
 
     _curadoriaDailyRefreshTimeout = setTimeout(async () => {

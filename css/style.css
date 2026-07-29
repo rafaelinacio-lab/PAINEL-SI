@@ -1787,10 +1787,35 @@ body.legacy-view-mode #embeddedPagesView {
     text-transform: uppercase;
     letter-spacing: 0.3px;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .config-btn:hover {
     background: #2563eb;
+}
+
+.config-btn:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
+}
+
+.config-btn-spinner {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #fff;
+    animation: config-btn-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes config-btn-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .config-btn-muted {
@@ -1980,6 +2005,46 @@ body.legacy-view-mode #embeddedPagesView {
 .config-token-status-off {
     background: #fee2e2;
     color: #b91c1c;
+}
+
+.config-error-list {
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.config-error-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.config-error-row:last-child {
+    border-bottom: none;
+}
+
+.config-error-ticket {
+    flex-shrink: 0;
+    font-weight: 700;
+    color: var(--section-text);
+    min-width: 64px;
+}
+
+.config-error-msg {
+    color: #b91c1c;
+    flex: 1;
+    word-break: break-word;
+}
+
+.config-error-time {
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 11px;
+    white-space: nowrap;
 }
 
 .config-stats-grid {

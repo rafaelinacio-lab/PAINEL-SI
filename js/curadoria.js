@@ -1216,6 +1216,11 @@ function navigateTo(view) {
         loadGptStatus();
         loadAutoSyncStatus();
         loadCategoriesConfig();
+        loadScoreWeightsConfig();
+        loadCuradoriaPendingCount();
+        checkSurveySyncOnLoad();
+        checkModuloSyncOnLoad();
+        checkFullLoadOnLoad();
     }
 }
 
