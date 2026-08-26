@@ -1,0 +1,32 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+
+# Segredos — nunca vão pra dentro da imagem. Em produção as variáveis são
+# injetadas via `env_file`/`environment` no docker-compose, não copiando o
+# arquivo pro filesystem do container.
+.env
+.env.*
+!.env.example
+
+# Documentação e arquivos de apoio — não são usados em runtime
+*.md
+docs/
+
+# Arquivos grandes que não são servidos pelo app (ver server/server.js —
+# só /css, /js, /pages são estáticos) e não devem inchar a imagem
+*.pdf
+*.xlsx
+*.xls
+
+# Scripts avulsos de debug/manutenção manual — não usados por `npm start`
+debug-sessions.js
+debug_survey2_tmp.js
+check-columns.js
+check-perf.js
+check-perf2.js
+analyze-overdue.js
+
+Dockerfile
+docker-compose.yml

@@ -31,8 +31,16 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir arquivos estáticos
-app.use(express.static(path.join(__dirname, '../')));
+// Servir arquivos estáticos — só as pastas do front-end, nunca a raiz inteira
+// do repositório (antes era express.static(path.join(__dirname, '../')), que
+// deixava .env, package.json, scripts de debug e a planilha de curadoria
+// baixáveis via HTTP por qualquer um que alcançasse o serviço).
+app.use('/css', express.static(path.join(__dirname, '../css')));
+app.use('/js', express.static(path.join(__dirname, '../js')));
+app.use('/pages', express.static(path.join(__dirname, '../pages')));
+// admin/ só tem index.html, já servido explicitamente pela rota GET /admin
+// abaixo — não precisa de mount estático (e evitamos o redirect /admin → /admin/
+// que express.static faria ao servir um diretório pelo path exato do mount).
 
 // Rotas
 app.use('/api/auth', authRoutes);

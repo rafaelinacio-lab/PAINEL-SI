@@ -1,0 +1,13 @@
+# Deploy do painel numa VM já existente (Postgres e o API Gateway são
+# serviços externos — não sobem aqui). Ver DEPLOY.md para o passo a passo
+# completo na VM OCI.
+services:
+  painel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-5000}:${PORT:-5000}"
+    restart: unless-stopped
