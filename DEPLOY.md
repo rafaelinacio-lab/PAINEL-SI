@@ -115,10 +115,10 @@ docker compose up -d --build
 ## 8. Opcional — domínio + HTTPS
 
 Sem domínio, o painel fica acessível só por `http://IP:PORTA` (sem TLS). Se
-quiser um domínio com HTTPS na frente, o jeito mais simples é um Caddy/nginx
-reverso na própria VM (o `movidesk--ponte-api` já tem um exemplo de Caddy em
-`docker/Caddyfile` e `docker/docker-compose.prod.yml` que dá pra usar como
-referência). Isso é opcional — não é necessário pra o painel funcionar.
+quiser um domínio com HTTPS na frente, o jeito mais simples é colocar um
+Caddy ou nginx reverso na própria VM, na frente do container `painel`. Isso é
+opcional e independente de qualquer outro serviço — não é necessário pra o
+painel funcionar.
 
 ## Observação de segurança já corrigida
 
