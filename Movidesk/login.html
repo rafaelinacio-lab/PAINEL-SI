@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flux — Entrar</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        (function() {
+            const t = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <style>
+        .login-sso-wrap { display:flex; justify-content:center; margin-top:6px; min-height:44px; }
+        .login-sso-hint { font-size:12px; color:var(--muted); text-align:center; margin-top:16px; line-height:1.5; }
+        .login-sso-hint b { color:var(--text); }
+    </style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-screen" style="display:flex;">
+    <div class="login-card">
+
+        <!-- Marca -->
+        <div class="login-brand">
+            <div class="login-logo">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="white"/>
+                </svg>
+            </div>
+            <div>
+                <h1>Flux</h1>
+                <p>Acesso ao painel de chamados</p>
+            </div>
+        </div>
+
+        <div class="login-sso-wrap" id="ssoBtn"></div>
+        <div id="loginError" class="login-error" style="display:none;"></div>
+        <div class="login-sso-hint" id="ssoHint">Entre com sua conta corporativa Google (<b>@viasoft.com.br</b>)</div>
+
+    </div>
+</div>
+
+<script>
+const API_BASE = window.location.origin + '/api';
+const TOKEN_KEY = 'token';
+
+function setError(msg) {
+    const el = document.getElementById('loginError');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+}
+
+// Se já existe uma sessão válida, pula direto pro painel.
+(async function checkExistingSession() {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+    try {
+        const res = await fetch(API_BASE + '/auth/me', {
+            headers: { Authorization: 'Bearer ' + token }
+        });
+        if (res.ok) window.location.replace('/');
+    } catch {}
+})();
+
+async function handleCredentialResponse(response) {
+    setError('');
+    try {
+        const res = await fetch(API_BASE + '/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha no login com Google.');
+
+        localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.location.replace('/');
+    } catch (err) {
+        setError(err.message || 'Erro ao entrar com Google.');
+    }
+}
+
+async function initGoogleSignIn() {
+    try {
+        const res = await fetch(API_BASE + '/auth/google-config');
+        const cfg = await res.json();
+
+        if (!cfg.configured || !cfg.clientId) {
+            setError('Login com Google ainda não foi configurado neste servidor (GOOGLE_CLIENT_ID ausente no .env). Peça a um admin para configurar.');
+            return;
+        }
+
+        const hint = document.getElementById('ssoHint');
+        if (hint) hint.innerHTML = `Entre com sua conta corporativa Google (<b>@${cfg.allowedDomain}</b>)`;
+
+        google.accounts.id.initialize({
+            client_id: cfg.clientId,
+            callback: handleCredentialResponse
+        });
+        google.accounts.id.renderButton(document.getElementById('ssoBtn'), {
+            theme: (localStorage.getItem('theme') === 'dark') ? 'filled_black' : 'outline',
+            size: 'large',
+            text: 'signin_with',
+            width: 280
+        });
+    } catch (err) {
+        setError('Não foi possível carregar o login com Google. Verifique sua conexão e recarregue a página.');
+    }
+}
+
+// A lib do Google carrega assíncrona (defer) — espera ela existir antes de iniciar.
+(function waitForGoogleLib() {
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+        initGoogleSignIn();
+    } else {
+        setTimeout(waitForGoogleLib, 100);
+    }
+})();
+</script>
+
+</body>
+</html>
