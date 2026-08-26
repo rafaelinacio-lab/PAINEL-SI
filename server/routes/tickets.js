@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
 const db = require('../db/remote');
+const { fetchTicketsFromGateway } = require('../services/gatewayClient');
 const { getToken, getPrompt } = require('./config');
 const { decryptToken } = require('../utils/crypto');
 const { authMiddleware, requireRole } = require('./auth');
@@ -78,6 +79,72 @@ function normalizeTicketRow(row = {}) {
     clientsJson: row.clientsJson ?? row.clientsjson ?? null,
     statusHistoriesJson: row.statusHistoriesJson ?? row.statushistoriesjson ?? null
   };
+}
+
+// Converte um ticket "cru" retornado pelo Gateway (mesmo formato da API real
+// do Movidesk) para o mesmo shape usado pelo painel quando os dados vêm do
+// Postgres local (normalizeTicketRow) — replica a lógica de saveTicketToDb
+// (owner/cliente/última ação), só que sem gravar nada no banco.
+function buildTicketViewModelFromApi(ticket = {}) {
+  const customFieldValues = ticket.customFieldValues || [];
+  const actions = ticket.actions || [];
+  const clients = ticket.clients || [];
+  const client = clients[0];
+  const owner = ticket.owner;
+  const ownerTeam = ticket.ownerTeam || ticket.ownerteam || owner?.team || null;
+  const justification = ticket.justification ?? ticket.description ?? null;
+
+  const actionsWithAuthor = actions.filter((a) => a.createdBy != null);
+  actionsWithAuthor.sort((a, b) => b.id - a.id);
+  const lastAction = actionsWithAuthor[0];
+  const lastActionCreatedByBusinessName = lastAction?.createdBy?.businessName || null;
+
+  let lastActionOrigin = 'Attendant'; // padrão
+  if (lastAction && lastAction.createdBy) {
+    if (lastAction.createdBy.profileType === 3) {
+      if (lastAction.createdBy.id && owner && lastAction.createdBy.id !== owner.id) {
+        lastActionOrigin = 'Customer';
+      } else {
+        lastActionOrigin = 'Attendant';
+      }
+    } else if (lastAction.origin === 1 || lastAction.origin === 8) {
+      lastActionOrigin = 'Customer';
+    }
+  }
+
+  return normalizeTicketRow({
+    id: ticket.id,
+    subject: ticket.subject,
+    status: ticket.status,
+    baseStatus: ticket.baseStatus,
+    createdDate: ticket.createdDate,
+    lastActionDate: ticket.lastActionDate,
+    lastUpdate: ticket.lastUpdate,
+    serviceFirstLevelId: ticket.serviceFirstLevelId,
+    serviceFirstLevel: ticket.serviceFirstLevel,
+    serviceSecondLevel: ticket.serviceSecondLevel,
+    slaAgreement: ticket.slaAgreement,
+    slaAgreementRule: ticket.slaAgreementRule,
+    slaSolutionTime: ticket.slaSolutionTime,
+    slaResponseTime: ticket.slaResponseTime,
+    slaSolutionDate: ticket.slaSolutionDate,
+    slaSolutionDateIsPaused: ticket.slaSolutionDateIsPaused,
+    slaResponseDate: ticket.slaResponseDate,
+    slaRealResponseDate: ticket.slaRealResponseDate,
+    ownerEmail: owner?.email || null,
+    ownerName: owner?.businessName || null,
+    ownerTeam,
+    clientName: client?.businessName || null,
+    clientEmail: client?.email || null,
+    clientOrganization: client?.organization?.businessName || null,
+    justification,
+    customFields: JSON.stringify(customFieldValues),
+    actionsCount: actions.length,
+    syncedAt: new Date().toISOString(),
+    updatedAt: ticket.lastUpdate || new Date().toISOString(),
+    lastActionCreatedByBusinessName,
+    lastActionOrigin
+  });
 }
 
 function safeJsonParse(value, fallback) {
@@ -883,76 +950,110 @@ async function collectCurrentOpenTicketIds(token, conditions) {
   return Array.from(ids);
 }
 
-// GET - Buscar tickets do banco para dashboard (ativos + rota past)
+// Statuses considerados "ativos" (mesma regra usada antes com a tabela local).
+const ACTIVE_BASE_STATUSES = ['New', 'InAttendance', 'Stopped', 'InProgress'];
+
+// Monta o $filter OData para /proxy/tickets a partir das condições configuradas
+// em Configurações → Curadoria/Movidesk (mesmas usadas pelo sync), preservando
+// o mesmo recorte de dados que antes só existia porque só isso era sincronizado
+// para o banco. `active=true` pega os status em ACTIVE_BASE_STATUSES; `active=false`
+// pega o restante (histórico/"past").
+async function buildGatewayTicketsFilter({ active, vertical }) {
+  const conditions = await new Promise((resolve) => {
+    require('./config').getMovideskConditions((err, cond) => {
+      if (err || !cond) return resolve({});
+      resolve(cond);
+    });
+  });
+
+  const parts = [];
+
+  // "not (a or b)" nao e usado aqui de proposito: a API do Movidesk (OData)
+  // so tem suporte confirmado para 'eq'/'ne' encadeados com 'and'/'or' (e o
+  // resto do projeto usa esse padrao) — por isso o "past" nega status por
+  // status em vez de negar o grupo inteiro.
+  if (active) {
+    const statusParts = ACTIVE_BASE_STATUSES.map((s) => `baseStatus eq '${s}'`);
+    parts.push(`(${statusParts.join(' or ')})`);
+  } else {
+    const statusParts = ACTIVE_BASE_STATUSES.map((s) => `baseStatus ne '${s}'`);
+    parts.push(statusParts.join(' and '));
+  }
+
+  if (conditions.ownerTeam && conditions.ownerTeam.trim()) {
+    parts.push(`ownerTeam eq '${conditions.ownerTeam.trim()}'`);
+  }
+
+  if (conditions.customFieldId && conditions.customFieldValue) {
+    parts.push(`customFieldValues/any(cfv: cfv/customFieldId eq ${conditions.customFieldId} and cfv/items/any(i: i/customFieldItem eq '${conditions.customFieldValue}'))`);
+  }
+
+  // Regra solicitada: supervisor visualiza apenas os chamados da vertical dele.
+  if (vertical) {
+    parts.push(`serviceFirstLevel eq '${vertical}'`);
+  }
+
+  return { filter: parts.join(' and '), conditions };
+}
+
+// GET - Buscar tickets ativos direto do Movidesk via API Gateway (movidesk--ponte-api).
+// Antes lia da tabela local `tickets`; agora consulta ao vivo através do
+// gateway de governança (token de consumidor com perfil "readonly").
 router.get('/', async (req, res) => {
   const viewer = await resolveViewerContext(req);
 
-  let query = `
-    SELECT 
-      id, subject, status, baseStatus, createdDate, lastActionDate, lastUpdate,
-      serviceFirstLevelId, serviceFirstLevel, serviceSecondLevel, slaAgreement,
-      slaAgreementRule, slaSolutionTime, slaResponseTime, slaSolutionDate,
-      slaSolutionDateIsPaused, slaResponseDate, slaRealResponseDate,
-      ownerEmail, ownerName, owner_team, clientName, clientEmail, clientOrganization,
-      justification, customFields, actionsCount, syncedAt, updatedAt, lastActionCreatedByBusinessName, lastActionOrigin
-    FROM tickets
-    WHERE baseStatus IN ('New', 'InAttendance', 'Stopped', 'InProgress')
-  `;
-  const params = [];
-
-  // Regra solicitada: supervisor visualiza apenas os chamados da vertical dele.
-  if (viewer.role === 'supervisor') {
-    if (!viewer.vertical) {
-      return res.json([]);
-    }
-    query += ` AND serviceFirstLevel = ?`;
-    params.push(viewer.vertical);
+  if (viewer.role === 'supervisor' && !viewer.vertical) {
+    return res.json([]);
   }
 
-  query += ` ORDER BY createdDate DESC LIMIT 100`;
+  try {
+    const { filter, conditions } = await buildGatewayTicketsFilter({
+      active: true,
+      vertical: viewer.role === 'supervisor' ? viewer.vertical : null,
+    });
 
-  db.all(query, params, (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: 'Erro ao buscar tickets' });
-    }
-    res.json((rows || []).map(normalizeTicketRow));
-  });
+    const tickets = await fetchTicketsFromGateway({
+      select: conditions.selectFields,
+      expand: conditions.expandRelations,
+      filter,
+      orderby: 'createdDate desc',
+      top: 100,
+    });
+
+    res.json(tickets.map(buildTicketViewModelFromApi));
+  } catch (error) {
+    console.error('Erro ao buscar tickets via gateway:', error.message || error);
+    res.status(502).json({ error: 'Erro ao buscar tickets no API Gateway', details: error.message });
+  }
 });
 
-// GET - Buscar tickets históricos (past) - resolvidos, encerrados, etc.
+// GET - Buscar tickets históricos (past) - resolvidos, encerrados, etc. — via Gateway.
 router.get('/past', async (req, res) => {
   const viewer = await resolveViewerContext(req);
 
-  let query = `
-    SELECT 
-      id, subject, status, baseStatus, createdDate, lastActionDate, lastUpdate,
-      serviceFirstLevelId, serviceFirstLevel, serviceSecondLevel, slaAgreement,
-      slaAgreementRule, slaSolutionTime, slaResponseTime, slaSolutionDate,
-      slaSolutionDateIsPaused, slaResponseDate, slaRealResponseDate,
-      ownerEmail, ownerName, owner_team, clientName, clientEmail, clientOrganization,
-      justification, customFields, actionsCount, syncedAt, updatedAt, lastActionCreatedByBusinessName, lastActionOrigin
-    FROM tickets
-    WHERE baseStatus NOT IN ('New', 'InAttendance', 'Stopped', 'InProgress')
-  `;
-  const params = [];
-
-  // Regra solicitada: supervisor visualiza apenas os chamados da vertical dele.
-  if (viewer.role === 'supervisor') {
-    if (!viewer.vertical) {
-      return res.json([]);
-    }
-    query += ` AND serviceFirstLevel = ?`;
-    params.push(viewer.vertical);
+  if (viewer.role === 'supervisor' && !viewer.vertical) {
+    return res.json([]);
   }
 
-  query += ` ORDER BY createdDate DESC LIMIT 100`;
+  try {
+    const { filter, conditions } = await buildGatewayTicketsFilter({
+      active: false,
+      vertical: viewer.role === 'supervisor' ? viewer.vertical : null,
+    });
 
-  db.all(query, params, (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: 'Erro ao buscar tickets históricos' });
-    }
-    res.json((rows || []).map(normalizeTicketRow));
-  });
+    const tickets = await fetchTicketsFromGateway({
+      select: conditions.selectFields,
+      expand: conditions.expandRelations,
+      filter,
+      orderby: 'createdDate desc',
+      top: 100,
+    });
+
+    res.json(tickets.map(buildTicketViewModelFromApi));
+  } catch (error) {
+    console.error('Erro ao buscar tickets históricos via gateway:', error.message || error);
+    res.status(502).json({ error: 'Erro ao buscar tickets históricos no API Gateway', details: error.message });
+  }
 });
 
 // GET - Buscar ticket por ID
