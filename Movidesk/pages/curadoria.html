@@ -1,0 +1,3209 @@
+<!DOCTYPE html>
+<html class="light" lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Insights - Curadoria</title>
+    <script>
+        (function() {
+            const t = localStorage.getItem('theme') || 'light';
+            document.documentElement.className = t;
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'theme') document.documentElement.className = e.newValue || 'light';
+            });
+        })();
+    </script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface":"#191c1e","tertiary":"#000000","secondary-fixed":"#ffddb8","on-primary-fixed-variant":"#3f465c",
+                        "on-primary":"#ffffff","on-secondary":"#ffffff","on-secondary-container":"#684000","tertiary-fixed-dim":"#dec29a",
+                        "surface-bright":"#f7f9fb","primary-fixed":"#dae2fd","error-container":"#ffdad6","surface-container-lowest":"#ffffff",
+                        "surface-variant":"#e0e3e5","on-error-container":"#93000a","background":"#f7f9fb","surface-container-high":"#e6e8ea",
+                        "on-secondary-fixed":"#2a1700","on-tertiary-fixed":"#271901","surface-dim":"#d8dadc","surface-container-highest":"#e0e3e5",
+                        "outline-variant":"#c6c6cd","primary-container":"#131b2e","inverse-primary":"#bec6e0","surface-container":"#eceef0",
+                        "secondary-container":"#fea619","secondary":"#855300","on-error":"#ffffff","on-surface-variant":"#45464d",
+                        "secondary-fixed-dim":"#ffb95f","tertiary-fixed":"#fcdeb5","inverse-on-surface":"#eff1f3","inverse-surface":"#2d3133",
+                        "primary":"#000000","surface-container-low":"#f2f4f6","surface":"#f7f9fb","on-tertiary":"#ffffff",
+                        "primary-fixed-dim":"#bec6e0","on-secondary-fixed-variant":"#653e00","on-tertiary-fixed-variant":"#574425",
+                        "surface-tint":"#565e74","error":"#ba1a1a","tertiary-container":"#271901","on-primary-fixed":"#131b2e",
+                        "outline":"#76777d","on-background":"#191c1e","on-primary-container":"#7c839b","on-tertiary-container":"#98805d"
+                    },
+                    spacing: { "gutter":"24px","widget-gap":"24px","base":"8px","card-padding":"24px","container-padding":"32px" },
+                    fontSize: {
+                        "headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],
+                        "body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],
+                        "display-lg":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}],
+                        "label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"600"}],
+                        "body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html,body{scrollbar-width:none;-ms-overflow-style:none}
+        html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
+        *{scrollbar-width:none;-ms-overflow-style:none}
+        *::-webkit-scrollbar{display:none}
+        body{font-family:'Inter',sans-serif}
+        .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+        .soft-shadow{box-shadow:0px 4px 20px rgba(15,23,42,0.05)}
+        .active-border{border-bottom:2px solid #855300}
+        .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+        .no-scrollbar::-webkit-scrollbar{display:none}
+
+        /* ── Busca ───────────────────────────────────────────────── */
+        #ownerSearchWrapper{overflow:hidden;height:52px;width:52px;background-color:#4070f4;box-shadow:2px 2px 20px rgba(0,0,0,0.08);border-radius:9999px;display:flex;align-items:center;cursor:text;transition:width 0.3s cubic-bezier(0.4,0,0.2,1)}
+        #ownerSearchWrapper.expanded{width:270px}
+        #ownerSearchWrapper .search-icon{flex-shrink:0;width:52px;display:flex;align-items:center;justify-content:center;fill:white}
+        #ownerSearchInput{width:0;opacity:0;padding:0;font-size:16px;background:transparent;border:none;outline:none;color:white;font-family:'Inter',sans-serif;transition:width 0.3s cubic-bezier(0.4,0,0.2,1),opacity 0.25s ease}
+        #ownerSearchWrapper.expanded #ownerSearchInput{width:100%;opacity:1;padding:0 4px}
+        #ownerSearchInput::placeholder{color:rgba(255,255,255,0.55)}
+        #ownerSearchClearBtn{flex-shrink:0;width:0;overflow:hidden;opacity:0;background:transparent;border:none;cursor:pointer;color:rgba(255,255,255,0.7);display:flex;align-items:center;justify-content:center;transition:width 0.2s ease,opacity 0.2s ease,color 0.15s ease;padding:0}
+        #ownerSearchClearBtn.visible{width:32px;opacity:1;margin-right:8px}
+        #ownerSearchClearBtn:hover{color:white}
+
+        /* ── Dark Mode ───────────────────────────────────────────── */
+        html.dark body{background-color:#0f1117;color:#e8e8e2}
+        html.dark .bg-background{background-color:#0f1117}
+        html.dark .bg-surface{background-color:#1a1d27}
+        html.dark .bg-surface-container-lowest{background-color:#16181f}
+        html.dark .bg-surface-container-low{background-color:#1a1d27}
+        html.dark .bg-surface-container{background-color:#1e2232}
+        html.dark .bg-surface-container-high{background-color:#242840}
+        html.dark .bg-surface-variant{background-color:#2a2d3a}
+        html.dark .text-primary{color:#e2e8f0}
+        html.dark .text-on-surface{color:#e8e8e2}
+        html.dark .text-on-surface-variant{color:#9b9b92}
+        html.dark .text-secondary{color:#ffb95f}
+        html.dark .text-on-secondary-container{color:#ffe0b2}
+        html.dark .bg-secondary-container{background-color:#4a2e00}
+        html.dark .bg-secondary{background-color:#c68a1a}
+        html.dark .border-outline{border-color:#3a3d4a}
+        html.dark .border-outline-variant{border-color:#2a2d3a}
+        html.dark .bg-outline-variant{background-color:#2a2d3a}
+        html.dark .text-outline{color:#6b7280}
+        html.dark .soft-shadow{box-shadow:0px 4px 20px rgba(0,0,0,0.4)}
+        html.dark .active-border{border-bottom-color:#ffb95f}
+        html.dark .hover\:bg-surface-container:hover{background-color:#1e2232}
+        html.dark .bg-green-100{background-color:#0a2018}
+        html.dark .text-green-800{color:#34d399}
+        html.dark .bg-amber-100{background-color:#2a1f0a}
+        html.dark .text-amber-800{color:#fbbf24}
+        html.dark .bg-red-100{background-color:#2d1515}
+        html.dark .text-red-800{color:#f87171}
+        html.dark .text-green-600{color:#34d399}
+        html.dark .bg-secondary-container\/40{background-color:rgba(74,46,0,0.4)}
+        html.dark #curadoriaLoadingOverlay{background-color:#0f1117}
+
+        /* ── Animação: cards fluem do avatar ────────────────────── */
+        #curadoriaMount { position: relative; min-height: 200px; }
+
+        @keyframes flowIn {
+            0%   {
+                opacity: 0;
+                transform: translateY(var(--travel)) translateX(var(--travelX)) scale(0.82);
+                filter: blur(16px) saturate(0.1);
+                border-radius: 50%;
+            }
+            30%  {
+                opacity: 0.8;
+                filter: blur(6px) saturate(0.5);
+                border-radius: 40% 60% 55% 45% / 50% 45% 55% 50%;
+            }
+            58%  {
+                filter: blur(2px) saturate(0.85);
+                transform: translateY(calc(var(--travel) * -0.04)) translateX(calc(var(--travelX) * -0.04)) scale(1.01);
+                border-radius: 18% 12% 14% 16% / 12% 18% 14% 10%;
+            }
+            78%  {
+                filter: blur(0.4px) saturate(0.97);
+                transform: translateY(calc(var(--travel) * 0.01)) translateX(0) scale(0.995);
+                border-radius: 16px;
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) translateX(0) scale(1);
+                filter: blur(0) saturate(1);
+                border-radius: 12px;
+            }
+        }
+
+        .card-flow {
+            animation: flowIn 0.78s cubic-bezier(0.16, 1, 0.3, 1) var(--flow-delay) both;
+            will-change: transform, filter, border-radius, opacity;
+        }
+
+        /* ── Competências em Destaque ── */
+        .comp-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            gap: 12px;
+        }
+        .comp-section-title-row { display: flex; align-items: center; gap: 8px; }
+        .comp-section-badge {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface-variant, #9ca3af);
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 3px 10px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+        .comp-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .comp-empty {
+            grid-column: 1/-1;
+            padding: 24px 0;
+            opacity: 0.6;
+        }
+        .comp-card {
+            background: var(--bg, rgba(99,102,241,0.06));
+            border: 1px solid var(--accent, #6366f1);
+            border-left-width: 3px;
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            animation: compCardIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+        .comp-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+        @keyframes compCardIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .comp-card-header { display: flex; align-items: flex-start; gap: 10px; }
+        .comp-card-icon-wrap {
+            width: 34px; height: 34px;
+            border-radius: 9px;
+            background: var(--bg, rgba(99,102,241,0.12));
+            border: 1px solid var(--accent, #6366f1);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .comp-card-icon { font-size: 16px; color: var(--accent, #6366f1); }
+        .comp-card-title-group { flex: 1; min-width: 0; }
+        .comp-card-label {
+            display: block;
+            font-size: 13px; font-weight: 700;
+            color: var(--md-sys-color-on-surface, #f1f5f9);
+            line-height: 1.3; margin-bottom: 3px;
+        }
+        .comp-card-desc {
+            display: block; font-size: 11px;
+            color: var(--md-sys-color-on-surface-variant, #94a3b8);
+            overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        }
+        .comp-card-badge {
+            font-size: 10px; font-weight: 700;
+            padding: 2px 8px; border-radius: 20px;
+            white-space: nowrap; text-transform: uppercase; letter-spacing: 0.05em;
+            border: 1px solid; flex-shrink: 0;
+        }
+        .comp-card-bar-row { display: flex; align-items: center; gap: 10px; }
+        .comp-card-bar-track {
+            flex: 1; height: 5px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 99px; overflow: hidden;
+        }
+        .comp-card-bar-fill {
+            height: 100%; border-radius: 99px;
+            transition: width 1s cubic-bezier(0.4,0,0.2,1);
+        }
+        .comp-card-pct {
+            font-size: 12px; font-weight: 700;
+            min-width: 34px; text-align: right;
+        }
+        .comp-card-footer {
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .comp-card-count {
+            font-size: 11px;
+            color: var(--md-sys-color-on-surface-variant, #94a3b8);
+        }
+        .comp-card-evidence {
+            font-size: 11px;
+            color: var(--md-sys-color-on-surface-variant, #94a3b8);
+            font-style: italic;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
+            cursor: help;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 4px;
+        }
+
+        /* ── Loading overlay sobre comp-card ── */
+        .comp-card {
+            position: relative;
+        }
+        .comp-card-overlay {
+            position: absolute;
+            inset: 0;
+            border-radius: 12px;
+            background: rgba(0,0,0,0.45);
+            backdrop-filter: blur(1px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            transition: opacity 0.35s ease;
+            pointer-events: none;
+        }
+        .comp-card-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        @keyframes spinRing {
+            to { transform: rotate(360deg); }
+        }
+        .comp-card-spinner {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2.5px solid rgba(167,139,250,0.2);
+            border-top-color: #a78bfa;
+            animation: spinRing 0.8s linear infinite;
+        }
+        /* Reveal animation quando overlay sai */
+        .comp-card--done {
+            animation: compCardReveal 0.45s cubic-bezier(0.16,1,0.3,1) both;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .comp-card--done:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        }
+        @keyframes compCardReveal {
+            from { opacity: 0.6; transform: scale(0.98); }
+            to   { opacity: 1;   transform: scale(1); }
+        }
+        /* Badge pulsante no header da seção */
+        .comp-ai-pulse {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: #a78bfa;
+            background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.25);
+            padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+        }
+        .comp-ai-pulse::before {
+            content: '';
+            display: inline-block; width: 6px; height: 6px;
+            border-radius: 50%; background: #a78bfa;
+            animation: pulseDot 1s ease-in-out infinite;
+        }
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.4; transform: scale(0.7); }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+
+<!-- Loading Overlay -->
+<div id="curadoriaLoadingOverlay" class="fixed inset-0 z-[9998] bg-background flex flex-col items-center justify-center gap-6">
+    <div class="relative w-20 h-20">
+        <svg class="animate-spin w-20 h-20" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="40" r="34" stroke="currentColor" stroke-width="6" class="text-surface-container-high opacity-30"/>
+            <path d="M40 6 A34 34 0 0 1 74 40" stroke="#855300" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+        <span class="material-symbols-outlined absolute inset-0 m-auto w-8 h-8 flex items-center justify-center text-secondary" style="font-size:32px">workspace_premium</span>
+    </div>
+    <div class="text-center">
+        <p class="font-headline-lg text-headline-lg text-primary mb-1">Carregando Curadoria</p>
+        <p class="font-body-md text-body-md text-on-surface-variant" id="curadoriaLoadingMsg">Buscando dados dos agentes...</p>
+    </div>
+    <div class="flex gap-1.5 mt-2">
+        <span class="w-2 h-2 rounded-full bg-secondary animate-bounce" style="animation-delay:0ms"></span>
+        <span class="w-2 h-2 rounded-full bg-secondary animate-bounce" style="animation-delay:150ms"></span>
+        <span class="w-2 h-2 rounded-full bg-secondary animate-bounce" style="animation-delay:300ms"></span>
+    </div>
+</div>
+
+<main id="curadoriaMain" class="pt-6 pb-12 px-container-padding max-w-[1440px] mx-auto" style="visibility:hidden">
+
+    <!-- Alternância entre Visão Geral (da equipe) e Por Atendente -->
+    <div class="flex justify-center mb-6">
+        <div class="inline-flex items-center gap-1 p-1 rounded-full border border-outline-variant bg-surface-container-lowest">
+            <button id="curadoriaTabGeral" onclick="switchCuradoriaView('geral')" class="px-5 py-1.5 rounded-full text-sm font-semibold transition-colors bg-secondary text-on-secondary">Visão Geral</button>
+            <button id="curadoriaTabAtendente" onclick="switchCuradoriaView('atendente')" class="px-5 py-1.5 rounded-full text-sm font-semibold transition-colors bg-transparent text-on-surface-variant hover:text-on-surface">Por Atendente</button>
+        </div>
+    </div>
+
+    <!-- ═══════════ VISÃO GERAL DA EQUIPE ═══════════ -->
+    <div id="curadoriaGeralView">
+        <section class="mb-6 flex flex-wrap items-center gap-3">
+            <h2 class="font-headline-lg text-headline-lg text-primary mr-auto">Visão Geral da Equipe</h2>
+            <select id="curadoriaPeriodFilter" onchange="renderCuradoriaGeralView()" class="rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface" title="Filtra por data de abertura do chamado">
+                <option value="month" selected>Mês atual</option>
+                <option value="30d">Últimos 30 dias</option>
+                <option value="all">Tudo</option>
+            </select>
+            <button type="button" class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container" onclick="manualCuradoriaRefresh()">
+                <span class="material-symbols-outlined" style="font-size:18px">refresh</span><span>Atualizar dados</span>
+            </button>
+            <button type="button" class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container" onclick="exportCuradoriaCsv('all')" title="Exporta todos os chamados carregados nesta tela em CSV">
+                <span class="material-symbols-outlined" style="font-size:18px">download</span><span>Tudo (CSV)</span>
+            </button>
+            <button type="button" class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container" onclick="exportAllOwnersPdf()" title="Gera um resumo em PDF de todos os atendentes">
+                <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span><span>Resumo geral (PDF)</span>
+            </button>
+        </section>
+        <div class="grid grid-cols-12 gap-widget-gap" id="curadoriaGeralMount">
+            <div class="col-span-12 text-center py-12 text-on-surface-variant">Carregando visão geral...</div>
+        </div>
+    </div>
+
+    <!-- ═══════════ VISÃO POR ATENDENTE (já existia) ═══════════ -->
+    <div id="curadoriaAtendenteView" class="hidden">
+
+    <!-- Busca de Owner -->
+    <section class="mb-4 flex flex-wrap items-center gap-3">
+        <div id="ownerSearchWrapper" onclick="expandOwnerSearch()">
+            <div class="search-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                    <path d="M18.9,16.776A10.539,10.539,0,1,0,16.776,18.9l5.1,5.1L24,21.88ZM10.5,18A7.5,7.5,0,1,1,18,10.5,7.507,7.507,0,0,1,10.5,18Z"/>
+                </svg>
+            </div>
+            <input id="ownerSearchInput" type="text" placeholder="Buscar por nome, e-mail ou equipe..."
+                oninput="filterOwnerStrip(this.value)" onblur="collapseOwnerSearchIfEmpty()"/>
+            <button id="ownerSearchClearBtn" type="button" title="Limpar busca" onmousedown="clearOwnerSearch(event)">
+                <span class="material-symbols-outlined" style="font-size:18px">close</span>
+            </button>
+        </div>
+        <div id="ownerSearchCount" class="text-xs text-on-surface-variant hidden"></div>
+        <button
+            id="curadoriaRefreshBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="manualCuradoriaRefresh()"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
+            <span id="curadoriaRefreshBtnLabel">Atualizar dados</span>
+        </button>
+        <button
+            id="curadoriaExportOwnerBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="exportCuradoriaCsv('owner')"
+            title="Exporta os chamados do atendente selecionado em CSV"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">download</span>
+            <span>Atendente (CSV)</span>
+        </button>
+        <button
+            id="curadoriaExportAllBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="exportCuradoriaCsv('all')"
+            title="Exporta todos os chamados carregados nesta tela em CSV"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">download</span>
+            <span>Tudo (CSV)</span>
+        </button>
+        <button
+            id="curadoriaExportOwnerPdfBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="exportOwnerReportPdf()"
+            title="Gera um relatório em PDF do atendente selecionado"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span>
+            <span>Relatório (PDF)</span>
+        </button>
+        <button
+            id="curadoriaExportAllPdfBtn"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full border border-outline-variant bg-surface-container-low px-4 py-2 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container"
+            onclick="exportAllOwnersPdf()"
+            title="Gera um resumo em PDF de todos os atendentes"
+        >
+            <span class="material-symbols-outlined" style="font-size:18px">picture_as_pdf</span>
+            <span>Resumo geral (PDF)</span>
+        </button>
+        <div id="curadoriaRefreshMeta" class="text-xs text-on-surface-variant"></div>
+    </section>
+
+    <!-- Owner Strip -->
+    <section class="mb-8 overflow-hidden">
+        <div class="flex items-center gap-4 overflow-x-auto pb-4 no-scrollbar" id="ownerStrip">
+            <div class="text-sm text-on-surface-variant">Carregando owners...</div>
+        </div>
+    </section>
+
+    <!-- Dashboard Grid -->
+    <div class="grid grid-cols-12 gap-widget-gap" id="curadoriaMount">
+        <div class="col-span-12 text-center py-12 text-on-surface-variant">Carregando curadoria...</div>
+    </div>
+    </div>
+</main>
+
+<!-- Modal Scoring -->
+<div id="scoringModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='scoringModal')toggleScoringModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-6">
+            <h2 class="font-headline-lg text-headline-lg text-primary">Como calculamos o Score?</h2>
+            <button onclick="toggleScoringModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="space-y-5">
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-2">Escala</h3>
+                <p class="text-body-md text-on-surface-variant mb-2">O score vai de <strong>0 a 1000 pontos</strong>. É calculado pela média dos scores individuais de cada ticket, multiplicada por 10.</p>
+                <div class="bg-primary-fixed p-3 rounded font-mono text-sm text-on-surface-variant">Score final = média(score por ticket) × 10</div>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Dimensões por Ticket (0–100 pts cada)</h3>
+                <div class="space-y-3">
+                    <div class="flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-green-500 mt-0.5">sentiment_satisfied</span>
+                        <div><span id="scoringWeightLabel-satisfacao" class="font-semibold text-on-surface block">Satisfação do cliente · 35%</span><span class="text-sm text-on-surface-variant">Campo <code>satisfacao</code> (1–10) normalizado para 0–100. Mede a percepção do cliente sobre o atendimento.</span></div>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-blue-500 mt-0.5">bolt</span>
+                        <div><span id="scoringWeightLabel-eficiencia" class="font-semibold text-on-surface block">Volume de ações · 25%</span><span class="text-sm text-on-surface-variant">Ações do agente no ticket comparadas à sua própria média histórica. 100% = exatamente na média. Acima = bônus (cap 100).</span></div>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-amber-500 mt-0.5">thumb_up</span>
+                        <div><span id="scoringWeightLabel-pontos" class="font-semibold text-on-surface block">Pontos positivos vs gaps · 25%</span><span class="text-sm text-on-surface-variant">Proporção de pontos positivos identificados pela IA em relação ao total de pontos do ticket.</span></div>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-violet-400 mt-0.5">workspace_premium</span>
+                        <div><span id="scoringWeightLabel-competencias" class="font-semibold text-on-surface block">Competências detectadas · 15%</span><span class="text-sm text-on-surface-variant">Proporção de competências configuradas que a IA identificou nos atendimentos do colaborador.</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-2">Penalização por Gaps</h3>
+                <p class="text-sm text-on-surface-variant">Cada gap ou dificuldade identificada pela IA desconta <strong>5 pontos</strong> do score do ticket (mínimo 0).</p>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Faixas de Desempenho</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></span><span><strong>800–1000</strong> — Excelente</span></div>
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></span><span><strong>600–799</strong> — Bom</span></div>
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-amber-500 flex-shrink-0"></span><span><strong>400–599</strong> — Regular</span></div>
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-orange-500 flex-shrink-0"></span><span><strong>200–399</strong> — Em desenvolvimento</span></div>
+                    <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-slate-400 flex-shrink-0"></span><span><strong>0–199</strong> — Dados insuficientes</span></div>
+                </div>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-2">Classificação de Senioridade</h3>
+                <p class="text-sm text-on-surface-variant mb-3">Definida diretamente pelo Score de Performance (0–1000), que já combina as 4 dimensões avaliadas: satisfação do cliente, eficiência de atendimento, qualidade do atendimento (pontos positivos vs. gaps) e competências detectadas pela IA. As faixas seguem o espírito dos entregáveis oficiais das descrições de cargo da Viasoft (Analista de Suporte JR/PL/SR e Especialista em Suporte). Requer no mínimo 5 chamados para classificação confiável.</p>
+                <div class="space-y-2 text-sm">
+                    <div><strong>Especialista</strong> — score 800–1000</div>
+                    <div><strong>Sênior</strong> — score 650–799</div>
+                    <div><strong>Pleno</strong> — score 450–649</div>
+                    <div><strong>Júnior</strong> — score 250–449</div>
+                    <div><strong>Em desenvolvimento</strong> — score 0–249</div>
+                </div>
+                <p class="text-xs text-on-surface-variant mt-3 opacity-75">Nota: por não haver data de admissão cadastrada, a classificação não considera tempo de empresa — apenas o desempenho mensurável nas 4 dimensões do score.</p>
+            </div>
+        </div>
+    </div>
+</div></div>
+
+<!-- Modal Tickets Sample -->
+<div id="ticketsSampleModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='ticketsSampleModal')toggleTicketsSampleModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-6">
+            <h2 class="font-headline-lg text-headline-lg text-primary">Amostragem de Tickets Recentes</h2>
+            <button onclick="toggleTicketsSampleModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div id="ticketsSampleContent">
+            <table class="w-full text-sm">
+                <thead><tr class="border-b border-outline-variant">
+                    <th class="text-left py-3 font-label-md text-label-md text-on-surface-variant w-24">ID</th>
+                    <th class="text-left py-3 font-label-md text-label-md text-on-surface-variant">Organização</th>
+                    <th class="text-left py-3 font-label-md text-label-md text-on-surface-variant">Solicitante</th>
+                    <th class="text-left py-3 font-label-md text-label-md text-on-surface-variant w-36">Status</th>
+                </tr></thead>
+                <tbody id="ticketsSampleBody"></tbody>
+            </table>
+        </div>
+        <button onclick="toggleTicketsSampleModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Urgência -->
+<div id="urgencyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='urgencyModal')toggleUrgencyModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-6">
+            <h2 class="font-headline-lg text-headline-lg text-primary">Tickets por Urgência</h2>
+            <button onclick="toggleUrgencyModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div id="urgencyContent" class="space-y-4"><div class="text-on-surface-variant">Carregando...</div></div>
+        <button onclick="toggleUrgencyModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Competência -->
+<div id="competenciaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='competenciaModal')toggleCompetenciaModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary" id="competenciaModalIcon" style="font-size:28px">star</span>
+                <h2 class="font-headline-lg text-headline-lg text-primary" id="competenciaModalTitle">Competência</h2>
+            </div>
+            <button onclick="toggleCompetenciaModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-6" id="competenciaModalPrompt">Critério avaliado pela IA.</p>
+        <div id="competenciaModalStats"></div>
+        <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-3">Chamados com maior evidência</h3>
+        <div id="competenciaModalEvidence" class="space-y-2"></div>
+        <button onclick="toggleCompetenciaModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Satisfação -->
+<div id="satisfactionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='satisfactionModal')toggleSatisfactionModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <h2 class="font-headline-lg text-headline-lg text-primary" id="satisfactionModalTitle">Satisfação</h2>
+            <button onclick="toggleSatisfactionModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-6" id="satisfactionModalSubtitle"></p>
+        <div id="satisfactionModalList" class="space-y-2"></div>
+        <button onclick="toggleSatisfactionModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Detalhe do Comentário -->
+<div id="commentDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='commentDetailModal')toggleCommentDetailModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <div class="flex items-center gap-3">
+                <span class="font-headline-lg text-headline-lg text-primary" id="commentDetailTicketId">#</span>
+                <span class="text-xs font-bold px-2 py-1 rounded-full" id="commentDetailNotaBadge"></span>
+            </div>
+            <button onclick="toggleCommentDetailModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-4" id="commentDetailServico"></p>
+        <div class="grid grid-cols-2 gap-3 mb-6 text-sm" id="commentDetailMeta"></div>
+        <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-2 text-xs">Comentário completo</h3>
+        <p class="text-sm text-on-surface whitespace-pre-line bg-surface-container-low border border-outline-variant/30 rounded-lg p-4" id="commentDetailFullText"></p>
+        <button onclick="toggleCommentDetailModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Lista de Módulos -->
+<div id="moduleListModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='moduleListModal')toggleModuleListModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <h2 class="font-headline-lg text-headline-lg text-primary" id="moduleListModalTitle">Módulos Atendidos</h2>
+            <button onclick="toggleModuleListModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-6" id="moduleListModalSubtitle"></p>
+        <div id="moduleListModalContent" class="space-y-2"></div>
+        <button onclick="toggleModuleListModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal SLA -->
+<div id="slaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='slaModal')toggleSlaModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <h2 class="font-headline-lg text-headline-lg text-primary" id="slaModalTitle">SLA</h2>
+            <button onclick="toggleSlaModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-6" id="slaModalSubtitle"></p>
+        <div id="slaModalList" class="space-y-2"></div>
+        <button onclick="toggleSlaModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<!-- Modal Detalhe de Estouro de SLA por Culpa do Cliente -->
+<div id="slaEstouroModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='slaEstouroModal')toggleSlaEstouroModal()">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto soft-shadow">
+        <div class="flex justify-between items-start mb-2">
+            <h2 class="font-headline-lg text-headline-lg text-primary">Estouro de SLA #<span id="slaEstouroModalTicketId"></span></h2>
+            <button onclick="toggleSlaEstouroModal()" class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <p class="mb-4"><span class="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-900 text-blue-300">Atraso do cliente</span></p>
+        <p class="text-sm text-on-surface-variant mb-4" id="slaEstouroModalJustificativa"></p>
+        <div id="slaEstouroModalEvidencias" class="space-y-2"></div>
+        <button onclick="toggleSlaEstouroModal()" class="w-full mt-6 bg-secondary text-on-secondary py-3 rounded-lg font-label-md text-label-md font-bold uppercase hover:opacity-90 transition-opacity">Fechar</button>
+    </div>
+</div>
+
+<script>
+/* ── Busca expandível ─────────────────────────────────────────── */
+let _ownerSearchExpanded = false;
+function expandOwnerSearch() {
+    if (_ownerSearchExpanded) return;
+    _ownerSearchExpanded = true;
+    document.getElementById('ownerSearchWrapper').classList.add('expanded');
+    setTimeout(() => document.getElementById('ownerSearchInput').focus(), 310);
+}
+function collapseOwnerSearchIfEmpty() {
+    const input = document.getElementById('ownerSearchInput');
+    if (input.value.trim()) return;
+    _ownerSearchExpanded = false;
+    document.getElementById('ownerSearchWrapper').classList.remove('expanded');
+}
+function clearOwnerSearch(e) {
+    if (e) e.preventDefault();
+    const input = document.getElementById('ownerSearchInput');
+    input.value = ''; filterOwnerStrip(''); input.focus();
+}
+function filterOwnerStrip(query) {
+    const clearBtn = document.getElementById('ownerSearchClearBtn');
+    const countEl  = document.getElementById('ownerSearchCount');
+    const q = query.trim().toLowerCase();
+    if (q) { clearBtn.classList.add('visible'); }
+    else { clearBtn.classList.remove('visible'); countEl.classList.add('hidden'); renderOwnerStrip(allRows); return; }
+    const filtered = uniqueOwners(allRows).filter(o =>
+        o.name.toLowerCase().includes(q) || o.team.toLowerCase().includes(q) ||
+        o.name.toLowerCase().replace(/\s+/g,'.').includes(q));
+    countEl.textContent = `${filtered.length} owner${filtered.length!==1?'s':''} encontrado${filtered.length!==1?'s':''}`;
+    countEl.classList.remove('hidden');
+    renderOwnerStrip(allRows, filtered);
+}
+
+/* ── Modais ───────────────────────────────────────────────────── */
+const SCORE_WEIGHT_LABELS = {
+    satisfacao: 'Satisfação do cliente',
+    eficiencia: 'Volume de ações',
+    pontos: 'Pontos positivos vs gaps',
+    competencias: 'Competências detectadas'
+};
+function renderScoringModalWeights() {
+    Object.keys(SCORE_WEIGHT_LABELS).forEach(key => {
+        const el = document.getElementById(`scoringWeightLabel-${key}`);
+        if (!el) return;
+        const pct = Math.round((SCORE_WEIGHTS[key] || 0) * 100);
+        el.textContent = `${SCORE_WEIGHT_LABELS[key]} · ${pct}%`;
+    });
+}
+function toggleScoringModal()       { renderScoringModalWeights(); document.getElementById('scoringModal').classList.toggle('hidden'); }
+function toggleTicketsSampleModal() { document.getElementById('ticketsSampleModal').classList.toggle('hidden'); }
+function toggleUrgencyModal()       { document.getElementById('urgencyModal').classList.toggle('hidden'); }
+function toggleCompetenciaModal()   { document.getElementById('competenciaModal').classList.toggle('hidden'); }
+
+/* ── Exportação CSV ───────────────────────────────────────────── */
+// Colunas legíveis pra exportação — evita despejar os blobs JSON brutos
+// (actions, diagnostico_raw, analise_completa, etc.), que não servem pra leitura em planilha.
+const CURADORIA_EXPORT_COLUMNS = [
+    'ticket_id', 'aberto_em', 'owner', 'owner_team', 'organizacao', 'solicitante',
+    'status', 'urgencia', 'urgencia_sugerida', 'nota_urgencia', 'servico', 'modulo_x_rotina',
+    'causa', 'causa_normalizada', 'fato_categoria_principal', 'fato', 'resumo', 'analise_fato',
+    'conclusao', 'recomendacao_atendente', 'justificativa_urgencia', 'impacto_real',
+    'sentimento', 'satisfacao', 'perfil_cliente', 'total_acoes', 'total_cliente', 'total_agente',
+    'tempo_resol_dias', 'tempo_resol_h_uteis', 'tempo_resp_owner', 'processado', 'processado_em'
+];
+
+function formatCompetenciasForExport(competencias) {
+    if (!competencias || typeof competencias !== 'object') return '';
+    return Object.entries(competencias)
+        .map(([key, pct]) => {
+            const cat = PERF_CATEGORIES.find(c => c.key === key);
+            return `${cat ? cat.label : key}:${pct}%`;
+        })
+        .join('; ');
+}
+
+function csvEscape(value) {
+    const str = value === null || value === undefined ? '' : String(value);
+    return /[",\n;]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
+function buildCuradoriaCsv(rows) {
+    const headers = [...CURADORIA_EXPORT_COLUMNS, 'competencias'];
+    const lines = [headers.join(',')];
+    rows.forEach(row => {
+        const values = CURADORIA_EXPORT_COLUMNS.map(col => csvEscape(row[col]));
+        values.push(csvEscape(formatCompetenciasForExport(row.competencias)));
+        lines.push(values.join(','));
+    });
+    return '﻿' + lines.join('\r\n'); // BOM pra acentuação abrir certo no Excel
+}
+
+function downloadCsv(csvText, filename) {
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function slugifyName(text) {
+    return String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_');
+}
+
+function exportCuradoriaCsv(scope) {
+    const rows = scope === 'owner' ? allRows.filter(r => r.owner === currentOwner) : allRows;
+    if (!rows.length) { alert('Nenhum chamado para exportar.'); return; }
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const ownerSlug = scope === 'owner' && currentOwner ? slugifyName(currentOwner) : 'todos';
+    downloadCsv(buildCuradoriaCsv(rows), `curadoria_${ownerSlug}_${dateStr}.csv`);
+}
+
+/* ── Exportação PDF (jsPDF) ───────────────────────────────────── */
+// Score final de um atendente com as competências reais já persistidas — a.scoreData (de
+// analysePerformance) usa aiResult=null (score provisório), então recalcula aqui do jeito
+// que a tela de fato mostra. Centraliza o que antes estava duplicado em 3 lugares.
+function computeOwnerScoreData(ownerRows, ownerName) {
+    const a = analysePerformance(ownerRows, ownerName);
+    const { catCount, avgPct } = aggregateCompetencias(ownerRows);
+    const aiResult = {};
+    PERF_CATEGORIES.forEach(c => { aiResult[c.key] = { count: catCount[c.key] || 0, avgPct: avgPct[c.key] || 0, evidence: [] }; });
+    const scoreData = calcScore1000(a.ownerRows, aiResult);
+    const seniority = classifySeniority(scoreData.metrics, a.totalTickets, scoreData.score);
+    return { a, catCount, avgPct, aiResult, scoreData, seniority };
+}
+
+function exportOwnerReportPdf() {
+    if (!currentOwner) { alert('Selecione um atendente primeiro.'); return; }
+    if (!window.jspdf) { alert('Biblioteca de PDF não carregou. Verifique sua conexão e tente novamente.'); return; }
+
+    const ownerRows = allRows.filter(r => r.owner === currentOwner);
+    if (!ownerRows.length) { alert('Nenhum chamado encontrado para este atendente.'); return; }
+
+    const { a, catCount, avgPct, scoreData, seniority } = computeOwnerScoreData(ownerRows, currentOwner);
+    const sortedComp = [...PERF_CATEGORIES]
+        .filter(c => (catCount[c.key] || 0) > 0)
+        .sort((x, y) => catCount[y.key] - catCount[x.key])
+        .slice(0, 8);
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 16;
+    const maxY = 280;
+    let y = 20;
+
+    const ensureSpace = (needed = 6) => { if (y + needed > maxY) { doc.addPage(); y = 20; } };
+    const writeBullets = (items, emptyMsg) => {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+        if (!items.length) { doc.text(emptyMsg, marginX, y); y += 6; return; }
+        items.forEach(g => {
+            const line = `- ${g.reason}${g.count > 1 ? ` (${g.count} chamados)` : ''}`;
+            const wrapped = doc.splitTextToSize(line, pageWidth - marginX * 2);
+            ensureSpace(wrapped.length * 5.5);
+            doc.text(wrapped, marginX, y);
+            y += wrapped.length * 5.5;
+        });
+    };
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+    doc.text('Relatorio de Atendimento', marginX, y); y += 8;
+
+    doc.setFontSize(13); doc.setFont('helvetica', 'normal');
+    doc.text(currentOwner, marginX, y); y += 6;
+
+    const teamLine = ownerRows[0]?.owner_team ? `Equipe: ${ownerRows[0].owner_team}` : '';
+    doc.setFontSize(10); doc.setTextColor(100);
+    doc.text(`${teamLine}${teamLine ? '  -  ' : ''}Gerado em ${new Date().toLocaleString('pt-BR')}`, marginX, y);
+    doc.setTextColor(0);
+    y += 8;
+
+    doc.setDrawColor(200); doc.line(marginX, y, pageWidth - marginX, y); y += 8;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Resumo', marginX, y); y += 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(`Score: ${scoreData.score} / 1000  (${seniority.label})`, marginX, y); y += 6;
+    doc.text(`Total de chamados: ${a.totalTickets}`, marginX, y); y += 6;
+    doc.text(`Media de acoes por chamado: ${a.mediaAcoes}`, marginX, y); y += 6;
+    doc.text(`Total de acoes: ${a.totalAcoes}`, marginX, y); y += 10;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Competencias em destaque', marginX, y); y += 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    if (sortedComp.length) {
+        sortedComp.forEach(c => {
+            ensureSpace();
+            doc.text(`- ${c.label}: ${catCount[c.key]} chamado(s) - intensidade media ${avgPct[c.key]}%`, marginX, y);
+            y += 6;
+        });
+    } else {
+        doc.text('Nenhuma competencia identificada ainda.', marginX, y); y += 6;
+    }
+    y += 4;
+
+    ensureSpace(13);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Evidencias positivas', marginX, y); y += 7;
+    writeBullets(a.positiveEvidenceDisplay, 'Sem evidencias positivas registradas.');
+    y += 4;
+
+    ensureSpace(13);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('Lacunas identificadas', marginX, y); y += 7;
+    writeBullets(a.gapEvidenceDisplay, 'Sem lacunas identificadas.');
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    doc.save(`relatorio_${slugifyName(currentOwner)}_${dateStr}.pdf`);
+}
+
+function exportAllOwnersPdf() {
+    if (!window.jspdf) { alert('Biblioteca de PDF não carregou. Verifique sua conexão e tente novamente.'); return; }
+    if (!allRows.length) { alert('Nenhum dado carregado para exportar.'); return; }
+
+    const owners = uniqueOwners(allRows);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 14;
+    const maxY = 285;
+    let y = 20;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+    doc.text('Resumo Geral de Atendentes', marginX, y); y += 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100);
+    doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')}  -  ${owners.length} atendente(s)`, marginX, y);
+    doc.setTextColor(0);
+    y += 9;
+
+    const cols = [
+        { label: 'Atendente', x: marginX, chars: 32 },
+        { label: 'Equipe', x: marginX + 60, chars: 20 },
+        { label: 'Chamados', x: marginX + 100, chars: 10 },
+        { label: 'Score', x: marginX + 128, chars: 8 },
+        { label: 'Senioridade', x: marginX + 150, chars: 26 }
+    ];
+    const drawHeader = () => {
+        doc.setFillColor(240, 240, 240);
+        doc.rect(marginX, y - 5, pageWidth - marginX * 2, 7, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        cols.forEach(c => doc.text(c.label, c.x, y));
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+    };
+    drawHeader();
+
+    owners.forEach(owner => {
+        const ownerRows = allRows.filter(r => r.owner === owner.name);
+        const { a, scoreData, seniority } = computeOwnerScoreData(ownerRows, owner.name);
+
+        doc.setFontSize(8.5);
+        doc.text(owner.name.substring(0, cols[0].chars), cols[0].x, y);
+        doc.text((owner.team || '-').substring(0, cols[1].chars), cols[1].x, y);
+        doc.text(String(a.totalTickets), cols[2].x, y);
+        doc.text(String(scoreData.score), cols[3].x, y);
+        doc.text(seniority.label.substring(0, cols[4].chars), cols[4].x, y);
+        y += 6;
+        if (y > maxY) { doc.addPage(); y = 20; drawHeader(); }
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    doc.save(`curadoria_resumo_geral_${dateStr}.pdf`);
+}
+
+/* ── Visão Geral da Equipe ────────────────────────────────────── */
+// SLA oficial de resolução (em horas úteis) por severidade — "SLA SUPORTE MOVIDESK.pdf" v2.0.
+// Chaves normalizadas (sem acento/minúsculo) porque a IA às vezes grava "Critica" sem acento.
+// Editável em Configurações → Curadoria Avançado; loadPerfCategories() sobrescreve os valores
+// abaixo (que continuam servindo de fallback caso a config ainda não tenha sido salva).
+const SLA_RESOLUTION_HOURS = { critica: 4, alta: 8, media: 16, baixa: 24 };
+function normalizeUrgencia(u) {
+    return String(u || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+}
+// null = não dá pra avaliar (urgência ou tempo de resolução ausente); true/false = dentro/fora do SLA
+function ticketSlaCompliant(row) {
+    const target = SLA_RESOLUTION_HOURS[normalizeUrgencia(row.urgencia)];
+    const actual = Number(row.tempo_resol_h_uteis);
+    if (target === undefined || !Number.isFinite(actual)) return null;
+    return actual <= target;
+}
+
+// sla_estouro é preenchido pela IA (mesma análise comportamental do chamado) só quando o
+// processamento roda depois que esse critério foi adicionado — chamados antigos ficam null.
+function slaEstouroInfo(row) {
+    return row && row.sla_estouro && typeof row.sla_estouro === 'object' ? row.sla_estouro : null;
+}
+
+// Anel de porcentagem em SVG (sem depender de nenhuma lib de gráfico)
+function renderPercentCircle(pct, color, size = 72, strokeWidth = 7) {
+    const p = Math.max(0, Math.min(100, pct || 0));
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference * (1 - p / 100);
+    return `
+        <div class="relative inline-flex items-center justify-center shrink-0" style="width:${size}px;height:${size}px">
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg)">
+                <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="rgba(148,163,184,0.18)" stroke-width="${strokeWidth}"></circle>
+                <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"
+                    stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"
+                    style="transition:stroke-dashoffset 0.6s ease"></circle>
+            </svg>
+            <span class="absolute text-sm font-bold" style="color:${color}">${p}%</span>
+        </div>`;
+}
+
+function toggleSlaModal() { document.getElementById('slaModal').classList.toggle('hidden'); }
+
+// Abre o modal com os chamados dentro ou fora do SLA de resolução de um atendente
+function showSlaModal(dentro, ownerName) {
+    const ownerRows = allRows.filter(r => r.owner === ownerName);
+    const matching = ownerRows
+        .filter(r => ticketSlaCompliant(r) === dentro)
+        .sort((a, b) => String(b.resolvido_em || '').localeCompare(String(a.resolvido_em || '')));
+
+    const target = (r) => SLA_RESOLUTION_HOURS[normalizeUrgencia(r.urgencia)];
+
+    document.getElementById('slaModalTitle').textContent = dentro ? 'Dentro do SLA' : 'Fora do SLA';
+    document.getElementById('slaModalSubtitle').textContent =
+        `${matching.length} chamado${matching.length !== 1 ? 's' : ''} ${dentro ? 'resolvidos dentro' : 'que estouraram'} o prazo de SLA`;
+
+    document.getElementById('slaModalList').innerHTML = matching.length
+        ? matching.map(r => {
+            const resolvidoEm = r.resolvido_em ? new Date(r.resolvido_em).toLocaleDateString('pt-BR') : '';
+            const tempo = Number(r.tempo_resol_h_uteis);
+            const detalhe = `${escapeHtml(String(r.urgencia || '-'))} · ${Number.isFinite(tempo) ? tempo.toFixed(1) : '?'}h (limite ${target(r) ?? '?'}h)`;
+            const estouro = !dentro ? slaEstouroInfo(r) : null;
+            const isClienteFault = estouro?.responsavel === 'cliente';
+            const badge = isClienteFault
+                ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-900 text-blue-300 shrink-0">Atraso do cliente</span>`
+                : '';
+            return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 flex items-center justify-between gap-3 ${isClienteFault ? 'cursor-pointer hover:bg-surface-container transition-colors' : ''}"${isClienteFault ? ` onclick="showSlaEstouroDetail('${escapeHtml(String(r.ticket_id))}')"` : ''}>
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="font-label-md text-label-md text-primary font-bold shrink-0">#${escapeHtml(String(r.ticket_id))}</span>
+                    <span class="text-xs text-on-surface-variant truncate">${detalhe}</span>
+                    ${badge}
+                </div>
+                <span class="text-xs text-on-surface-variant shrink-0">${escapeHtml(resolvidoEm)}</span>
+            </div>`;
+        }).join('')
+        : '<p class="text-on-surface-variant text-sm">Nenhum chamado encontrado.</p>';
+
+    toggleSlaModal();
+}
+
+function toggleSlaEstouroModal() { document.getElementById('slaEstouroModal').classList.toggle('hidden'); }
+
+// Abre o modal de detalhe (motivo + evidências) de um chamado cujo estouro de SLA foi
+// atribuído ao cliente pela IA (ver sla_estouro, preenchido em processOneCuradoriaTicket).
+function showSlaEstouroDetail(ticketId) {
+    const row = allRows.find(r => String(r.ticket_id) === String(ticketId));
+    const info = slaEstouroInfo(row);
+    if (!info) return;
+
+    document.getElementById('slaEstouroModalTicketId').textContent = String(ticketId);
+    document.getElementById('slaEstouroModalJustificativa').textContent = info.justificativa || 'Sem justificativa registrada.';
+
+    const evidencias = Array.isArray(info.evidencias) ? info.evidencias : [];
+    document.getElementById('slaEstouroModalEvidencias').innerHTML = evidencias.length
+        ? evidencias.map(ev => `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="text-xs font-bold text-primary">${escapeHtml(String(ev.autor || '-'))}</span>
+                    <span class="text-xs text-on-surface-variant">${escapeHtml(String(ev.data || ''))}</span>
+                </div>
+                <span class="text-xs text-on-surface-variant">${escapeHtml(String(ev.trecho || ''))}</span>
+            </div>`).join('')
+        : '<p class="text-on-surface-variant text-sm">Nenhuma evidência registrada.</p>';
+
+    toggleSlaEstouroModal();
+}
+
+function buildTeamOverview(rows) {
+    const owners = uniqueOwners(rows);
+
+    const ownerStats = owners.map(owner => {
+        const ownerRows = rows.filter(r => r.owner === owner.name);
+        const { a, scoreData, seniority } = computeOwnerScoreData(ownerRows, owner.name);
+
+        const slaEvaluable = ownerRows.map(ticketSlaCompliant).filter(v => v !== null);
+        const slaComplianceRate = slaEvaluable.length
+            ? Math.round((slaEvaluable.filter(Boolean).length / slaEvaluable.length) * 100)
+            : null;
+
+        const withFeedback = ownerRows.filter(r => r.satisfacao_pesquisa != null && r.satisfacao_pesquisa !== '').length;
+        const feedbackRate = ownerRows.length ? Math.round((withFeedback / ownerRows.length) * 100) : 0;
+
+        const resolTimes = ownerRows.map(r => Number(r.tempo_resol_h_uteis)).filter(Number.isFinite);
+        const avgResolHoras = resolTimes.length ? resolTimes.reduce((s, v) => s + v, 0) / resolTimes.length : null;
+
+        return {
+            name: owner.name, team: owner.team, totalTickets: a.totalTickets, score: scoreData.score,
+            seniorityLabel: seniority.label, slaComplianceRate, slaEvaluatedCount: slaEvaluable.length,
+            feedbackRate, avgResolHoras
+        };
+    }).sort((x, y) => y.score - x.score);
+
+    const validScores = ownerStats.filter(o => o.totalTickets > 0).map(o => o.score);
+    const avgScore = validScores.length ? Math.round(validScores.reduce((s, v) => s + v, 0) / validScores.length) : 0;
+
+    const comCompetencia = rows.filter(r => r.competencias && typeof r.competencias === 'object' && Object.keys(r.competencias).length > 0).length;
+    const pctComCompetencia = rows.length ? Math.round((comCompetencia / rows.length) * 100) : 0;
+
+    const { catCount: teamCatCount, avgPct: teamAvgPct } = aggregateCompetencias(rows);
+
+    const seniorityCount = {};
+    ownerStats.forEach(o => { seniorityCount[o.seniorityLabel] = (seniorityCount[o.seniorityLabel] || 0) + 1; });
+
+    const urgenciaCount = {};
+    rows.forEach(r => { const u = String(r.urgencia || '').trim() || 'Sem urgência'; urgenciaCount[u] = (urgenciaCount[u] || 0) + 1; });
+
+    const causaCount = {};
+    rows.forEach(r => { const c = String(r.causa || 'Não especificado').trim(); causaCount[c] = (causaCount[c] || 0) + 1; });
+    const causaMais = Object.entries(causaCount).sort((x, y) => y[1] - x[1])[0];
+
+    const moduloCount = {};
+    rows.forEach(r => { const m = String(r.modulo_x_rotina || 'Sem módulo').trim(); moduloCount[m] = (moduloCount[m] || 0) + 1; });
+    const moduloMais = Object.entries(moduloCount).sort((x, y) => y[1] - x[1])[0];
+
+    // Conformidade de SLA e taxa de feedback agregadas da equipe toda (mesmo cálculo do
+    // SLA SUPORTE MOVIDESK.pdf, agregado em vez de por atendente).
+    const slaEvaluableTeam = rows.map(ticketSlaCompliant).filter(v => v !== null);
+    const teamSlaComplianceRate = slaEvaluableTeam.length
+        ? Math.round((slaEvaluableTeam.filter(Boolean).length / slaEvaluableTeam.length) * 100)
+        : null;
+    const teamFeedbackCount = rows.filter(r => r.satisfacao_pesquisa != null && r.satisfacao_pesquisa !== '').length;
+    const teamFeedbackRate = rows.length ? Math.round((teamFeedbackCount / rows.length) * 1000) / 10 : 0; // 1 casa decimal
+
+    return {
+        totalChamados: rows.length, totalAtendentes: owners.length, avgScore, pctComCompetencia,
+        ownerStats, teamCatCount, teamAvgPct, seniorityCount, urgenciaCount, causaMais, moduloMais,
+        teamSlaComplianceRate, teamFeedbackRate
+    };
+}
+
+// Filtra por data de abertura do chamado (aberto_em). 'month' = mês corrente (calendário),
+// '30d' = últimos 30 dias corridos a partir de agora, 'all' = sem filtro.
+function filterRowsByPeriod(rows, period) {
+    if (period === 'all') return rows;
+    const now = new Date();
+    const cutoff = period === '30d'
+        ? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        : new Date(now.getFullYear(), now.getMonth(), 1); // início do mês atual
+    return rows.filter(r => {
+        if (!r.aberto_em) return false;
+        const d = new Date(r.aberto_em);
+        return !isNaN(d.getTime()) && d >= cutoff;
+    });
+}
+
+// Evolução de chamados por mês — sempre usa TODO o histórico (allRows), independente do
+// filtro de período dos KPIs/ranking, já que o objetivo aqui é justamente ver a tendência
+// ao longo de vários meses (filtrar por "mês atual" deixaria só 1 barra).
+function buildMonthlyTicketVolume(rows) {
+    const byMonth = new Map();
+    rows.forEach(r => {
+        if (!r.aberto_em) return;
+        const d = new Date(r.aberto_em);
+        if (isNaN(d.getTime())) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        byMonth.set(key, (byMonth.get(key) || 0) + 1);
+    });
+    return [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, count]) => {
+        const [year, month] = key.split('-').map(Number);
+        return { year, month, count };
+    });
+}
+
+function renderMonthlyVolumeChart(rows) {
+    const monthly = buildMonthlyTicketVolume(rows);
+    if (!monthly.length) {
+        return '<p class="text-on-surface-variant text-sm">Sem data de abertura disponível para montar o gráfico.</p>';
+    }
+    const maxCount = Math.max(...monthly.map(m => m.count), 1);
+    const bars = monthly.map(m => {
+        const heightPct = Math.max(6, Math.round((m.count / maxCount) * 100));
+        const label = `${MONTH_NAMES_PT[m.month - 1]}/${m.year} · ${m.count} chamado${m.count !== 1 ? 's' : ''}`;
+        return `<div class="flex-1 rounded-t cursor-pointer transition-opacity hover:opacity-80" style="height:${heightPct}%;background:#3b82f6;min-height:4px" title="${label}"></div>`;
+    }).join('');
+    const first = monthly[0], last = monthly[monthly.length - 1];
+    return `
+        <div class="w-full">
+            <div class="flex items-end gap-1.5 h-32">${bars}</div>
+            <div class="flex justify-between mt-1.5">
+                <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[first.month - 1]}/${first.year}</span>
+                <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[last.month - 1]}/${last.year}</span>
+            </div>
+        </div>`;
+}
+
+/* ── Comparativo da Equipe — barras horizontais comparando atendentes numa métrica
+   por vez (Score, SLA, Feedback, Volume, Tempo de Resolução), com uma linha de
+   referência (tracinho vertical recessivo) marcando a média da equipe em cada barra,
+   assim cada atendente é lido tanto pelo ranking quanto pela distância até a média. */
+let curadoriaComparisonMetric = 'score';
+
+const COMPARISON_METRICS = [
+    { key: 'score', label: 'Score', description: 'Score de performance (0–1000) de cada atendente no período selecionado.',
+      valueOf: o => o.score, max: 1000, sortAsc: false,
+      formatValue: v => String(Math.round(v)), colorFor: v => scoreVisuals(v).color },
+    { key: 'sla', label: 'SLA', description: '% de chamados resolvidos dentro do prazo de SLA da severidade (SLA SUPORTE MOVIDESK.pdf).',
+      valueOf: o => o.slaComplianceRate, max: 100, sortAsc: false,
+      formatValue: v => `${Math.round(v)}%`, colorFor: v => v >= 90 ? '#22c55e' : v >= 70 ? '#f59e0b' : '#ef4444' },
+    { key: 'feedback', label: 'Feedback', description: '% de chamados com resposta real de pesquisa de satisfação.',
+      valueOf: o => o.feedbackRate, max: 100, sortAsc: false,
+      formatValue: v => `${Math.round(v)}%`, colorFor: () => '#8b5cf6' },
+    { key: 'volume', label: 'Volume', description: 'Total de chamados atendidos por cada atendente no período selecionado.',
+      valueOf: o => o.totalTickets, max: null, sortAsc: false,
+      formatValue: v => String(Math.round(v)), colorFor: () => '#3b82f6' },
+    { key: 'tempo', label: 'Tempo de Resolução', description: 'Tempo médio de resolução em horas úteis — menor é melhor. O tamanho da barra representa o desempenho (mais cheia = mais rápido), não as horas em si.',
+      valueOf: o => o.avgResolHoras, max: null, sortAsc: true, invert: true,
+      formatValue: v => `${v.toFixed(1)}h`, colorFor: () => '#06b6d4' },
+];
+
+function setComparisonMetric(key) {
+    curadoriaComparisonMetric = key;
+    renderCuradoriaGeralView();
+}
+
+function renderComparisonBars(metric, ownerStats) {
+    const items = ownerStats
+        .map(o => ({ name: o.name, value: metric.valueOf(o) }))
+        .filter(it => it.value != null && Number.isFinite(it.value) && it.value >= 0);
+
+    if (!items.length) {
+        return '<p class="text-on-surface-variant text-sm py-4">Sem dados suficientes para este comparativo no período selecionado.</p>';
+    }
+
+    items.sort((a, b) => metric.sortAsc ? a.value - b.value : b.value - a.value);
+
+    const max = metric.max || Math.max(...items.map(it => it.value), 1);
+    const avg = items.reduce((s, it) => s + it.value, 0) / items.length;
+
+    // Métricas "invert" (ex: tempo de resolução) são melhores quanto MENOR o valor —
+    // a barra representa desempenho (mais cheia = melhor), então o comprimento é
+    // invertido em relação ao intervalo min–max, mas o rótulo continua mostrando o
+    // valor real (ex: "3.1h"). Sem isso, o melhor colaborador ficaria com a barra
+    // mais curta, o que contraria a leitura de "barra maior = melhor" das outras métricas.
+    const min = metric.invert ? Math.min(...items.map(it => it.value)) : 0;
+    const pctFor = (v) => metric.invert
+        ? Math.max(2, Math.min(100, max > min ? ((max - v) / (max - min)) * 100 : 100))
+        : Math.max(2, Math.min(100, (v / max) * 100));
+    const avgPct = pctFor(avg);
+
+    const rows = items.map(it => {
+        const pct = pctFor(it.value);
+        const color = metric.colorFor(it.value);
+        const shortName = it.name.split(' ').slice(0, 2).join(' ');
+        return `
+        <div class="flex items-center gap-3 py-1 px-1 -mx-1 rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors"
+             title="${escapeHtml(it.name)}: ${escapeHtml(metric.formatValue(it.value))}"
+             onclick="switchCuradoriaView('atendente');selectOwner('${escapeHtml(it.name)}')">
+            <span class="text-xs text-on-surface-variant w-28 truncate shrink-0">${escapeHtml(shortName)}</span>
+            <div class="flex-1 h-4 rounded-r bg-surface-container relative overflow-hidden">
+                <div class="h-full rounded-r transition-all duration-500" style="width:${pct}%;background:${color}"></div>
+                <div class="absolute top-0 bottom-0 w-px bg-on-surface-variant/40" style="left:${avgPct}%"></div>
+            </div>
+            <span class="text-xs font-bold w-14 text-right shrink-0" style="color:${color}">${escapeHtml(metric.formatValue(it.value))}</span>
+        </div>`;
+    }).join('');
+
+    return `
+        <div class="max-h-[420px] overflow-y-auto pr-1 space-y-0.5">${rows}</div>
+        <p class="text-[11px] text-on-surface-variant opacity-70 mt-3 flex items-center gap-1.5">
+            <span class="inline-block w-3 border-t border-dashed border-on-surface-variant/60"></span>
+            Média da equipe: ${escapeHtml(metric.formatValue(avg))}
+        </p>`;
+}
+
+function renderComparisonSection(t) {
+    const metric = COMPARISON_METRICS.find(m => m.key === curadoriaComparisonMetric) || COMPARISON_METRICS[0];
+    const pills = COMPARISON_METRICS.map(m => `
+        <button onclick="setComparisonMetric('${m.key}')" class="px-4 py-1 rounded-full text-xs font-semibold transition-colors ${m.key === metric.key ? 'bg-secondary text-on-secondary' : 'bg-transparent text-on-surface-variant hover:text-on-surface'}">${escapeHtml(m.label)}</button>`).join('');
+
+    return `<div class="col-span-12 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <div class="flex items-center justify-between mb-1 flex-wrap gap-3">
+            <h3 class="font-headline-lg text-headline-lg text-primary">Comparativo da Equipe</h3>
+            <div class="flex items-center gap-1.5 flex-wrap">${pills}</div>
+        </div>
+        <p class="text-xs text-on-surface-variant mb-4">${escapeHtml(metric.description)}</p>
+        ${renderComparisonBars(metric, t.ownerStats)}
+    </div>`;
+}
+
+/* ── Análise narrativa da equipe (IA, com grounding nos números reais) ───────
+   A IA só recebe números já calculados (produtividade, SLA, feedback) e escreve
+   o texto corrido em cima deles — não recalcula nem inventa nada. Resultado fica
+   em cache no localStorage; só é regenerado quando o usuário clicar "Atualizar". */
+const TEAM_NARRATIVE_CACHE_KEY = 'curadoriaTeamNarrativeCache';
+
+function buildTeamNarrativeFacts(t) {
+    const withData = t.ownerStats.filter(o => o.totalTickets >= 5); // amostra mínima confiável
+    const firstName = (name) => String(name || '').split(' ')[0];
+
+    const byProdutividade = [...withData].sort((a, b) => b.totalTickets - a.totalTickets);
+    const bySla = [...withData].filter(o => o.slaComplianceRate != null).sort((a, b) => b.slaComplianceRate - a.slaComplianceRate);
+    const byFeedbackAsc = [...withData].sort((a, b) => a.feedbackRate - b.feedbackRate);
+    const byScoreAsc = [...withData].sort((a, b) => a.score - b.score);
+
+    return {
+        totalAtendentes: t.totalAtendentes,
+        totalChamados: t.totalChamados,
+        feedbackRateEquipe: t.teamFeedbackRate,
+        slaEquipe: t.teamSlaComplianceRate,
+        topProdutividade: byProdutividade.slice(0, 3).map(o => ({ nome: firstName(o.name), chamados: o.totalTickets, sla: o.slaComplianceRate, feedback: o.feedbackRate })),
+        topSla: bySla.slice(0, 3).map(o => ({ nome: firstName(o.name), sla: o.slaComplianceRate, chamados: o.totalTickets })),
+        menosFeedback: byFeedbackAsc.slice(0, 3).map(o => ({ nome: firstName(o.name), feedback: o.feedbackRate })),
+        precisamApoio: byScoreAsc.slice(0, 3).map(o => ({ nome: firstName(o.name), score: o.score, sla: o.slaComplianceRate, chamados: o.totalTickets }))
+    };
+}
+
+function buildNarrativePrompt(facts) {
+    const values = {
+        totalAtendentes: facts.totalAtendentes,
+        totalChamados: facts.totalChamados,
+        feedbackRateEquipe: facts.feedbackRateEquipe,
+        slaEquipe: facts.slaEquipe ?? 'sem dado',
+        topProdutividade: facts.topProdutividade.map(o => `${o.nome} (${o.chamados} chamados, SLA ${o.sla ?? 'sem dado'}%, feedback ${o.feedback}%)`).join('; ') || 'sem dados suficientes',
+        topSla: facts.topSla.map(o => `${o.nome} (SLA ${o.sla}%, ${o.chamados} chamados)`).join('; ') || 'sem dados suficientes',
+        menosFeedback: facts.menosFeedback.map(o => `${o.nome} (${o.feedback}%)`).join('; ') || 'sem dados suficientes',
+        precisamApoio: facts.precisamApoio.map(o => `${o.nome} (score ${o.score}, SLA ${o.sla ?? 'sem dado'}%, ${o.chamados} chamados)`).join('; ') || 'sem dados suficientes'
+    };
+
+    if (CURADORIA_PROMPT_NARRATIVA) {
+        return {
+            sys: CURADORIA_PROMPT_NARRATIVA.system,
+            user: renderCuradoriaTemplate(CURADORIA_PROMPT_NARRATIVA.userTemplate, values)
+        };
+    }
+
+    const sys = `Você é um analista de operações de suporte. Escreva uma análise curta e objetiva da equipe, em português, EXATAMENTE nesta estrutura (um parágrafo curto por tópico, sem markdown, sem listas, sem títulos extras):
+
+Produtividade: (texto)
+Eficiência: (texto)
+Feedback: (texto)
+Área de melhoria: (texto)
+
+REGRAS:
+- Use APENAS os números e nomes fornecidos pelo usuário. Não invente, não estime, não arredonde diferente do fornecido.
+- Cite pessoas pelo primeiro nome.
+- Seja direto, sem introduções ou conclusões genéricas.`;
+
+    const user = `DADOS DA EQUIPE:
+- Total de atendentes: ${values.totalAtendentes}
+- Total de chamados no período: ${values.totalChamados}
+- % de chamados avaliados pelo cliente (feedback): ${values.feedbackRateEquipe}%
+- Cumprimento de SLA da equipe (SLA SUPORTE MOVIDESK.pdf): ${values.slaEquipe}%
+
+TOP EM VOLUME DE CHAMADOS: ${values.topProdutividade}
+
+TOP EM CUMPRIMENTO DE SLA: ${values.topSla}
+
+MENOR TAXA DE FEEDBACK: ${values.menosFeedback}
+
+MENOR SCORE (podem precisar de apoio): ${values.precisamApoio}`;
+
+    return { sys, user };
+}
+
+async function callTeamNarrativeLLM(systemPrompt, userPrompt) {
+    const gptKey = window._gptApiKey || null;
+    if (!gptKey) throw new Error('Chave da API GPT não configurada em Configurações → Inteligência Artificial.');
+
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
+        body: JSON.stringify({
+            model: 'gpt-4o-mini', temperature: 0.3, max_tokens: 700,
+            messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }]
+        })
+    });
+    const data = await resp.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error(data.error?.message || 'A IA não retornou nenhum texto.');
+
+    try {
+        const usage = data.usage || {};
+        if ((usage.prompt_tokens || 0) > 0) {
+            fetch(`${API_BASE}/config/ai-usage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                body: JSON.stringify({ source: 'team_narrative_curadoria', model: 'gpt-4o-mini',
+                    input_tokens: usage.prompt_tokens || 0, output_tokens: usage.completion_tokens || 0 })
+            }).catch(() => {});
+        }
+    } catch (_) {}
+
+    return text;
+}
+
+function renderTeamNarrativeSection() {
+    let cache = null;
+    try { cache = JSON.parse(localStorage.getItem(TEAM_NARRATIVE_CACHE_KEY) || 'null'); } catch (_) {}
+
+    const header = `
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-headline-lg text-headline-lg text-primary">Análise da Equipe (IA)</h3>
+            ${cache?.text
+                ? `<div class="flex items-center gap-3">
+                       <span class="text-xs text-on-surface-variant">Gerado em ${escapeHtml(new Date(cache.generatedAt).toLocaleString('pt-BR'))}</span>
+                       <button class="text-secondary text-xs font-bold hover:underline" id="btnGenTeamNarrative" onclick="generateTeamNarrative()">Atualizar</button>
+                   </div>`
+                : `<button class="config-btn" id="btnGenTeamNarrative" onclick="generateTeamNarrative()">Gerar análise</button>`
+            }
+        </div>`;
+
+    const body = cache?.text
+        ? `<div id="teamNarrativeContent" class="text-sm text-on-surface leading-relaxed whitespace-pre-line">${escapeHtml(cache.text)}</div>`
+        : `<p class="text-sm text-on-surface-variant" id="teamNarrativeContent">Gera um resumo em texto (produtividade, eficiência, feedback e pontos de atenção) com base nos números reais da equipe — a IA só recebe dados já calculados, não inventa números.</p>`;
+
+    return `<div class="col-span-12 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">${header}${body}</div>`;
+}
+
+async function generateTeamNarrative() {
+    const btn = document.getElementById('btnGenTeamNarrative');
+    const contentEl = document.getElementById('teamNarrativeContent');
+    if (btn) { btn.disabled = true; btn.textContent = 'Gerando...'; }
+    if (contentEl) contentEl.textContent = 'Gerando análise...';
+
+    try {
+        const period = document.getElementById('curadoriaPeriodFilter')?.value || 'month';
+        const periodRows = filterRowsByPeriod(allRows, period);
+        const t = buildTeamOverview(periodRows);
+        const facts = buildTeamNarrativeFacts(t);
+        const { sys, user } = buildNarrativePrompt(facts);
+        const text = await callTeamNarrativeLLM(sys, user);
+
+        localStorage.setItem(TEAM_NARRATIVE_CACHE_KEY, JSON.stringify({ text, generatedAt: new Date().toISOString() }));
+        renderCuradoriaGeralView();
+    } catch (error) {
+        if (contentEl) contentEl.textContent = `Erro ao gerar análise: ${error.message}`;
+        if (btn) { btn.disabled = false; btn.textContent = 'Gerar análise'; }
+    }
+}
+
+function renderCuradoriaGeralView() {
+    const mount = document.getElementById('curadoriaGeralMount');
+    if (!mount) return;
+    if (!allRows.length) {
+        mount.innerHTML = '<div class="col-span-12 py-16 text-center text-on-surface-variant">Nenhum dado carregado ainda.</div>';
+        return;
+    }
+
+    const period = document.getElementById('curadoriaPeriodFilter')?.value || 'month';
+    const periodRows = filterRowsByPeriod(allRows, period);
+    if (!periodRows.length) {
+        mount.innerHTML = '<div class="col-span-12 py-16 text-center text-on-surface-variant">Nenhum chamado processado neste período.</div>';
+        return;
+    }
+
+    const t = buildTeamOverview(periodRows);
+    const volumeChartHtml = renderMonthlyVolumeChart(allRows);
+
+    const aiResult = {};
+    PERF_CATEGORIES.forEach(c => { aiResult[c.key] = { count: t.teamCatCount[c.key] || 0, avgPct: t.teamAvgPct[c.key] || 0, evidence: [] }; });
+    const sortedComp = [...PERF_CATEGORIES].sort((x, y) => (t.teamCatCount[y.key] || 0) - (t.teamCatCount[x.key] || 0));
+    const compCardsHtml = sortedComp.map((c, idx) => renderSingleCompCard(c, idx, t.teamCatCount, aiResult, false, 'team')).join('');
+
+    const rankingRows = t.ownerStats.map((o, idx) => `
+        <tr class="border-b border-outline-variant/30 cursor-pointer transition-colors ${idx === 0 ? 'bg-secondary/25 hover:bg-secondary/35' : 'hover:bg-surface-container-low'}" onclick="switchCuradoriaView('atendente');selectOwner('${escapeHtml(o.name)}')">
+            <td class="py-2 px-3 text-on-surface-variant">${idx + 1}</td>
+            <td class="py-2 px-3 font-medium">
+                <div class="flex items-center gap-2.5">
+                    <img class="w-7 h-7 rounded-full object-cover" src="${escapeHtml(photoByName(o.name))}" alt="" loading="lazy">
+                    <span>${escapeHtml(o.name)}</span>
+                </div>
+            </td>
+            <td class="py-2 px-3 text-on-surface-variant">${escapeHtml(o.team || '-')}</td>
+            <td class="py-2 px-3 text-center">${o.totalTickets}</td>
+            <td class="py-2 px-3 text-center font-bold">${o.score}</td>
+            <td class="py-2 px-3">${escapeHtml(o.seniorityLabel)}</td>
+        </tr>`).join('');
+
+    const distributionList = (obj) => Object.entries(obj).sort((x, y) => y[1] - x[1]).map(([label, count]) => `
+        <div class="flex justify-between items-center py-1.5 border-b border-outline-variant/20">
+            <span class="text-sm">${escapeHtml(label)}</span>
+            <span class="text-sm font-bold">${count}</span>
+        </div>`).join('') || '<p class="text-on-surface-variant text-sm">Sem dados</p>';
+
+    const distributionPills = (obj) => Object.entries(obj).sort((x, y) => y[1] - x[1]).map(([label, count]) => `
+        <div class="flex justify-between items-center gap-3">
+            <span class="inline-flex items-center px-3.5 py-1.5 rounded-full bg-surface-container-low text-sm font-medium">${escapeHtml(label)}</span>
+            <span class="inline-flex items-center justify-center min-w-[3rem] px-3.5 py-1.5 rounded-full bg-surface-container-low text-sm font-semibold">${count}</span>
+        </div>`).join('') || '<p class="text-on-surface-variant text-sm">Sem dados</p>';
+
+    const slaColorStyle = t.teamSlaComplianceRate == null ? '' : t.teamSlaComplianceRate >= 90 ? 'color:#22c55e' : t.teamSlaComplianceRate >= 70 ? 'color:#f59e0b' : 'color:#ef4444';
+
+    mount.innerHTML = `
+        <div class="col-span-12 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-2">
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Total de Chamados</span>
+                <span class="text-3xl font-bold text-primary">${t.totalChamados}</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Atendentes</span>
+                <span class="text-3xl font-bold text-primary">${t.totalAtendentes}</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Score Médio da Equipe</span>
+                <span class="text-3xl font-bold text-primary">${t.avgScore}</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Chamados c/ Competência</span>
+                <span class="text-3xl font-bold text-primary">${t.pctComCompetencia}%</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center" title="% de chamados resolvidos dentro do prazo de SLA da severidade (SLA SUPORTE MOVIDESK.pdf)">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Cumprimento de SLA</span>
+                <span class="text-3xl font-bold" style="${slaColorStyle}">${t.teamSlaComplianceRate == null ? '—' : t.teamSlaComplianceRate + '%'}</span>
+            </div>
+            <div class="bg-surface-container-lowest p-5 rounded-xl soft-shadow text-center" title="% de chamados com resposta real de pesquisa de satisfação">
+                <span class="text-xs text-on-surface-variant uppercase block mb-1">Chamados Avaliados</span>
+                <span class="text-3xl font-bold text-primary">${t.teamFeedbackRate}%</span>
+            </div>
+        </div>
+
+        ${renderTeamNarrativeSection()}
+
+        ${renderComparisonSection(t)}
+
+        <div class="col-span-12 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+            <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Evolução de Chamados por Mês</h3>
+            ${volumeChartHtml}
+        </div>
+
+        <div class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+            <h3 class="font-headline-lg text-headline-lg text-primary mb-6">Ranking de Atendentes</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead><tr class="border-b border-outline-variant text-left">
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant">#</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant">Atendente</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant">Equipe</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant text-center">Chamados</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant text-center">Score</th>
+                        <th class="py-2 px-3 font-label-md text-on-surface-variant">Senioridade</th>
+                    </tr></thead>
+                    <tbody>${rankingRows}</tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-4 grid grid-cols-1 gap-6">
+            <div class="bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Senioridade da Equipe</h3>
+                ${distributionList(t.seniorityCount)}
+            </div>
+            <div class="bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+                <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Urgência dos Chamados</h3>
+                <div class="space-y-2.5">${distributionPills(t.urgenciaCount)}</div>
+            </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-6 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+            <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Foco de Atendimento da Equipe</h3>
+            <div class="space-y-4">
+                <div><span class="text-xs text-on-surface-variant uppercase block mb-1">Causa Mais Comum</span><span class="font-semibold">${t.causaMais ? escapeHtml(t.causaMais[0]) + ' (' + t.causaMais[1] + ' chamados)' : 'Sem dados'}</span></div>
+                <div><span class="text-xs text-on-surface-variant uppercase block mb-1">Módulo Mais Atendido</span><span class="font-semibold">${t.moduloMais ? escapeHtml(t.moduloMais[0]) + ' (' + t.moduloMais[1] + ' chamados)' : 'Sem dados'}</span></div>
+            </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-6 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+            <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-4">Competências da Equipe</h3>
+            <div class="comp-cards-grid">${compCardsHtml}</div>
+        </div>
+    `;
+}
+
+function switchCuradoriaView(view) {
+    const geralView = document.getElementById('curadoriaGeralView');
+    const atendenteView = document.getElementById('curadoriaAtendenteView');
+    const tabGeral = document.getElementById('curadoriaTabGeral');
+    const tabAtendente = document.getElementById('curadoriaTabAtendente');
+    const activeCls = ['bg-secondary', 'text-on-secondary'];
+    const inactiveCls = ['bg-transparent', 'text-on-surface-variant'];
+
+    if (view === 'geral') {
+        geralView?.classList.remove('hidden');
+        atendenteView?.classList.add('hidden');
+        tabGeral?.classList.add(...activeCls); tabGeral?.classList.remove(...inactiveCls);
+        tabAtendente?.classList.add(...inactiveCls); tabAtendente?.classList.remove(...activeCls);
+        renderCuradoriaGeralView();
+    } else {
+        geralView?.classList.add('hidden');
+        atendenteView?.classList.remove('hidden');
+        tabAtendente?.classList.add(...activeCls); tabAtendente?.classList.remove(...inactiveCls);
+        tabGeral?.classList.add(...inactiveCls); tabGeral?.classList.remove(...activeCls);
+    }
+}
+
+function showTicketsSampleModal(tickets) {
+    const tbody = document.getElementById('ticketsSampleBody');
+    tbody.innerHTML = (!tickets||!tickets.length)
+        ? '<tr><td colspan="4" class="py-4 text-on-surface-variant text-center">Nenhum ticket encontrado</td></tr>'
+        : tickets.map(t=>`<tr class="border-b border-outline-variant hover:bg-surface-container transition-colors">
+            <td class="py-3 font-body-md text-body-md font-semibold text-primary">#${escapeHtml(String(t.id))}</td>
+            <td class="py-3 font-body-md text-body-md text-on-surface">${escapeHtml(t.org||'—')}</td>
+            <td class="py-3 font-body-md text-body-md text-on-surface-variant">${escapeHtml(t.sol||'—')}</td>
+            <td class="py-3"><span class="px-2 py-1 bg-surface-container rounded-full font-label-md text-label-md text-xs text-on-surface-variant">${escapeHtml(t.status||'—')}</span></td>
+          </tr>`).join('');
+    toggleTicketsSampleModal();
+}
+function showTicketsByUrgencyModal(urgenciaTickets) {
+    const content = document.getElementById('urgencyContent');
+    if (!urgenciaTickets||!Object.keys(urgenciaTickets).length) {
+        content.innerHTML='<div class="text-on-surface-variant">Nenhum ticket encontrado</div>';
+        toggleUrgencyModal(); return;
+    }
+    content.innerHTML = Object.entries(urgenciaTickets).map(([urgencia,tickets])=>`
+        <div class="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary font-bold text-sm">${tickets.length}</div>
+                <span class="font-body-md text-body-md font-semibold text-primary">${escapeHtml(urgencia)}</span>
+            </div>
+            <ul class="space-y-2 text-body-md text-on-surface-variant">
+                ${tickets.map(t=>`<li class="flex gap-2 p-2 hover:bg-surface-container rounded"><span>•</span><span>Ticket #${escapeHtml(t.id)} — ${escapeHtml(t.row?.titulo||t.row?.subject||'Sem título')}</span></li>`).join('')}
+            </ul>
+        </div>`).join('');
+    toggleUrgencyModal();
+}
+
+/* ── API / Estado ─────────────────────────────────────────────── */
+const API_BASE = `${window.location.origin}/api`;
+let allRows=[], currentOwner=null, currentUser=null;
+function getToken() { return localStorage.getItem('token')||localStorage.getItem('authToken')||localStorage.getItem('sessionToken')||''; }
+async function apiCall(endpoint, method='GET', body=null) {
+    const opts={method,headers:{'Content-Type':'application/json','Authorization':`Bearer ${getToken()}`}};
+    if(body) opts.body=JSON.stringify(body);
+    const res=await fetch(`${API_BASE}${endpoint}`,opts);
+    if(!res.ok) throw new Error(`API error: ${res.statusText}`);
+    return res.json();
+}
+function escapeHtml(str) { const d=document.createElement('div'); d.textContent=str; return d.innerHTML; }
+function normalizeOwnerName(name) { return String(name||'').toLowerCase().trim(); }
+function photoByName(name) { return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}&backgroundColor=random`; }
+
+/* ── Categorias ───────────────────────────────────────────────── */
+const DEFAULT_PERF_CATEGORIES = [
+    {key:'comunicacao_clara',    label:'Comunicação clara',        icon:'forum',        description:'Clareza e cordialidade nas interações',   isNegative:false,
+     prompt:'O atendente se comunicou de forma clara, objetiva e cordial? Avalie se as respostas são fáceis de entender, sem jargão excessivo, e se o tom foi respeitoso e profissional.'},
+    {key:'detalhamento',         label:'Detalhamento',             icon:'manage_search',description:'Profundidade na análise e explicação',    isNegative:false,
+     prompt:'O atendente detalhou adequadamente o problema e a solução? Avalie se houve explicação da causa raiz, descrição técnica suficiente e informações que ajudem o cliente a entender o que ocorreu.'},
+    {key:'fechamento',           label:'Fechamento',               icon:'task_alt',     description:'Conclusão adequada dos atendimentos',    isNegative:false,
+     prompt:'O atendente encerrou o chamado de forma adequada? Avalie se houve confirmação com o cliente, resumo da solução aplicada e fechamento formal do ticket.'},
+    {key:'acompanhamento',       label:'Acompanhamento',           icon:'update',       description:'Follow-up e atualização de status',      isNegative:false,
+     prompt:'O atendente realizou acompanhamento proativo? Avalie se houve retorno ao cliente sem ele precisar cobrar, atualizações de status e follow-up para verificar se o problema foi resolvido.'},
+    {key:'solucao_tecnica',      label:'Solução técnica',          icon:'build_circle', description:'Resolução e ajustes técnicos',            isNegative:false,
+     prompt:'O atendente demonstrou competência técnica na resolução? Avalie se a solução foi adequada ao problema, se houve análise técnica e se os ajustes realizados resolveram o issue.'},
+    {key:'transparencia',        label:'Transparência',            icon:'visibility',   description:'Reconhecimento de prazos e limitações',  isNegative:false,
+     prompt:'O atendente foi transparente sobre prazos, limitações e o andamento do chamado? Avalie se ele reconheceu quando não sabia algo, informou prazos realistas e foi honesto sobre restrições.'},
+    {key:'dificuldade_resolucao',label:'Dificuldade de resolução', icon:'warning_amber',description:'Ocorrências sem solução registrada',     isNegative:true,
+     prompt:'O chamado ficou sem solução, com falta de retorno ou foi encerrado sem resolver o problema do cliente? Identifique se houve abandono, falta de follow-up ou encerramento indevido.'},
+];
+let PERF_CATEGORIES = DEFAULT_PERF_CATEGORIES.map(c=>({...c}));
+
+// Prompts configuráveis em Configurações → Curadoria Avançado (fallback = comportamento
+// hoje hardcoded, usado até o admin abrir a aba e salvar algo).
+const DEFAULT_CURADORIA_PROMPT_COMPETENCIAS = 'Avaliador de suporte. Para cada chamado listado, identifique quais das competências fornecidas realmente se manifestam no atendimento e atribua um percentual de 0 a 100 indicando a intensidade da evidência. Inclua no JSON apenas as competências que efetivamente se aplicam a cada chamado (omita as que não se aplicam ou têm percentual 0). Use EXATAMENTE as chaves fornecidas em COMPETÊNCIAS, sem alterar acentos ou maiúsculas. Retorne SOMENTE JSON: {"results":{"TICKET_ID":{"CHAVE":percentual}}}. Sem texto adicional.';
+let CURADORIA_PROMPT_COMPETENCIAS = DEFAULT_CURADORIA_PROMPT_COMPETENCIAS;
+let CURADORIA_PROMPT_NARRATIVA = null; // preenchido em loadPerfCategories(); null = usa fallback hardcoded de buildNarrativePrompt
+
+function renderCuradoriaTemplate(str, map) {
+    let out = str;
+    for (const [key, value] of Object.entries(map)) {
+        out = out.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value ?? '');
+    }
+    return out;
+}
+
+// Pesos das 4 dimensões do score de performance (0-1000) — ver calcScore1000.
+// Padrão histórico: satisfação 35%, eficiência 25%, pontos positivos/gaps 25%, competências 15%.
+const DEFAULT_SCORE_WEIGHTS = { satisfacao: 0.35, eficiencia: 0.25, pontos: 0.25, competencias: 0.15 };
+let SCORE_WEIGHTS = { ...DEFAULT_SCORE_WEIGHTS };
+
+async function loadPerfCategories() {
+    // Cada chamada é independente — falha de uma não quebra as outras
+    try {
+        const catData = await apiCall('/config/curadoria-categories').catch(()=>({categories:null}));
+        if(catData.categories&&catData.categories.length>0)
+            PERF_CATEGORIES=catData.categories.map(c=>({
+                key:c.key, label:c.label, prompt:c.prompt||'', icon:c.icon||'star',
+                description:c.description||'', isNegative:!!c.isNegative
+            }));
+    } catch(_) { /* mantém defaults */ }
+
+    try {
+        const weightData = await apiCall('/config/score-weights').catch(()=>({weights:null}));
+        if(weightData.weights) SCORE_WEIGHTS = { ...DEFAULT_SCORE_WEIGHTS, ...weightData.weights };
+    } catch(_) { /* mantém defaults */ }
+
+    try {
+        const compPromptData = await apiCall('/config/curadoria-prompt-competencias').catch(()=>null);
+        if(compPromptData?.prompt) CURADORIA_PROMPT_COMPETENCIAS = compPromptData.prompt;
+    } catch(_) { /* mantém default */ }
+
+    try {
+        const narrPromptData = await apiCall('/config/curadoria-prompt-narrativa').catch(()=>null);
+        if(narrPromptData?.system && narrPromptData?.userTemplate) CURADORIA_PROMPT_NARRATIVA = narrPromptData;
+    } catch(_) { /* mantém fallback hardcoded */ }
+
+    try {
+        const slaData = await apiCall('/config/curadoria-sla-thresholds').catch(()=>null);
+        if(slaData) Object.assign(SLA_RESOLUTION_HOURS, {
+            critica: Number(slaData.critica) || SLA_RESOLUTION_HOURS.critica,
+            alta: Number(slaData.alta) || SLA_RESOLUTION_HOURS.alta,
+            media: Number(slaData.media) || SLA_RESOLUTION_HOURS.media,
+            baixa: Number(slaData.baixa) || SLA_RESOLUTION_HOURS.baixa
+        });
+    } catch(_) { /* mantém defaults */ }
+
+    // Carrega chave GPT separadamente, sem bloquear
+    try {
+        const keyData = await apiCall('/config/gpt-key-for-client').catch(()=>null);
+        if(keyData?.apiKey) window._gptApiKey = keyData.apiKey;
+    } catch(_) {}
+}
+
+/* ── Análise de competências via IA — persistida por chamado ────
+   Cada chamado é classificado UMA VEZ pela IA (chave de competência -> percentual
+   0-100) e o resultado é gravado na coluna `competencias` de curadoria_chamados.
+   Nas próximas vezes que o atendente for aberto, os cards são montados só
+   agregando essa coluna — sem nova chamada de IA — e apenas os chamados novos
+   (competencias ainda vazio) entram para análise.
+   ─────────────────────────────────────────────────────── */
+
+// Conteúdo COMPORTAMENTAL: as competências avaliam o atendente, não o problema técnico.
+// Prioriza campos que descrevem como foi o atendimento; analise_fato entra só como contexto curto.
+// dinamica_conversa/pontos_criticos são jsonb (o driver já entrega objeto JS, não string) —
+// String(objeto) viraria "[object Object]", então precisamos extrair o texto de dentro.
+function stringifyCompField(v) {
+    if (v == null) return '';
+    if (typeof v === 'string') return v.trim();
+    if (typeof v !== 'object') return String(v).trim();
+    const payload = ('items' in v) ? v.items : v;
+    if (typeof payload === 'string') return payload.trim();
+    if (Array.isArray(payload)) return payload.map(x => stringifyCompField(x)).filter(Boolean).join(', ');
+    if (payload && typeof payload === 'object') {
+        return Object.values(payload).map(x => stringifyCompField(x)).filter(Boolean).join(' | ');
+    }
+    return '';
+}
+function competenciaBehaviorText(r) {
+    return [r.padrao_suporte, r.dinamica_conversa, r.recomendacao_atendente, r.pontos_criticos, r.conclusao]
+        .map(v => stringifyCompField(v)).filter(Boolean).join(' | ');
+}
+function competenciaRowText(r) {
+    const beh  = competenciaBehaviorText(r);
+    const fato = String(r.analise_fato || r.fato || r.resumo || '').trim();
+    if (beh)  return (fato ? `PROBLEMA: ${fato.substring(0, 50)} | ATENDIMENTO: ` : 'ATENDIMENTO: ') + beh;
+    if (fato) return fato;
+    // Chamados sem nenhum campo de análise da IA externa preenchido (raro, mas acontece):
+    // usa o resumo do que foi feito (`acao`) e, em último caso, a transcrição bruta (`actions`).
+    const acao = String(r.acao || '').trim();
+    if (acao) return `ATENDIMENTO: ${acao}`;
+    return String(r.actions || '').trim().substring(0, 300);
+}
+
+function normalizeCompKey(k) {
+    return String(k||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+}
+function competenciaKeyMap() {
+    const keyByNorm = {};
+    PERF_CATEGORIES.forEach(c => { keyByNorm[normalizeCompKey(c.key)] = c.key; keyByNorm[normalizeCompKey(c.label)] = c.key; });
+    return keyByNorm;
+}
+
+// Agrega a coluna `competencias` (já persistida) dos chamados do owner em contagens/percentuais médios
+function aggregateCompetencias(ownerRows) {
+    const catCount = {}, pctSum = {}, pctN = {};
+    PERF_CATEGORIES.forEach(c => { catCount[c.key] = 0; pctSum[c.key] = 0; pctN[c.key] = 0; });
+    ownerRows.forEach(r => {
+        const comp = r.competencias;
+        if (!comp || typeof comp !== 'object') return;
+        Object.entries(comp).forEach(([key, pct]) => {
+            if (!(key in catCount)) return; // ignora chaves órfãs (categoria removida/renomeada depois)
+            const p = Number(pct) || 0;
+            if (p <= 0) return;
+            catCount[key]++; pctSum[key] += p; pctN[key]++;
+        });
+    });
+    const avgPct = {};
+    PERF_CATEGORIES.forEach(c => { avgPct[c.key] = pctN[c.key] ? Math.round(pctSum[c.key] / pctN[c.key]) : 0; });
+    return { catCount, avgPct };
+}
+
+// Abre o modal explicando o critério da competência e os chamados que mais evidenciaram o resultado
+function showCompetenciaModal(key, scope = 'owner') {
+    const c = PERF_CATEGORIES.find(x => x.key === key);
+    if (!c) return;
+    if (scope === 'owner' && !currentOwner) return;
+
+    // Escopo 'team' respeita o filtro de período da Visão Geral, senão o modal mostraria
+    // números diferentes dos cards que o abriram (ex: card filtrado no mês, modal com tudo)
+    const teamPeriod = document.getElementById('curadoriaPeriodFilter')?.value || 'month';
+    const scopeRows = scope === 'team' ? filterRowsByPeriod(allRows, teamPeriod) : allRows.filter(r => r.owner === currentOwner);
+    const scopeLabel = scope === 'team' ? 'da equipe' : 'do atendente';
+    const { catCount, avgPct } = aggregateCompetencias(scopeRows);
+    const count = catCount[key] || 0;
+    const total = scopeRows.length;
+
+    const evidencing = scopeRows
+        .filter(r => r.competencias && typeof r.competencias === 'object' && Number(r.competencias[key]) > 0)
+        .map(r => ({ ticket_id: r.ticket_id, pct: Number(r.competencias[key]), text: competenciaRowText(r) }))
+        .sort((a, b) => b.pct - a.pct)
+        .slice(0, 8);
+
+    // Explica o PORQUÊ do percentual/status mostrado no card (mesmo critério de competenciaBadgeMeta)
+    const maxCat = Math.max(...PERF_CATEGORIES.map(x => (catCount[x.key]||0)), 1);
+    const relPct = count > 0 ? Math.round((count / maxCat) * 100) : 0;
+    const { badgeLabel } = competenciaBadgeMeta(relPct, count);
+    const topCat = PERF_CATEGORIES.reduce((top, x) => (catCount[x.key]||0) > (catCount[top.key]||0) ? x : top, PERF_CATEGORIES[0]);
+    const rawPct = total ? Math.round((count / total) * 100) : 0;
+
+    const explanation = count === 0
+        ? `Nenhum chamado ${scopeLabel} apresentou evidência desta competência até agora, por isso o status é "—".`
+        : `Identificada em ${count} de ${total} chamado${total!==1?'s':''} (${rawPct}% do total), com intensidade média de ${avgPct[key]||0}% nas evidências. Isso equivale a ${relPct}% do volume da competência mais frequente ${scopeLabel} ("${topCat.label}", ${catCount[topCat.key]||0} chamado${catCount[topCat.key]!==1?'s':''}) — por isso o status foi classificado como "${badgeLabel}".`;
+
+    document.getElementById('competenciaModalIcon').textContent = c.icon || 'star';
+    document.getElementById('competenciaModalTitle').textContent = c.label;
+    document.getElementById('competenciaModalPrompt').textContent = explanation;
+
+    document.getElementById('competenciaModalStats').innerHTML = `
+        <div class="grid grid-cols-3 gap-3 mb-6">
+            <div class="bg-surface-container-low p-3 rounded-lg text-center">
+                <span class="block text-2xl font-bold text-primary">${count}</span>
+                <span class="text-xs text-on-surface-variant">de ${total} chamado${total!==1?'s':''}</span>
+            </div>
+            <div class="bg-surface-container-low p-3 rounded-lg text-center">
+                <span class="block text-2xl font-bold text-primary">${total ? Math.round((count/total)*100) : 0}%</span>
+                <span class="text-xs text-on-surface-variant">dos chamados</span>
+            </div>
+            <div class="bg-surface-container-low p-3 rounded-lg text-center">
+                <span class="block text-2xl font-bold text-primary">${avgPct[key] || 0}%</span>
+                <span class="text-xs text-on-surface-variant">intensidade média</span>
+            </div>
+        </div>`;
+
+    document.getElementById('competenciaModalEvidence').innerHTML = evidencing.length
+        ? evidencing.map(ev => `
+            <div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="font-label-md text-label-md text-primary font-bold">#${escapeHtml(String(ev.ticket_id))}</span>
+                    <span class="text-xs font-bold" style="color:${c.isNegative ? '#ef4444' : '#22c55e'}">${ev.pct}%</span>
+                </div>
+                <p class="text-xs text-on-surface-variant">${escapeHtml(ev.text.substring(0, 220))}${ev.text.length > 220 ? '…' : ''}</p>
+            </div>`).join('')
+        : '<div class="text-on-surface-variant text-sm">Nenhum chamado com evidência registrada para esta competência ainda.</div>';
+
+    toggleCompetenciaModal();
+}
+
+// Chama a IA para classificar UM lote de chamados (~15-20) e retorna { ticket_id: {chave: percentual} }
+async function classifyCompetenciasBatch(batchRows, owner, gptKey, keyByNorm) {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${gptKey}` },
+        body: JSON.stringify({
+            model: 'gpt-4o-mini', temperature: 0, max_tokens: 1600,
+            response_format: { type: 'json_object' },
+            messages: [
+                { role: 'system', content: CURADORIA_PROMPT_COMPETENCIAS },
+                { role: 'user', content: `Atendente: ${owner}\n\nCOMPETÊNCIAS: ${PERF_CATEGORIES.map(c => `${c.key}="${c.label}"`).join(' | ')}\n\nCHAMADOS:\n${batchRows.map(r => `#${r.ticket_id}: ${competenciaRowText(r).substring(0, 240)}`).join('\n')}` }
+            ]
+        })
+    });
+    const data = await resp.json();
+    const raw = data.choices?.[0]?.message?.content?.trim() || '{}';
+
+    try {
+        const usage = data.usage || {};
+        if ((usage.prompt_tokens || 0) > 0) {
+            fetch(`${API_BASE}/config/ai-usage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                body: JSON.stringify({ source: 'competencias_curadoria', model: 'gpt-4o-mini',
+                    input_tokens: usage.prompt_tokens || 0, output_tokens: usage.completion_tokens || 0,
+                    meta: { owner, batchSize: batchRows.length } })
+            }).catch(() => {});
+        }
+    } catch (_) {}
+
+    const rawResults = JSON.parse(raw).results || {};
+    const out = {};
+    batchRows.forEach(r => {
+        const rawItem = rawResults[String(r.ticket_id)] || {};
+        const remapped = {};
+        Object.entries(rawItem).forEach(([k, v]) => {
+            const real = keyByNorm[normalizeCompKey(k)];
+            const pct = Math.max(0, Math.min(100, Math.round(Number(v)) || 0));
+            if (real && pct > 0) remapped[real] = pct;
+        });
+        out[r.ticket_id] = remapped;
+    });
+    return out;
+}
+
+// Processa "chamado por chamado" (em lotes) os chamados do owner ainda sem `competencias`,
+// gravando o resultado no banco a cada lote. Chamados já processados nunca são reanalisados.
+const COMPETENCIAS_BATCH_SIZE = 15;
+async function processOwnerCompetencias(ownerRows, owner, onBatchDone) {
+    const gptKey = window._gptApiKey || null;
+    if (!gptKey) return;
+    const keyByNorm = competenciaKeyMap();
+
+    let pending = ownerRows.filter(r => !r.competencias);
+    while (pending.length) {
+        const batch = pending.slice(0, COMPETENCIAS_BATCH_SIZE);
+        const withContent = batch.filter(r => competenciaRowText(r).length > 0);
+
+        let results = {};
+        if (withContent.length) {
+            try {
+                results = await classifyCompetenciasBatch(withContent, owner, gptKey, keyByNorm);
+            } catch (e) {
+                console.warn('[AI] falha ao classificar lote de competências:', e.message);
+            }
+        }
+
+        const updates = batch.map(r => {
+            const comp = results[r.ticket_id] || {};
+            r.competencias = comp; // marca como processado mesmo vazio, evita reprocessar
+            return { ticket_id: r.ticket_id, competencias: comp };
+        });
+
+        try {
+            await fetch(`${API_BASE}/curadoria/competencias`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+                body: JSON.stringify({ updates })
+            });
+        } catch (e) {
+            console.warn('[AI] falha ao salvar competências:', e.message);
+        }
+
+        if (onBatchDone) onBatchDone();
+        pending = pending.slice(COMPETENCIAS_BATCH_SIZE);
+    }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   calcScore1000 — score 0–1000 baseado em 4 dimensões por ticket
+   ────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────
+   calcTeamBenchmarks — referências do TIME inteiro (todos os
+   owners), usadas para medir Eficiência de Atendimento de forma
+   comparativa e não circular (em vez de comparar cada colaborador
+   com a própria média, que não discrimina nada).
+   ────────────────────────────────────────────────────────────── */
+let _teamBenchmarksCache = null;
+function calcTeamBenchmarks(allRowsParam) {
+    if (_teamBenchmarksCache) return _teamBenchmarksCache;
+
+    const tempos = allRowsParam
+        .map(r => Number(r.tempo_resol_dias))
+        .filter(v => Number.isFinite(v) && v >= 0);
+    const agentes = allRowsParam
+        .map(r => Number(r.total_agente))
+        .filter(v => Number.isFinite(v) && v >= 0);
+
+    const median = (arr) => {
+        if (!arr.length) return null;
+        const sorted = [...arr].sort((a,b) => a-b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 ? sorted[mid] : (sorted[mid-1] + sorted[mid]) / 2;
+    };
+    const mean = (arr) => arr.length ? arr.reduce((s,v) => s+v, 0) / arr.length : null;
+
+    _teamBenchmarksCache = {
+        medianTempoResol: median(tempos),
+        meanTotalAgente: mean(agentes)
+    };
+    return _teamBenchmarksCache;
+}
+
+function calcScore1000(ownerRows, aiResult) {
+    if (!ownerRows || !ownerRows.length) return { score: 0, breakdown: null, metrics: null };
+
+    const positiveKeys = PERF_CATEGORIES.filter(c => !c.isNegative).map(c => c.key);
+    const totalComp    = positiveKeys.length || 1;
+
+    // Benchmarks do time inteiro (mediana de tempo de resolução, média de ações do agente)
+    const team = calcTeamBenchmarks(allRows);
+
+    // Competências detectadas pela IA (por owner)
+    const compHits = aiResult
+        ? positiveKeys.filter(k => (aiResult[k]?.count || 0) > 0).length
+        : 0;
+    const compScore = Math.round((compHits / totalComp) * 100); // 0–100
+
+    let sumTicketScores = 0;
+    let sumSat = 0, satCount = 0;
+    let sumSatScore = 0;
+    let totalGaps = 0, totalPontos = 0;
+    let openTicketsCount = 0;
+    const ticketDetails = [];
+
+    ownerRows.forEach(row => {
+        const ownerItem = row._ownerItem || {};
+        const pontos    = ownerItem.pontos || [];
+
+        // Dimensão 1 — Satisfação do cliente (peso configurável em SCORE_WEIGHTS.satisfacao)
+        // Prioriza a nota REAL da pesquisa de satisfação do Movidesk (satisfacao_pesquisa,
+        // 1-5, respondida pelo próprio cliente) sobre a estimativa da IA (satisfacao, 1-10,
+        // lida a partir do texto da conversa) — só cai pra estimativa quando o cliente não
+        // respondeu a pesquisa daquele chamado. Sem isso, um atendente com 132 respostas
+        // "Ótimo" e só 22 "Bom" não tinha essa distribuição real refletida na pontuação.
+        const notaReal = Number(row.satisfacao_pesquisa) || 0;
+        const sat = Number(row.satisfacao) || 0;
+        const satScore = notaReal > 0
+            ? Math.round((notaReal / 5) * 100)
+            : (sat > 0 ? Math.round((sat / 10) * 100) : 50); // neutro se não há nem pesquisa nem estimativa
+        if (notaReal > 0) { sumSat += notaReal * 2; satCount++; } // *2 pra manter a mesma escala 0-10 da estimativa da IA
+        else if (sat > 0) { sumSat += sat; satCount++; }
+        sumSatScore += satScore;
+
+        // Dimensão 2 — Eficiência de Atendimento (peso configurável em SCORE_WEIGHTS.eficiencia)
+        // 50% velocidade (tempo_resol_dias vs mediana do time) + 50% dedicação (total_agente vs média do time)
+        const tempoTicket = Number(row.tempo_resol_dias);
+        let velocidadeScore = 50; // neutro se sem dado
+        if (Number.isFinite(tempoTicket) && team.medianTempoResol != null && team.medianTempoResol > 0) {
+            // mais rápido que a mediana = score alto (até 100); mais lento = score cai proporcionalmente
+            velocidadeScore = Math.max(0, Math.min(100, Math.round((team.medianTempoResol / Math.max(tempoTicket, 0.1)) * 50)));
+        }
+
+        const totalAgenteTicket = Number(row.total_agente);
+        let dedicacaoScore = 50; // neutro se sem dado
+        if (Number.isFinite(totalAgenteTicket) && team.meanTotalAgente != null && team.meanTotalAgente > 0) {
+            // próximo ou acima da média do time = bom engajamento (cap 100); muito abaixo = atendimento raso
+            dedicacaoScore = Math.max(0, Math.min(100, Math.round((totalAgenteTicket / team.meanTotalAgente) * 70)));
+        }
+        const volScore = Math.round(velocidadeScore * 0.5 + dedicacaoScore * 0.5);
+
+        // Dimensão 3 — Pontos positivos vs gaps (peso configurável em SCORE_WEIGHTS.pontos)
+        const positivos = pontos.filter(p =>
+            !/não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(p)
+        ).length;
+        const gaps = pontos.length - positivos;
+        totalGaps += gaps;
+        totalPontos += pontos.length;
+        const posScore = pontos.length > 0
+            ? Math.round((positivos / pontos.length) * 100)
+            : 50;
+
+        // Ticket "em aberto" — status não finalizado (proxy disponível nos dados)
+        const statusLower = String(row.status || '').toLowerCase();
+        if (statusLower && !/fechad|resolvid|encerrad|finalizad|cancelad/i.test(statusLower)) {
+            openTicketsCount++;
+        }
+
+        const rawScore =
+            satScore * SCORE_WEIGHTS.satisfacao +
+            volScore * SCORE_WEIGHTS.eficiencia +
+            posScore * SCORE_WEIGHTS.pontos +
+            compScore * SCORE_WEIGHTS.competencias;
+
+        const penalty  = gaps * 5;
+        const ticketScore = Math.max(0, Math.round(rawScore - penalty));
+
+        sumTicketScores += ticketScore;
+        ticketDetails.push({ id: row.ticket_id, ticketScore, satScore, volScore, posScore, gaps, penalty });
+    });
+
+    const avgTicket = ownerRows.length > 0 ? sumTicketScores / ownerRows.length : 0;
+    const score = Math.min(1000, Math.round(avgTicket * 10));
+
+    // Métricas agregadas para classificação de senioridade (baseado nos entregáveis Viasoft)
+    const avgSatisfaction = satCount > 0 ? Math.round((sumSat / satCount) * 10) : null; // % (0-100)
+    const firstContactRate = totalPontos > 0 ? Math.round(((totalPontos - totalGaps) / totalPontos) * 100) : null; // % proxy
+    const avgVolScore = ticketDetails.length
+        ? Math.round(ticketDetails.reduce((s,t) => s + t.volScore, 0) / ticketDetails.length)
+        : 50;
+    const avgSatScore = ownerRows.length > 0 ? Math.round(sumSatScore / ownerRows.length) : 50;
+
+    return {
+        score,
+        breakdown: { compScore, compHits, totalComp, avgVolScore, avgSatScore, medianTempoResolTeam: team.medianTempoResol, meanTotalAgenteTeam: team.meanTotalAgente },
+        ticketDetails,
+        metrics: {
+            avgSatisfaction,        // % satisfação (proxy do entregável "Satisfação >= 95%")
+            firstContactRate,       // % proxy do entregável "1º contato >= 90/98%"
+            openTicketsCount,       // proxy do entregável "tickets abertos <= 8"
+            avgOpenTicketsRef: team.meanTotalAgente != null ? Math.round(team.meanTotalAgente * 10) / 10 : null,
+            totalGaps,
+            avgScorePerTicket: Math.round(avgTicket * 10) / 10
+        }
+    };
+}
+
+/* ──────────────────────────────────────────────────────────────
+   classifySeniority — baseado nos entregáveis oficiais Viasoft
+   (Descrições de cargo v10: Analista de Suporte JR/PL/SR e
+   Especialista em Suporte). Sem data de admissão disponível,
+   a classificação usa exclusivamente entregáveis mensuráveis.
+   ────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────
+   classifySeniority — classificação baseada DIRETO no score final
+   0-1000, que já combina as 4 dimensões (satisfação 35%, eficiência
+   25%, pontos positivos/gaps 25%, competências 15%). Faixas
+   calibradas para corresponder aos entregáveis oficiais das
+   descrições de cargo Viasoft (Analista de Suporte JR/PL/SR e
+   Especialista em Suporte).
+   ────────────────────────────────────────────────────────────── */
+function classifySeniority(metrics, totalTickets, score) {
+    if (!metrics || totalTickets === 0) {
+        return { label: 'Sem dados', reason: 'Nenhum registro encontrado para avaliação.' };
+    }
+
+    // Amostra mínima para classificação confiável
+    if (totalTickets < 5) {
+        return { label: 'Em avaliação', reason: `Apenas ${totalTickets} chamado(s) — amostra insuficiente para classificação de senioridade.` };
+    }
+
+    const s = Number(score) || 0;
+    const sat = metrics.avgSatisfaction;
+    const fcr = metrics.firstContactRate;
+
+    const detalhe = [
+        sat !== null ? `satisfação ${sat}%` : null,
+        fcr !== null ? `1º contato ${fcr}%` : null,
+    ].filter(Boolean).join(', ');
+
+    if (s >= 800) {
+        return { label: 'Especialista', reason: `Score ${s}/1000 combina satisfação, eficiência, qualidade de atendimento e competências no padrão de Especialista em Suporte${detalhe ? ` (${detalhe})` : ''}.` };
+    }
+    if (s >= 650) {
+        return { label: 'Sênior', reason: `Score ${s}/1000 reflete maturidade técnica e comunicativa consistente, compatível com Analista de Suporte SR${detalhe ? ` (${detalhe})` : ''}.` };
+    }
+    if (s >= 450) {
+        return { label: 'Pleno', reason: `Score ${s}/1000 indica execução sólida no atendimento, dentro do esperado para Analista de Suporte PL${detalhe ? ` (${detalhe})` : ''}.` };
+    }
+    if (s >= 250) {
+        return { label: 'Júnior', reason: `Score ${s}/1000 compatível com Analista de Suporte JR${detalhe ? ` (${detalhe})` : ''}. Há espaço de evolução nas dimensões avaliadas (satisfação, eficiência, qualidade de atendimento e competências).` };
+    }
+    return { label: 'Em desenvolvimento', reason: `Score ${s}/1000 está abaixo do mínimo esperado para o cargo de Analista de Suporte JR${detalhe ? ` (${detalhe})` : ''}. Recomenda-se atenção nas dimensões avaliadas.` };
+}
+
+/* ──────────────────────────────────────────────────────────────
+   calcMonthlyScoreHistory — agrupa os tickets de um owner por
+   mês (com base em aberto_em, data real de abertura do chamado)
+   e calcula o score 0–1000 + senioridade de cada mês.
+   Não depende de IA (compScore fica neutro/0 no histórico mensal,
+   pois rodar IA retroativa por mês teria custo desproporcional).
+   ────────────────────────────────────────────────────────────── */
+function calcMonthlyScoreHistory(ownerRows, aiResult) {
+    if (!ownerRows || !ownerRows.length) return [];
+
+    const byMonth = new Map(); // 'YYYY-MM' -> rows[]
+
+    ownerRows.forEach(row => {
+        const dateStr = row.aberto_em;
+        if (!dateStr) return;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        if (!byMonth.has(key)) byMonth.set(key, []);
+        byMonth.get(key).push(row);
+    });
+
+    const months = [...byMonth.keys()].sort(); // cronológico (YYYY-MM ordena bem como string)
+
+    return months.map(monthKey => {
+        const monthRows = byMonth.get(monthKey);
+        // aiResult vem da análise de competências feita sobre TODOS os tickets do
+        // colaborador (característica dele como um todo) — aplicado igualmente
+        // em cada mês, em vez de recalculado por período.
+        const sd = calcScore1000(monthRows, aiResult || null);
+        const seniority = classifySeniority(sd.metrics, monthRows.length, sd.score);
+        const [y, m] = monthKey.split('-');
+        return {
+            monthKey,
+            year: Number(y),
+            month: Number(m),
+            score: sd.score,
+            totalTickets: monthRows.length,
+            seniorityLabel: seniority.label,
+            seniorityReason: seniority.reason,
+            metrics: sd.metrics
+        };
+    });
+}
+
+function analysePerformance(rows, owner) {
+    const ownerNorm = normalizeOwnerName(owner), ownerFirst = ownerNorm.split(' ')[0];
+    let totalTickets = 0, totalAcoes = 0, maxAcoes = 0;
+    const urgenciaCount = {}, urgenciaTickets = {}, catCount = {};
+    PERF_CATEGORIES.forEach(c => catCount[c.key] = 0); catCount.outros = 0;
+    const positiveByTicket = new Map(), gapByTicket = new Map();
+    const addEv = (map, tid, label, reason) => {
+        const key = String(tid || '—');
+        if (!map.has(key)) map.set(key, { ticketId: key, categories: new Set(), reasons: [], reasonKeys: new Set() });
+        const e = map.get(key); if (label) e.categories.add(label);
+        const rk = String(reason || '').toLowerCase().trim();
+        if (rk && !e.reasonKeys.has(rk) && e.reasons.length < 3) { e.reasonKeys.add(rk); e.reasons.push(String(reason || '').trim()); }
+    };
+    const ownerRows = [];
+    rows.forEach(row => {
+        // Tenta extrair ownerItem de performance_suporte, mas NÃO pula o ticket se o campo estiver vazio.
+        // O score usa satisfacao, tempo_resol_dias e total_agente que existem independentemente.
+        let ownerItem = null;
+        const raw = row.performance_suporte;
+        if (raw) {
+            try {
+                const perf = typeof raw === 'object' ? raw : JSON.parse(raw);
+                const items = Array.isArray(perf?.items) ? perf.items : [];
+                ownerItem = items.find(item => { const n = normalizeOwnerName(item.nome || ''); return n === ownerNorm || n.includes(ownerFirst) || ownerNorm.includes(n.split(' ')[0]); }) || null;
+            } catch (_) {}
+        }
+
+        totalTickets++;
+        let acoes = ownerItem ? (ownerItem.ids || []).length : 0;
+        if (!acoes) acoes = Number(row.total_agente) || 0; // fallback quando performance_suporte está vazio
+        totalAcoes += acoes; if (acoes > maxAcoes) maxAcoes = acoes;
+        const urg = String(row.urgencia || '').trim() || 'Sem urgência';
+        urgenciaCount[urg] = (urgenciaCount[urg] || 0) + 1;
+        if (!urgenciaTickets[urg]) urgenciaTickets[urg] = [];
+        urgenciaTickets[urg].push({ id: row.ticket_id, row });
+        ownerRows.push({ ...row, _ownerItem: ownerItem || {} });
+        if (ownerItem) {
+            (ownerItem.pontos || []).forEach(ponto => {
+                const isNeg = /não consegui|falta de retorno|sem solu[çc]|encerr.*sem|não resolveu|aus[eê]n/i.test(ponto);
+                if (isNeg) { addEv(gapByTicket, row.ticket_id, '', ponto); }
+                else { addEv(positiveByTicket, row.ticket_id, '', ponto); }
+            });
+        }
+    });
+    const norm = (map, limit = 5) => [...map.values()].map(item => ({ ticketId: item.ticketId, categories: [...item.categories], reasons: item.reasons, score: item.reasons.length + item.categories.length })).sort((a, b) => b.score - a.score).slice(0, limit);
+    const positiveEvidence = norm(positiveByTicket, 5), gapEvidence = norm(gapByTicket, 5);
+    // Listas pra exibição: a IA gera uma frase nova por chamado, então o mesmo tipo de lacuna/acerto
+    // (ex: "encerrou sem retorno do cliente") aparece com palavras diferentes em cada ticket. Agrupa
+    // por similaridade de palavras-chave antes de mostrar, senão a lista vira a mesma coisa repetida.
+    const positiveEvidenceDisplay = dedupeSimilarEvidence(norm(positiveByTicket, 20), 5);
+    const gapEvidenceDisplay = dedupeSimilarEvidence(norm(gapByTicket, 20), 5);
+    const diffScore  = PERF_CATEGORIES.filter(c =>  c.isNegative).reduce((s, c) => s + (catCount[c.key] || 0), 0);
+    const totalPositive = PERF_CATEGORIES.filter(c => !c.isNegative).reduce((s, c) => s + (catCount[c.key] || 0), 0);
+
+    // Score provisório sem IA (será atualizado pelo enrichPerformanceCardWithAI)
+    const scoreData = calcScore1000(ownerRows, null);
+
+    // Classificação de senioridade baseada nos entregáveis oficiais Viasoft
+    // (Descrições de cargo v10 — Analista de Suporte JR/PL/SR, Especialista em Suporte)
+    const seniority = classifySeniority(scoreData.metrics, totalTickets, scoreData.score);
+    const verdictLabel = seniority.label;
+    const verdict = seniority.reason;
+
+    return { totalTickets, totalAcoes, mediaAcoes: totalTickets ? (totalAcoes / totalTickets).toFixed(1) : '0', maxAcoes, urgenciaCount, urgenciaTickets, catCount, positiveEvidence, gapEvidence, positiveEvidenceDisplay, gapEvidenceDisplay, verdictLabel, verdict, ownerRows, scoreData };
+}
+
+// Palavras muito comuns em português que não ajudam a diferenciar o significado de uma frase
+const EVIDENCE_STOPWORDS = new Set(['de','a','o','e','do','da','em','um','uma','para','com','que','apos','por','os','as','ao','no','na','se','sem','foi','ser','ter','ate','mas','ou','the']);
+function evidenceKeywords(text) {
+    return String(text || '')
+        .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !EVIDENCE_STOPWORDS.has(w));
+}
+// Agrupa evidências (uma por chamado) que descrevem o mesmo padrão de comportamento com palavras
+// diferentes — se 60%+ das palavras-chave batem, é a mesma lacuna/acerto contada de novo.
+function dedupeSimilarEvidence(evidenceList, limit = 5) {
+    const groups = [];
+    evidenceList.forEach(ev => {
+        const reason = ev.reasons?.[0] || '';
+        if (!reason) return;
+        const words = new Set(evidenceKeywords(reason));
+        // Compara com o vocabulário ACUMULADO do grupo (não só com o 1º item) — senão duas frases
+        // que só se parecem "em cadeia" (A~B, B~C, mas A não bate direto com C) viram grupos separados.
+        const match = groups.find(g => {
+            if (!words.size) return false;
+            const overlap = [...words].filter(w => g.words.has(w)).length;
+            return overlap / words.size >= 0.5;
+        });
+        if (match) {
+            match.count++; match.ticketIds.push(ev.ticketId);
+            words.forEach(w => match.words.add(w));
+        } else {
+            groups.push({ reason, words, count: 1, ticketIds: [ev.ticketId] });
+        }
+    });
+    return groups.sort((a, b) => b.count - a.count).slice(0, limit);
+}
+
+// Deriva cor/selo a partir do % relativo à competência mais frequente do owner
+// (compartilhado pelo card e pelo modal de explicação, para manter o mesmo critério)
+function competenciaBadgeMeta(pct, count) {
+    if (pct >= 80)      return { accentColor:'#22c55e', bgColor:'rgba(34,197,94,0.08)',   badgeLabel:'Destaque' };
+    if (pct >= 50)      return { accentColor:'#f59e0b', bgColor:'rgba(245,158,11,0.08)',  badgeLabel:'Bom' };
+    if (pct >= 25)      return { accentColor:'#f97316', bgColor:'rgba(249,115,22,0.08)',  badgeLabel:'Regular' };
+    if (count > 0)      return { accentColor:'#6366f1', bgColor:'rgba(99,102,241,0.08)',  badgeLabel:'Baixo' };
+    return { accentColor:'rgba(148,163,184,0.4)', bgColor:'rgba(148,163,184,0.04)', badgeLabel:'—' };
+}
+
+// Enriquece o card com dados da IA após renderização inicial
+// ── Renderiza cards de competências (compartilhado pelo render inicial e pelo enrich da IA)
+function renderSingleCompCard(c, idx, catCount, aiResult, isLoading, scope = 'owner') {
+    const count = catCount[c.key] || 0;
+    const maxCat = Math.max(...PERF_CATEGORIES.map(x => (catCount[x.key]||0)), 1);
+    const pct = count > 0 ? Math.round((count / maxCat) * 100) : 0;
+    const { accentColor, bgColor, badgeLabel } = competenciaBadgeMeta(pct, count);
+    const avgPct = !isLoading ? (aiResult?.[c.key]?.avgPct || 0) : 0;
+    const evidenceHtml = (avgPct > 0)
+        ? `<span class="comp-card-evidence" title="Intensidade média das evidências neste conjunto de chamados">Intensidade média: ${avgPct}%</span>`
+        : '';
+    const overlayHtml = isLoading
+        ? `<div class="comp-card-overlay"><div class="comp-card-spinner"></div></div>`
+        : '';
+    const doneClass = !isLoading ? ' comp-card--done' : '';
+    const clickAttr = !isLoading ? ` onclick="showCompetenciaModal('${escapeHtml(c.key)}','${scope}')"` : '';
+    return `<div class="comp-card${doneClass}" data-comp-key="${escapeHtml(c.key)}" style="--accent:${accentColor};--bg:${bgColor};animation-delay:${idx*60}ms;${!isLoading ? 'cursor:pointer' : ''}"${clickAttr}>
+        ${overlayHtml}
+        <div class="comp-card-header">
+            <div class="comp-card-icon-wrap">
+                <span class="material-symbols-outlined comp-card-icon">${c.icon||'star'}</span>
+            </div>
+            <div class="comp-card-title-group">
+                <span class="comp-card-label">${escapeHtml(c.label)}</span>
+                <span class="comp-card-desc">${escapeHtml(c.description||'')}</span>
+            </div>
+            <div class="comp-card-badge" style="color:${accentColor};border-color:${accentColor}30;background:${bgColor}">${isLoading ? '…' : badgeLabel}</div>
+        </div>
+        <div class="comp-card-bar-row">
+            <div class="comp-card-bar-track">
+                <div class="comp-card-bar-fill" style="width:0%;background:${accentColor}" ${!isLoading ? `data-bar-width="${pct}"` : ''}></div>
+            </div>
+            <span class="comp-card-pct" style="color:${accentColor}">${!isLoading && count > 0 ? pct+'%' : '—'}</span>
+        </div>
+        <div class="comp-card-footer">
+            <span class="comp-card-count">${count > 0 ? count+' chamado'+(count!==1?'s':'') : 'não identificado'}</span>
+            ${evidenceHtml}
+        </div>
+    </div>`;
+}
+
+function renderCompCards(catCount, aiResult) {
+    const sorted = [...PERF_CATEGORIES].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
+    return sorted.map((c, idx) => renderSingleCompCard(c, idx, catCount, aiResult, false)).join('');
+}
+
+
+async function enrichPerformanceCardWithAI(containerId, ownerRows, owner, catCount) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const barsEl = container.querySelector('.perf-competencia-bars');
+    if (!barsEl) return;
+    const sectionBadge = container.querySelector('.comp-section-badge');
+
+    // Monta o objeto no formato esperado por calcScore1000/refreshScoreCard/renderSingleCompCard
+    // a partir do que já está gravado na coluna `competencias` de cada chamado.
+    function buildAiResult() {
+        const { catCount: cc, avgPct } = aggregateCompetencias(ownerRows);
+        Object.assign(catCount, cc);
+        const result = {};
+        PERF_CATEGORIES.forEach(c => { result[c.key] = { count: cc[c.key] || 0, avgPct: avgPct[c.key] || 0, evidence: [] }; });
+        return result;
+    }
+
+    // Revela os cards finais (com contagens já agregadas) e anima as barras
+    async function renderFinal(aiResult) {
+        const sortedFinal = [...PERF_CATEGORIES].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
+        for (let i = 0; i < sortedFinal.length; i++) {
+            const c = sortedFinal[i];
+            await new Promise(r => setTimeout(r, 80 + i * 70));
+            const cardEl = barsEl.querySelector(`[data-comp-key="${CSS.escape(c.key)}"]`);
+            if (!cardEl) continue;
+            cardEl.outerHTML = renderSingleCompCard(c, i, catCount, aiResult, false);
+            const updatedCard = barsEl.querySelector(`[data-comp-key="${CSS.escape(c.key)}"]`);
+            const barFill = updatedCard?.querySelector('[data-bar-width]');
+            if (barFill) requestAnimationFrame(() => { barFill.style.width = barFill.dataset.barWidth + '%'; });
+        }
+        // Nº de chamados com pelo menos 1 competência identificada (não a soma entre categorias,
+        // que conta o mesmo chamado várias vezes quando ele demonstra mais de uma competência)
+        const comEvidencia = ownerRows.filter(r => r.competencias && typeof r.competencias === 'object' && Object.keys(r.competencias).length > 0).length;
+        if (sectionBadge) sectionBadge.textContent = comEvidencia > 0
+            ? `${comEvidencia} de ${ownerRows.length} chamados com competência identificada`
+            : 'IA não identificou competências nos textos';
+        refreshScoreCard(owner, ownerRows, aiResult);
+    }
+
+    const pending = ownerRows.filter(r => !r.competencias);
+
+    if (!pending.length) {
+        // Todos os chamados já foram classificados antes — só agrega, sem chamar a IA de novo.
+        const sorted = [...PERF_CATEGORIES].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
+        barsEl.innerHTML = sorted.map((c, idx) => renderSingleCompCard(c, idx, catCount, null, true)).join('');
+        await renderFinal(buildAiResult());
+        return;
+    }
+
+    if (!window._gptApiKey) {
+        // Sem chave GPT configurada — não há como classificar os chamados pendentes.
+        const sorted = [...PERF_CATEGORIES].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
+        barsEl.innerHTML = sorted.map((c, idx) => renderSingleCompCard(c, idx, catCount, null, false)).join('');
+        if (sectionBadge) sectionBadge.textContent = 'Configure a chave da IA para analisar competências';
+        return;
+    }
+
+    // Primeira vez com chamados pendentes: mostra loading em todos os cards enquanto
+    // processa "chamado por chamado" (em lotes) e grava o resultado no banco.
+    const sortedLoading = [...PERF_CATEGORIES].sort((x,y) => (catCount[y.key]||0) - (catCount[x.key]||0));
+    barsEl.innerHTML = sortedLoading.map((c, idx) => renderSingleCompCard(c, idx, catCount, null, true)).join('');
+    if (sectionBadge) sectionBadge.innerHTML = `<span class="comp-ai-pulse">Analisando ${pending.length} chamado${pending.length!==1?'s':''}...</span>`;
+
+    await processOwnerCompetencias(ownerRows, owner, () => {
+        const remaining = ownerRows.filter(r => !r.competencias).length;
+        if (sectionBadge && remaining) {
+            sectionBadge.innerHTML = `<span class="comp-ai-pulse">Analisando... faltam ${remaining} chamado${remaining!==1?'s':''}</span>`;
+        }
+    });
+
+    await renderFinal(buildAiResult());
+}
+
+/* ── Owner Strip ──────────────────────────────────────────────── */
+function uniqueOwners(rows) {
+    const seen=new Set(),list=[];
+    rows.forEach(row=>{const name=String(row.owner||'').trim(),team=String(row.owner_team||'').trim();if(name&&!seen.has(name.toLowerCase())){seen.add(name.toLowerCase());list.push({name,team});}});
+    return list.sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+}
+function renderOwnerStrip(rows,filtered) {
+    const strip=document.getElementById('ownerStrip');
+    const owners=filtered!==undefined?filtered:uniqueOwners(rows);
+    if(!owners.length){strip.innerHTML='<div class="text-sm text-on-surface-variant py-2">Nenhum owner encontrado.</div>';return;}
+    strip.innerHTML=owners.map(owner=>{
+        const isSel=owner.name===currentOwner;
+        const initials=owner.name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+        const teamShort=owner.team?owner.team.replace(/\s*-\s*(Sup(orte)?|Sis(temas)?).*/i,'').trim():'';
+        return `<div class="flex flex-col items-center gap-1.5 cursor-pointer group transition-all duration-150 w-[88px] shrink-0 px-1 pt-1 pb-2 rounded-xl ${isSel?'bg-secondary/10 dark:bg-secondary/20':'hover:bg-surface-container'}"
+            data-owner="${escapeHtml(owner.name)}" onclick="selectOwner('${escapeHtml(owner.name)}')"
+            title="${escapeHtml(owner.name)}${owner.team?' · '+escapeHtml(owner.team):''}">
+            <div class="relative">
+                <div class="w-14 h-14 rounded-full ${isSel?'ring-2 ring-secondary ring-offset-1 ring-offset-background':'ring-1 ring-outline-variant/40'} transition-all group-hover:scale-105">
+                    <img class="w-full h-full rounded-full object-cover" src="${escapeHtml(photoByName(owner.name))}" alt="${escapeHtml(initials)}" loading="lazy">
+                </div>
+                ${isSel?'<span class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-secondary rounded-full ring-1 ring-background"></span>':''}
+            </div>
+            <span class="text-[11px] font-semibold leading-tight text-center w-full line-clamp-2 min-h-[28px] ${isSel?'text-secondary':'text-on-surface group-hover:text-on-surface'}">${escapeHtml(owner.name)}</span>
+            ${teamShort?`<span class="text-[9px] leading-none text-center w-full truncate text-on-surface-variant/60 dark:text-on-surface-variant/50" title="${escapeHtml(owner.team)}">${escapeHtml(teamShort)}</span>`:''}
+        </div>`;
+    }).join('');
+}
+
+/* ── Card templates ───────────────────────────────────────────── */
+function renderOwnerCard(owner, rows=[]) {
+    const ownerRow=rows.find(r=>r.owner===owner);
+    const equipe=ownerRow?String(ownerRow.owner_team||'Squad Enterprise').trim():'Squad Enterprise';
+    return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow flex flex-col items-center text-center">
+        <div class="relative mb-4"><img class="w-32 h-32 rounded-full object-cover border-4 border-surface-container" src="${escapeHtml(photoByName(owner))}" alt="${escapeHtml(owner)}"></div>
+        <h2 class="font-headline-lg text-headline-lg text-primary mb-1">${escapeHtml(owner)}</h2>
+        <p class="font-body-md text-body-md text-on-surface-variant mb-6">Agente de Suporte • ${escapeHtml(equipe)}</p>
+    </div>`;
+}
+function renderFocusCard(owner, rows) {
+    const ownerRows=rows.filter(r=>r.owner===owner);
+    const causaCount={};ownerRows.forEach(row=>{const c=String(row.causa||'Não especificado').trim();causaCount[c]=(causaCount[c]||0)+1;});
+    const causaEntries=Object.entries(causaCount).sort((a,b)=>b[1]-a[1]);
+    const causaMais=causaEntries[0];
+    const causaOnclick = causaMais
+        ? `showCausaModal(${JSON.stringify(causaEntries).replace(/"/g,'&quot;')}, '${escapeHtml(owner)}')`
+        : '';
+    const moduloCount={};ownerRows.forEach(row=>{const m=String(row.modulo_x_rotina||'Sem módulo').trim();moduloCount[m]=(moduloCount[m]||0)+1;});
+    const moduloEntries=Object.entries(moduloCount).sort((a,b)=>b[1]-a[1]);
+    const moduloMais=moduloEntries[0];
+    const moduloOnclick = moduloMais
+        ? `showModuloModal(${JSON.stringify(moduloEntries).replace(/"/g,'&quot;')}, '${escapeHtml(owner)}')`
+        : '';
+    return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-6">Foco de Atendimento</h3>
+        <div class="space-y-6">
+            <div class="flex gap-4 items-start ${causaMais?'cursor-pointer group':''}" ${causaMais?`onclick="${causaOnclick}"`:''} title="${causaMais?'Ver todas as causas atendidas':''}">
+                <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-blue-600">help</span></div>
+                <div>
+                    <span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Causa Mais Atendida</span>
+                    <span class="font-body-md text-body-md text-primary font-semibold ${causaMais?'group-hover:underline':''}">${causaMais?escapeHtml(causaMais[0]):'Sem dados'}</span>
+                </div>
+            </div>
+            <div class="flex gap-4 items-start ${moduloMais?'cursor-pointer group':''}" ${moduloMais?`onclick="${moduloOnclick}"`:''} title="${moduloMais?'Ver todos os módulos atendidos':''}">
+                <div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-yellow-600">dashboard</span></div>
+                <div>
+                    <span class="font-label-md text-label-md text-on-surface-variant uppercase block text-xs mb-1">Módulo Mais Atendido</span>
+                    <span class="font-body-md text-body-md text-primary font-semibold ${moduloMais?'group-hover:underline':''}">${moduloMais?escapeHtml(moduloMais[0]):'Sem dados'}</span>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function toggleModuleListModal() { document.getElementById('moduleListModal').classList.toggle('hidden'); }
+
+// Abre o modal com a lista completa de um agrupamento (módulo ou causa) atendido por um
+// atendente e a quantidade de chamados vinculados a cada item — não só o "mais atendido"
+// mostrado no card. showModuloModal/showCausaModal só fixam o rótulo e a cor da barra.
+function showFocusBreakdownModal(entries, ownerName, { title, itemLabel, color }) {
+    const total = entries.reduce((s, [, count]) => s + count, 0);
+    const maxCount = Math.max(...entries.map(([, count]) => count), 1);
+
+    document.getElementById('moduleListModalTitle').textContent = `${title} — ${ownerName}`;
+    document.getElementById('moduleListModalSubtitle').textContent =
+        `${entries.length} ${itemLabel}${entries.length !== 1 ? 's' : ''} diferente${entries.length !== 1 ? 's' : ''} · ${total} chamado${total !== 1 ? 's' : ''} no total`;
+
+    document.getElementById('moduleListModalContent').innerHTML = entries.map(([name, count]) => {
+        const pct = Math.round((count / total) * 100);
+        const barPct = Math.max(4, Math.round((count / maxCount) * 100));
+        return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
+            <div class="flex justify-between items-center mb-1.5 gap-3">
+                <span class="text-sm font-semibold truncate">${escapeHtml(name)}</span>
+                <span class="text-sm font-bold text-primary shrink-0">${count} (${pct}%)</span>
+            </div>
+            <div class="h-2 rounded-r bg-surface-container overflow-hidden">
+                <div class="h-full rounded-r" style="width:${barPct}%;background:${color}"></div>
+            </div>
+        </div>`;
+    }).join('');
+
+    toggleModuleListModal();
+}
+
+function showModuloModal(entries, ownerName) {
+    showFocusBreakdownModal(entries, ownerName, { title: 'Módulos Atendidos', itemLabel: 'módulo', color: '#f59e0b' });
+}
+
+function showCausaModal(entries, ownerName) {
+    showFocusBreakdownModal(entries, ownerName, { title: 'Causas Atendidas', itemLabel: 'causa', color: '#3b82f6' });
+}
+// Nota REAL do cliente (pesquisa de satisfação Movidesk) — diferente de `satisfacao`,
+// que é a estimativa da IA lendo a conversa. Ver server/routes/curadoria.js (survey/sync).
+const SURVEY_NOTA_LABELS = { 5: 'Ótimo', 4: 'Bom', 3: 'Neutro', 2: 'Ruim', 1: 'Péssimo' };
+
+function toggleSatisfactionModal() { document.getElementById('satisfactionModal').classList.toggle('hidden'); }
+
+function toggleCommentDetailModal() { document.getElementById('commentDetailModal').classList.toggle('hidden'); }
+
+// Abre o modal com o comentário completo da pesquisa de satisfação de UM chamado —
+// texto integral (sem truncar), quem respondeu (solicitante do chamado) e as datas
+// relevantes (resposta da pesquisa, abertura e resolução do chamado).
+function showCommentDetailModal(ticketId) {
+    const r = allRows.find(row => String(row.ticket_id) === String(ticketId));
+    if (!r) return;
+
+    const nota = Number(r.satisfacao_pesquisa);
+    const color = nota >= 4 ? '#22c55e' : nota === 3 ? '#f59e0b' : '#ef4444';
+    const fmtDate = (v) => v ? new Date(v).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'sem data';
+
+    document.getElementById('commentDetailTicketId').textContent = `#${r.ticket_id}`;
+    const badge = document.getElementById('commentDetailNotaBadge');
+    badge.textContent = SURVEY_NOTA_LABELS[nota] || `Nota ${nota}`;
+    badge.style.color = color;
+    badge.style.backgroundColor = `${color}1a`;
+    document.getElementById('commentDetailServico').textContent = r.servico ? `Serviço: ${r.servico}` : '';
+
+    document.getElementById('commentDetailMeta').innerHTML = `
+        <div><span class="text-on-surface-variant text-xs uppercase block">Escrito por</span><span class="font-semibold">${escapeHtml(r.solicitante || 'Não identificado')}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Atendente</span><span class="font-semibold">${escapeHtml(r.owner || '—')}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Respondido em</span><span class="font-semibold">${escapeHtml(fmtDate(r.satisfacao_pesquisa_respondido_em))}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Chamado aberto em</span><span class="font-semibold">${escapeHtml(fmtDate(r.aberto_em))}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Chamado resolvido em</span><span class="font-semibold">${escapeHtml(fmtDate(r.resolvido_em))}</span></div>
+        <div><span class="text-on-surface-variant text-xs uppercase block">Organização</span><span class="font-semibold">${escapeHtml(r.organizacao || '—')}</span></div>
+    `;
+
+    document.getElementById('commentDetailFullText').textContent = String(r.satisfacao_pesquisa_comentario || '');
+
+    toggleCommentDetailModal();
+}
+
+// Abre o modal com os chamados que tiraram uma nota específica na pesquisa de satisfação
+function showSatisfactionModal(nota, ownerName) {
+    const matching = allRows
+        .filter(r => r.owner === ownerName && Number(r.satisfacao_pesquisa) === nota)
+        .sort((a, b) => String(b.satisfacao_pesquisa_respondido_em || '').localeCompare(String(a.satisfacao_pesquisa_respondido_em || '')));
+
+    document.getElementById('satisfactionModalTitle').textContent = SURVEY_NOTA_LABELS[nota] || `Nota ${nota}`;
+    document.getElementById('satisfactionModalSubtitle').textContent =
+        `${matching.length} chamado${matching.length !== 1 ? 's' : ''} com essa avaliação`;
+
+    document.getElementById('satisfactionModalList').innerHTML = matching.length
+        ? matching.map(r => {
+            const respondidoEm = r.satisfacao_pesquisa_respondido_em
+                ? new Date(r.satisfacao_pesquisa_respondido_em).toLocaleDateString('pt-BR')
+                : '';
+            const comentarioTexto = r.satisfacao_pesquisa_comentario ? String(r.satisfacao_pesquisa_comentario) : '';
+            const comentario = comentarioTexto
+                ? `<span class="text-xs text-on-surface-variant italic truncate" title="${escapeHtml(comentarioTexto)}">"${escapeHtml(comentarioTexto.substring(0, 80))}${comentarioTexto.length > 80 ? '…' : ''}"</span>`
+                : '';
+            return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="font-label-md text-label-md text-primary font-bold shrink-0">#${escapeHtml(String(r.ticket_id))}</span>
+                    ${comentario}
+                </div>
+                <span class="text-xs text-on-surface-variant shrink-0">${escapeHtml(respondidoEm)}</span>
+            </div>`;
+        }).join('')
+        : '<p class="text-on-surface-variant text-sm">Nenhum chamado encontrado.</p>';
+
+    toggleSatisfactionModal();
+}
+// Evolução mês a mês da nota REAL de satisfação (agrupa por aberto_em, igual aos outros
+// gráficos mensais desta tela). Só faz sentido mostrar "evolução" com 2+ meses de dados.
+function buildMonthlySatisfactionHistory(ownerRows) {
+    const byMonth = new Map();
+    ownerRows.forEach(r => {
+        if (r.satisfacao_pesquisa == null || r.satisfacao_pesquisa === '' || !r.aberto_em) return;
+        const d = new Date(r.aberto_em);
+        if (isNaN(d.getTime())) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!byMonth.has(key)) byMonth.set(key, []);
+        byMonth.get(key).push(Number(r.satisfacao_pesquisa));
+    });
+    return [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, notas]) => {
+        const [year, month] = key.split('-').map(Number);
+        return { year, month, avg: notas.reduce((s, v) => s + v, 0) / notas.length, count: notas.length };
+    });
+}
+
+// Mesmo layout do "Evolução do Score" (score-history-chart): cabeçalho com selo de
+// período, barras que crescem de baixo pra cima numa faixa de 56px, mesma escala de
+// cores por faixa, e destaque em anel no último mês.
+function renderMonthlySatisfactionChart(ownerRows) {
+    const monthly = buildMonthlySatisfactionHistory(ownerRows);
+    if (monthly.length < 2) {
+        return `
+        <div class="border-t border-surface-container pt-4 mt-4">
+            <span class="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Evolução da Satisfação</span>
+            <div class="min-h-[56px] flex items-center justify-center">
+                <span class="text-xs text-on-surface-variant opacity-50">Ainda não há meses suficientes para montar o histórico.</span>
+            </div>
+        </div>`;
+    }
+
+    const first = monthly[0], last = monthly[monthly.length - 1];
+    const bars = monthly.map((m, i) => {
+        const heightPct = Math.max(6, Math.round((m.avg / 5) * 100));
+        const isLast = i === monthly.length - 1;
+        const barColor = m.avg >= 4.5 ? '#22c55e' : m.avg >= 3.5 ? '#3b82f6' : m.avg >= 2.5 ? '#f59e0b' : m.avg >= 1.5 ? '#f97316' : '#94a3b8';
+        const label = `${MONTH_NAMES_PT[m.month - 1]}/${m.year} · ${m.avg.toFixed(1)}/5 · ${m.count} resposta${m.count !== 1 ? 's' : ''}`;
+        return `<div class="flex-1 rounded-t cursor-pointer transition-opacity hover:opacity-80 score-history-bar"
+                     style="height:${heightPct}%;background:${barColor};${isLast ? 'box-shadow:0 0 0 1.5px ' + barColor + '33' : ''}"
+                     title="${escapeHtml(label)}"></div>`;
+    }).join('');
+
+    return `
+        <div class="border-t border-surface-container pt-4 mt-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Evolução da Satisfação</span>
+                <span class="text-[10px] text-on-surface-variant opacity-60">${monthly.length} mês${monthly.length !== 1 ? 'es' : ''}</span>
+            </div>
+            <div class="min-h-[56px] flex items-center justify-center">
+                <div class="w-full">
+                    <div class="flex items-end gap-1.5 h-14">${bars}</div>
+                    <div class="flex justify-between mt-1.5">
+                        <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[first.month - 1]}/${first.year}</span>
+                        <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[last.month - 1]}/${last.year}</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+}
+
+function renderSatisfactionCard(owner, rows) {
+    const ownerRows = rows.filter(r => r.owner === owner);
+    const withSurvey = ownerRows.filter(r => r.satisfacao_pesquisa != null && r.satisfacao_pesquisa !== '');
+    const avgSurvey = withSurvey.length
+        ? withSurvey.reduce((s, r) => s + Number(r.satisfacao_pesquisa), 0) / withSurvey.length
+        : null;
+    const pctResponded = ownerRows.length ? Math.round((withSurvey.length / ownerRows.length) * 100) : 0;
+
+    const distCount = {};
+    withSurvey.forEach(r => { const n = Number(r.satisfacao_pesquisa); distCount[n] = (distCount[n] || 0) + 1; });
+    const distHtml = [5, 4, 3, 2, 1].filter(n => distCount[n]).map(n => `
+        <div class="flex items-center justify-between text-sm py-1 px-1 -mx-1 rounded cursor-pointer hover:bg-surface-container-low transition-colors" onclick="showSatisfactionModal(${n}, '${escapeHtml(owner)}')">
+            <span>${SURVEY_NOTA_LABELS[n]}</span>
+            <span class="font-bold">${distCount[n]}</span>
+        </div>`).join('');
+
+    const comments = withSurvey
+        .filter(r => r.satisfacao_pesquisa_comentario)
+        .sort((a, b) => String(b.satisfacao_pesquisa_respondido_em || '').localeCompare(String(a.satisfacao_pesquisa_respondido_em || '')));
+    const commentsHtml = comments.map(r => {
+        const nota = Number(r.satisfacao_pesquisa);
+        const color = nota >= 4 ? '#22c55e' : nota === 3 ? '#f59e0b' : '#ef4444';
+        const texto = String(r.satisfacao_pesquisa_comentario);
+        return `<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/30 mb-2 cursor-pointer hover:border-primary/50 transition-colors" onclick="showCommentDetailModal('${escapeHtml(String(r.ticket_id))}')">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-bold text-primary">#${escapeHtml(String(r.ticket_id))}</span>
+                <span class="text-xs font-bold" style="color:${color}">${SURVEY_NOTA_LABELS[nota] || nota}</span>
+            </div>
+            <p class="text-xs text-on-surface-variant">${escapeHtml(texto.substring(0, 180))}${texto.length > 180 ? '…' : ''}</p>
+        </div>`;
+    }).join('');
+
+    const body = avgSurvey !== null ? `
+        <div class="flex items-center gap-4 mb-6">
+            <span class="text-4xl font-bold text-primary">${avgSurvey.toFixed(1)}</span>
+            <span class="text-sm text-on-surface-variant">de 5.0 · ${withSurvey.length} de ${ownerRows.length} chamados avaliados (${pctResponded}%)</span>
+        </div>
+        <div class="space-y-0.5 mb-2">${distHtml}</div>
+        ${renderMonthlySatisfactionChart(withSurvey)}
+        ${commentsHtml ? `<h4 class="font-label-md text-label-md text-on-surface-variant uppercase text-xs font-bold mt-5 mb-2">Comentários (${comments.length})</h4><div class="max-h-[360px] overflow-y-auto pr-1">${commentsHtml}</div>` : ''}
+    ` : `<p class="text-on-surface-variant text-sm">Nenhuma resposta de pesquisa de satisfação ainda para este atendente. Sincronize em Configurações → Curadoria.</p>`;
+
+    return `<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <h3 class="font-label-md text-label-md text-primary font-bold uppercase mb-6">Satisfação do Cliente (Pesquisa)</h3>
+        ${body}
+    </div>`;
+}
+// Faixas de cor/selo pelo score — usada tanto no render inicial (renderScoreCard, score
+// ainda sem a dimensão Competências da IA) quanto no refresh (refreshScoreCard, score já
+// recalculado com aiResult). As duas chamadas precisam do MESMO critério, senão o selo de
+// texto (ex: "Bom"/"Excelente") fica desatualizado em relação ao número exibido.
+function scoreVisuals(score) {
+    if (score >= 800)      return { color:'#22c55e', bg:'rgba(34,197,94,0.10)',  label:'Excelente' };
+    if (score >= 600)      return { color:'#3b82f6', bg:'rgba(59,130,246,0.10)', label:'Bom' };
+    if (score >= 400)      return { color:'#f59e0b', bg:'rgba(245,158,11,0.10)', label:'Regular' };
+    if (score >= 200)      return { color:'#f97316', bg:'rgba(249,115,22,0.10)', label:'Em desenvolvimento' };
+    return                        { color:'#94a3b8', bg:'rgba(148,163,184,0.08)', label:'Sem dados suficientes' };
+}
+
+function renderScoreCard(owner, rows) {
+    const a = analysePerformance(rows, owner);
+    const sd = a.scoreData;
+    const score = sd.score;
+    const pct = Math.round((score / 1000) * 100);
+
+    const { color: scoreColor, bg: scoreBg, label: scoreLabel } = scoreVisuals(score);
+
+    // Mini breakdown das dimensões (sem aiResult ainda — competências = 0)
+    const bd = sd.breakdown || {};
+    const dimRows = [
+        { label:'Satisfação',    pct: bd.avgSatScore != null ? bd.avgSatScore : 50, icon:'sentiment_satisfied', color:'#22c55e' },
+        { label:'Eficiência',    pct: bd.avgVolScore != null ? bd.avgVolScore : 50,  icon:'bolt', color:'#3b82f6' },
+        { label:'Pontos positivos', pct: Math.round((a.positiveEvidence.length / Math.max(a.positiveEvidence.length + a.gapEvidence.length, 1))*100), icon:'thumb_up', color:'#f59e0b' },
+        { label:'Competências',  pct: bd.compHits != null ? Math.round((bd.compHits/Math.max(bd.totalComp,1))*100) : 0, icon:'workspace_premium', color:'#a78bfa' },
+    ];
+
+    return `<div id="score-card-root" class="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <div class="flex justify-between items-start mb-5">
+            <span class="font-label-md text-label-md text-primary font-bold uppercase">Score de Performance</span>
+            <div class="flex items-center gap-2">
+                <button onclick="showTicketsSampleModal(${JSON.stringify(rows.slice(0,10).map(r=>({id:r.ticket_id,org:r.organizacao,sol:r.solicitante,status:r.status}))).replace(/"/g,'&quot;')})" class="cursor-pointer text-on-surface-variant hover:text-secondary transition-colors" title="Amostragem de tickets"><span class="material-symbols-outlined">table_rows</span></button>
+                <button onclick="toggleScoringModal()" class="cursor-pointer text-on-surface-variant hover:text-secondary transition-colors" title="Ver metodologia"><span class="material-symbols-outlined">info</span></button>
+            </div>
+        </div>
+
+        <!-- Score principal -->
+        <div class="flex items-baseline gap-2 mb-1">
+            <span class="text-[56px] font-black tracking-tight leading-none" style="color:${scoreColor}" data-score-target="${score}">0</span>
+            <span class="font-label-md text-label-md text-on-surface-variant">/ 1000</span>
+        </div>
+        <div class="flex items-center gap-2 mb-5">
+            <span id="score-label-badge" class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:${scoreColor};background:${scoreBg}">${scoreLabel}</span>
+            <span class="text-xs text-on-surface-variant">${a.totalTickets} ticket${a.totalTickets!==1?'s':''} analisado${a.totalTickets!==1?'s':''}</span>
+        </div>
+
+        <!-- Barra de progresso principal -->
+        <div class="w-full h-2 rounded-full bg-surface-container mb-6 overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-1000 ease-out score-main-bar" style="width:0%;background:${scoreColor}" data-bar-width="${pct}"></div>
+        </div>
+
+        <!-- Breakdown por dimensão -->
+        <div class="space-y-3 mb-5">
+            ${dimRows.map(d=>`
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[16px]" style="color:${d.color}">${d.icon}</span>
+                <span class="text-xs text-on-surface-variant flex-1">${d.label}</span>
+                <div class="w-24 h-1.5 rounded-full bg-surface-container overflow-hidden">
+                    <div class="h-full rounded-full score-dim-bar" style="width:0%;background:${d.color}" data-bar-width="${d.pct}"></div>
+                </div>
+                <span class="text-xs font-bold min-w-[32px] text-right" style="color:${d.color}">${d.pct}%</span>
+            </div>`).join('')}
+        </div>
+
+        <!-- Evolução do score (histórico) -->
+        <div class="border-t border-surface-container pt-4 mb-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Evolução do Score</span>
+                <span id="score-history-period" class="text-[10px] text-on-surface-variant opacity-60"></span>
+            </div>
+            <div id="score-history-chart" class="min-h-[56px] flex items-center justify-center">
+                <span class="text-xs text-on-surface-variant opacity-50">Carregando histórico...</span>
+            </div>
+        </div>
+
+        <button onclick="toggleScoringModal()" class="text-secondary font-label-md text-label-md hover:underline text-xs">Como calculamos esta pontuação →</button>
+    </div>`;
+}
+
+// Carrega e renderiza o histórico de evolução do score dentro do card
+const MONTH_NAMES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+// Renderiza o gráfico de evolução mensal do score, calculado a partir dos
+// próprios tickets do owner (sem depender de snapshots no banco).
+// aiResult (quando disponível) é a análise de competências feita sobre TODOS
+// os tickets do colaborador — aplicada igualmente a cada mês do histórico.
+function renderMonthlyScoreHistory(owner, ownerRows, aiResult) {
+    const chartEl  = document.getElementById('score-history-chart');
+    const periodEl = document.getElementById('score-history-period');
+    if (!chartEl) return;
+
+    const monthly = calcMonthlyScoreHistory(ownerRows, aiResult);
+
+    if (!monthly.length) {
+        chartEl.innerHTML = `<span class="text-xs text-on-surface-variant opacity-50">Sem data de criação disponível nos tickets para montar o histórico mensal.</span>`;
+        if (periodEl) periodEl.textContent = '';
+        return;
+    }
+
+    const maxScore = Math.max(...monthly.map(m => m.score), 1);
+
+    chartEl.innerHTML = `
+        <div class="w-full">
+            <div class="flex items-end gap-1.5 h-14">
+                ${monthly.map((m, i) => {
+                    const heightPct = Math.max(6, Math.round((m.score / maxScore) * 100));
+                    const isLast = i === monthly.length - 1;
+                    const barColor = m.score >= 800 ? '#22c55e' : m.score >= 600 ? '#3b82f6' : m.score >= 400 ? '#f59e0b' : m.score >= 200 ? '#f97316' : '#94a3b8';
+                    const label = `${MONTH_NAMES_PT[m.month-1]}/${m.year} · ${m.score} pts · ${m.totalTickets} ticket${m.totalTickets!==1?'s':''} · ${escapeHtml(m.seniorityLabel)}`;
+                    return `<div class="flex-1 rounded-t cursor-pointer transition-opacity hover:opacity-80 score-history-bar"
+                                 style="height:${heightPct}%;background:${barColor};${isLast?'box-shadow:0 0 0 1.5px '+barColor+'33':''}"
+                                 title="${label}"></div>`;
+                }).join('')}
+            </div>
+            <div class="flex justify-between mt-1.5">
+                <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[monthly[0].month-1]}/${monthly[0].year}</span>
+                <span class="text-[10px] text-on-surface-variant opacity-60">${MONTH_NAMES_PT[monthly[monthly.length-1].month-1]}/${monthly[monthly.length-1].year}</span>
+            </div>
+        </div>`;
+
+    if (periodEl) periodEl.textContent = `${monthly.length} mês${monthly.length!==1?'es':''}`;
+
+    // Persistir snapshot do mês mais recente (mantém histórico oficial no banco)
+    const last = monthly[monthly.length-1];
+    const period = monthDateRange(last.year, last.month);
+    savePerformanceSnapshot(owner, { score: last.score, metrics: last.metrics, breakdown: {} },
+        { label: last.seniorityLabel, reason: last.seniorityReason }, last.totalTickets, period, /*skipReload*/ true);
+}
+
+function monthDateRange(year, month) {
+    const start = new Date(year, month-1, 1);
+    const end   = new Date(year, month, 0);
+    const fmt = (d) => d.toISOString().slice(0,10);
+    return { start: fmt(start), end: fmt(end) };
+}
+
+// Chamado pelo enrichPerformanceCardWithAI após receber o aiResult
+function refreshScoreCard(owner, rows, aiResult) {
+    const root = document.getElementById('score-card-root');
+    if (!root) return;
+    const a = analysePerformance(rows, owner);
+    const sd = calcScore1000(a.ownerRows, aiResult);
+    const score = sd.score;
+    const pct   = Math.round((score / 1000) * 100);
+
+    const { color: scoreColor, bg: scoreBg, label: scoreLabel } = scoreVisuals(score);
+
+    // Animar o número principal
+    const numEl = root.querySelector('[data-score-target]');
+    if (numEl) {
+        const prev = parseInt(numEl.textContent) || 0;
+        numEl.dataset.scoreTarget = score;
+        numEl.style.color = scoreColor;
+        animateCount(numEl, prev, score, 900);
+    }
+
+    // Atualizar selo de texto (Excelente/Bom/Regular/...) — sem isso, o selo ficava com a
+    // classificação calculada ANTES da IA entrar (score sem a dimensão Competências), podendo
+    // divergir do número já atualizado (ex: número em 837 com selo ainda mostrando "Bom").
+    const labelBadge = root.querySelector('#score-label-badge');
+    if (labelBadge) {
+        labelBadge.textContent = scoreLabel;
+        labelBadge.style.color = scoreColor;
+        labelBadge.style.background = scoreBg;
+    }
+
+    // Atualizar barra principal
+    const mainBar = root.querySelector('.score-main-bar');
+    if (mainBar) { mainBar.style.background = scoreColor; mainBar.style.width = pct + '%'; }
+
+    // Atualizar dimensão Competências (última barra)
+    const bd = sd.breakdown || {};
+    const compPct = bd.compHits != null ? Math.round((bd.compHits / Math.max(bd.totalComp,1)) * 100) : 0;
+    const dimBars = root.querySelectorAll('.score-dim-bar');
+    if (dimBars[3]) { dimBars[3].style.width = compPct + '%'; }
+    const dimPcts = root.querySelectorAll('.score-dim-bar + span, .score-dim-bar ~ *');
+    // Atualizar o texto do último dim
+    const allDimPctSpans = Array.from(root.querySelectorAll('.space-y-3 .flex span:last-child'));
+    if (allDimPctSpans[3]) allDimPctSpans[3].textContent = compPct + '%';
+
+    // Reclassificar senioridade com dados completos (IA já presente)
+    const seniority = classifySeniority(sd.metrics, a.totalTickets, sd.score);
+    updateSeniorityBadge(seniority);
+
+    // Re-renderizar histórico mensal já com a dimensão Competências real (aiResult
+    // é a análise sobre TODOS os tickets do colaborador — aplicada a cada mês)
+    renderMonthlyScoreHistory(owner, a.ownerRows, aiResult);
+
+    // Snapshot agregado do período completo selecionado (não um mês específico)
+    const firstDate = a.ownerRows.map(r => r.aberto_em).filter(Boolean).sort()[0];
+    const lastDate  = a.ownerRows.map(r => r.aberto_em).filter(Boolean).sort().slice(-1)[0];
+    const period = (firstDate && lastDate)
+        ? { start: String(firstDate).slice(0,10), end: String(lastDate).slice(0,10) }
+        : null;
+    savePerformanceSnapshot(owner, sd, seniority, a.totalTickets, period, /*skipReload*/ true);
+}
+
+// Atualiza o badge de senioridade no card de análise, se já estiver renderizado
+function updateSeniorityBadge(seniority) {
+    const badgeEl = document.getElementById('seniority-verdict-label');
+    const reasonEl = document.getElementById('seniority-verdict-reason');
+    if (badgeEl) badgeEl.textContent = seniority.label;
+    if (reasonEl) reasonEl.textContent = seniority.reason;
+}
+
+// Salva o snapshot do score no histórico (backend)
+async function savePerformanceSnapshot(owner, scoreData, seniority, totalTickets, period, skipReload) {
+    try {
+        const m = scoreData.metrics || {};
+        const bd = scoreData.breakdown || {};
+        const today = new Date().toISOString().slice(0, 10);
+        const periodStart = period?.start || today;
+        const periodEnd   = period?.end   || today;
+        const res = await fetch(`${API_BASE}/config/performance-snapshot`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+            body: JSON.stringify({
+                owner_name: owner,
+                score: scoreData.score,
+                seniority_label: seniority.label,
+                seniority_reason: seniority.reason,
+                total_tickets: totalTickets,
+                avg_satisfaction: m.avgSatisfaction,
+                first_contact_rate: m.firstContactRate,
+                open_tickets_count: m.openTicketsCount,
+                avg_open_tickets_ref: m.avgOpenTicketsRef,
+                gaps_count: m.totalGaps,
+                breakdown: bd,
+                period_start: periodStart,
+                period_end: periodEnd
+            })
+        });
+        if (!res.ok) { console.warn('Falha ao salvar performance-snapshot:', res.status); return; }
+        if (!skipReload) renderMonthlyScoreHistory(owner, scoreData.ownerRows || []);
+    } catch (e) {
+        console.warn('savePerformanceSnapshot falhou:', e.message);
+    }
+}
+
+function renderAnalysisCard(owner, rows) {
+    const a=analysePerformance(rows,owner);
+    // Cumprimento de SLA (mesmo cálculo da Visão Geral — SLA SUPORTE MOVIDESK.pdf)
+    const slaResults = rows.map(ticketSlaCompliant);
+    const slaDentro = slaResults.filter(v => v === true).length;
+    const slaFora = slaResults.filter(v => v === false).length;
+    const slaAvaliaveis = slaDentro + slaFora;
+    const slaDentroPct = slaAvaliaveis ? Math.round((slaDentro / slaAvaliaveis) * 100) : 0;
+    const slaForaPct = slaAvaliaveis ? Math.round((slaFora / slaAvaliaveis) * 100) : 0;
+    const maxCat=Math.max(...PERF_CATEGORIES.map(c=>a.catCount[c.key]),1);
+    const CAT_META={};PERF_CATEGORIES.forEach(c=>{CAT_META[c.key]={icon:c.icon||'star',desc:c.description||''};});
+    const positiveCats=PERF_CATEGORIES.filter(c=>!c.isNegative&&a.catCount[c.key]>0).sort((x,y)=>a.catCount[y.key]-a.catCount[x.key]);
+    const diffCount=PERF_CATEGORIES.filter(c=>c.isNegative).reduce((s,c)=>s+(a.catCount[c.key]||0),0);
+    const totalPositive=positiveCats.reduce((s,c)=>s+a.catCount[c.key],0);
+    const compCards=PERF_CATEGORIES.map((c,idx)=>renderSingleCompCard(c,idx,a.catCount,null,true)).join('');
+    const diffBadge=diffCount===0?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-900 text-green-300">Nenhuma</span>`:diffCount<=2?`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-300">${diffCount} ocorrência${diffCount>1?'s':''}</span>`:`<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-red-900 text-red-300">${diffCount} ocorrências</span>`;
+    const diffPct=Math.round((diffCount/Math.max(totalPositive,1))*100);
+    const posHtml=a.positiveEvidenceDisplay.length?a.positiveEvidenceDisplay.map(g=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-green-600">check_circle</span><span>${escapeHtml(g.reason)}${g.count>1?` <span class="text-xs text-on-surface-variant">(${g.count} chamados)</span>`:''}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem evidências positivas registradas</li>';
+    const gapHtml=a.gapEvidenceDisplay.length?a.gapEvidenceDisplay.map(g=>`<li class="flex gap-2"><span class="material-symbols-outlined text-[18px] text-red-600">warning</span><span>${escapeHtml(g.reason)}${g.count>1?` <span class="text-xs text-on-surface-variant">(${g.count} chamados)</span>`:''}</span></li>`).join(''):'<li class="text-on-surface-variant">Sem lacunas identificadas</li>';
+    return `<div id="curadoria-analysis-card" class="col-span-12 lg:col-span-8 bg-surface-container-lowest p-card-padding rounded-xl soft-shadow">
+        <div class="flex justify-between items-center mb-8"><h3 class="font-headline-lg text-headline-lg text-primary">Análise de Padrão de Atendimento</h3></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+            <div class="bg-surface-container-low p-4 rounded-lg cursor-pointer hover:bg-surface-container transition-colors" onclick="showTicketsByUrgencyModal(${JSON.stringify(a.urgenciaTickets).replace(/"/g,'&quot;')})">
+                <span class="font-label-md text-label-md text-outline block mb-1">Total de Tickets</span><span class="text-3xl font-bold text-primary" data-count-target="${a.totalTickets}">0</span>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg"><span class="font-label-md text-label-md text-outline block mb-1">Média de Ações</span><span class="text-3xl font-bold text-primary" data-count-target="${a.mediaAcoes}">0</span></div>
+            <div class="bg-surface-container-low p-4 rounded-lg"><span class="font-label-md text-label-md text-outline block mb-1">Total de Ações</span><span class="text-3xl font-bold text-primary" data-count-target="${a.totalAcoes}">0</span></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10" title="Baseado no SLA de resolução por severidade (SLA SUPORTE MOVIDESK.pdf)">
+            <div class="bg-surface-container-low p-4 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-surface-container transition-colors" onclick="showSlaModal(true, '${escapeHtml(owner)}')">
+                ${renderPercentCircle(slaDentroPct, '#22c55e')}
+                <div>
+                    <span class="font-label-md text-label-md text-outline block mb-1">Dentro do SLA</span>
+                    <span class="text-2xl font-bold" style="color:#22c55e">${slaDentro}</span>
+                    <span class="text-xs text-on-surface-variant"> chamado${slaDentro !== 1 ? 's' : ''}</span>
+                </div>
+            </div>
+            <div class="bg-surface-container-low p-4 rounded-lg flex items-center gap-4 cursor-pointer hover:bg-surface-container transition-colors" onclick="showSlaModal(false, '${escapeHtml(owner)}')">
+                ${renderPercentCircle(slaForaPct, '#ef4444')}
+                <div>
+                    <span class="font-label-md text-label-md text-outline block mb-1">Fora do SLA</span>
+                    <span class="text-2xl font-bold" style="color:#ef4444">${slaFora}</span>
+                    <span class="text-xs text-on-surface-variant"> chamado${slaFora !== 1 ? 's' : ''}</span>
+                </div>
+            </div>
+        </div>
+        <div class="space-y-3 mb-10">
+            <div class="comp-section-header">
+                <div class="comp-section-title-row">
+                    <span class="material-symbols-outlined" style="font-size:18px;color:var(--md-sys-color-primary,#6366f1)">workspace_premium</span>
+                    <h4 class="font-label-md text-label-md text-primary font-bold uppercase tracking-wide">Competências em Destaque</h4>
+                </div>
+                <span class="comp-section-badge"><span class="comp-ai-pulse">Analisando com IA</span></span>
+            </div>
+            <div class="perf-competencia-bars comp-cards-grid">${compCards||'<p class="text-on-surface-variant text-sm" style="grid-column:1/-1;padding:16px 0">Aguardando análise da IA...</p>'}</div>
+            ${diffCount>=0?`<div class="flex items-center gap-3 p-4 rounded-xl border ${diffCount===0?'border-green-800 bg-green-950':diffCount<=2?'border-yellow-800 bg-yellow-950':'border-red-800 bg-red-950'}">
+                <span class="material-symbols-outlined text-[22px] ${diffCount===0?'text-green-400':diffCount<=2?'text-yellow-400':'text-red-400'}">warning_amber</span>
+                <div class="flex-1"><div class="flex items-center gap-2 mb-0.5"><span class="font-label-md text-label-md text-on-surface">Dificuldade de resolução</span>${diffBadge}</div>
+                <span class="text-xs text-on-surface-variant">Atendimentos sem solução registrada · representa ${diffPct}% das menções</span></div>
+            </div>`:''}
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div class="p-4 border-l-4 border-green-500 bg-green-50 rounded-r-lg"><h5 class="font-label-md text-label-md text-green-800 font-bold uppercase mb-2">Evidências Positivas</h5><ul class="text-body-md font-body-md text-green-900 space-y-2">${posHtml}</ul></div>
+            <div class="p-4 border-l-4 border-red-500 bg-red-50 rounded-r-lg"><h5 class="font-label-md text-label-md text-red-800 font-bold uppercase mb-2">Lacunas Identificadas</h5><ul class="text-body-md font-body-md text-red-900 space-y-2">${gapHtml}</ul></div>
+        </div>
+        <div class="bg-primary-container p-6 rounded-xl">
+            <span class="font-label-md text-label-md text-on-primary-container uppercase tracking-widest block mb-4">Análise Final</span>
+            <p id="seniority-verdict-label" class="font-headline-lg text-headline-lg text-on-primary mb-6">${escapeHtml(a.verdictLabel)}</p>
+            <p id="seniority-verdict-reason" class="font-body-md text-body-md text-on-primary">${escapeHtml(a.verdict)}</p>
+        </div>
+    </div>`;
+}
+
+/* ── Animações ────────────────────────────────────────────────── */
+function animateCount(el,from,to,duration) {
+    const start=performance.now(),isFloat=!Number.isInteger(to);
+    (function step(now){
+        const t=Math.min((now-start)/duration,1),eased=1-Math.pow(1-t,3),val=from+(to-from)*eased;
+        el.textContent=isFloat?val.toFixed(1):Math.round(val);
+        if(t<1) requestAnimationFrame(step);
+    })(start);
+}
+
+/* ── renderCards: cards surgem do avatar com scale + fade ─────── */
+function renderCards() {
+    if(!currentOwner||!allRows.length) return;
+    const mount=document.getElementById('curadoriaMount');
+    const ownerRows=allRows.filter(r=>r.owner===currentOwner);
+
+    /* posição do avatar como ponto de origem */
+    let avatarPageX=window.innerWidth/2, avatarPageY=0;
+    const stripAvatar=document.querySelector(`[data-owner="${CSS.escape(currentOwner)}"] img`);
+    if(stripAvatar){
+        const ar=stripAvatar.getBoundingClientRect();
+        avatarPageX=ar.left+ar.width/2;
+        avatarPageY=ar.top+ar.height/2;
+    }
+
+    mount.innerHTML=renderOwnerCard(currentOwner,ownerRows)
+        +renderFocusCard(currentOwner,ownerRows)
+        +renderScoreCard(currentOwner,ownerRows)
+        +renderAnalysisCard(currentOwner,ownerRows)
+        +renderSatisfactionCard(currentOwner,ownerRows);
+
+    /* cada card "flui" da posição do avatar até seu lugar */
+    Array.from(mount.children).forEach((card,i)=>{
+        const cr=card.getBoundingClientRect();
+        const cardCX=cr.left+cr.width/2;
+        const cardCY=cr.top+cr.height/2;
+
+        /* deslocamento inicial: card começa onde está o avatar */
+        const travelY=avatarPageY-cardCY;
+        const travelX=avatarPageX-cardCX;
+
+        card.style.setProperty('--travel',   travelY.toFixed(1)+'px');
+        card.style.setProperty('--travelX',  travelX.toFixed(1)+'px');
+        card.style.setProperty('--flow-delay',(i*0.11).toFixed(2)+'s');
+        card.classList.add('card-flow');
+    });
+
+    /* animações internas após a maioria dos cards aparecer */
+    setTimeout(()=>{
+        mount.querySelectorAll('[data-bar-width]').forEach(bar=>{bar.style.width=bar.dataset.barWidth+'%';});
+        mount.querySelectorAll('.score-bar-col').forEach(bar=>{bar.style.height=bar.dataset.targetH+'%';});
+        mount.querySelectorAll('[data-score-target]').forEach(el=>{animateCount(el,0,parseInt(el.dataset.scoreTarget,10),1000);});
+        mount.querySelectorAll('[data-count-target]').forEach(el=>{animateCount(el,0,parseFloat(el.dataset.countTarget),900);});
+        // Barras do score card (main + dimensões)
+        mount.querySelectorAll('.score-main-bar, .score-dim-bar').forEach(bar=>{bar.style.width=bar.dataset.barWidth+'%';});
+    }, 820);
+
+    // Carregar histórico de evolução mensal do score (não bloqueia o render)
+    // Usa ownerRows já processado por analysePerformance (com _ownerItem populado)
+    const _perfForHistory = analysePerformance(ownerRows, currentOwner);
+    renderMonthlyScoreHistory(currentOwner, _perfForHistory.ownerRows);
+
+    /* Enriquece competências via IA de forma assíncrona (não bloqueia o render) */
+    const ownerRowsForAI = ownerRows;
+    const ownerForAI = currentOwner;
+    const catCountForAI = {};
+    PERF_CATEGORIES.forEach(c => catCountForAI[c.key] = 0);
+    setTimeout(() => {
+        enrichPerformanceCardWithAI('curadoria-analysis-card', ownerRowsForAI, ownerForAI, catCountForAI);
+    }, 1000);
+}
+
+/* ── selectOwner ──────────────────────────────────────────────── */
+function selectOwner(owner) {
+    currentOwner=owner;
+    const strip=document.getElementById('ownerStrip');
+    strip.querySelectorAll('[data-owner]').forEach(el=>{
+        if(el.dataset.owner===owner){
+            el.classList.remove('opacity-60');
+            el.querySelector('div').className='w-14 h-14 rounded-full border-2 border-secondary-container p-0.5 transition-transform group-hover:scale-105';
+            el.querySelector('span').className='font-label-md text-label-md text-xs text-secondary';
+        } else {
+            el.classList.add('opacity-60');
+            el.querySelector('div').className='w-14 h-14 rounded-full border border-outline-variant p-0.5 transition-transform group-hover:scale-105';
+            el.querySelector('span').className='font-label-md text-label-md text-xs text-on-surface-variant';
+        }
+    });
+    renderCards();
+}
+
+/* ── Carga inicial ────────────────────────────────────────────── */
+const CURADORIA_REFRESH_STORAGE_KEY = 'curadoriaLastRefreshAt';
+let _curadoriaDailyRefreshTimeout = null;
+
+function formatCuradoriaRefreshTimestamp(value) {
+    if (!value) return 'Ainda não atualizado manualmente.';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Atualização recente indisponível.';
+    return `Última atualização: ${date.toLocaleString('pt-BR')}`;
+}
+
+function updateCuradoriaRefreshMeta(value = localStorage.getItem(CURADORIA_REFRESH_STORAGE_KEY)) {
+    const meta = document.getElementById('curadoriaRefreshMeta');
+    if (meta) meta.textContent = formatCuradoriaRefreshTimestamp(value);
+}
+
+function setCuradoriaRefreshButtonState(isLoading) {
+    const button = document.getElementById('curadoriaRefreshBtn');
+    const label = document.getElementById('curadoriaRefreshBtnLabel');
+    if (button) button.disabled = isLoading;
+    if (label) label.textContent = isLoading ? 'Atualizando...' : 'Atualizar dados';
+}
+
+function applyCuradoriaRows(rows) {
+    let filteredRows = rows || [];
+    if (currentUser?.role === 'supervisor' && currentUser?.vertical) {
+        const vertical = String(currentUser.vertical).trim().toLowerCase();
+        filteredRows = filteredRows.filter(r => String(r.owner_team || '').trim().toLowerCase() === vertical);
+    }
+
+    allRows = filteredRows;
+    renderOwnerStrip(allRows);
+    renderCuradoriaGeralView();
+
+    if (allRows.length > 0) {
+        const owners = uniqueOwners(allRows);
+        const ownerStillExists = currentOwner && owners.some(owner => owner.name === currentOwner);
+        currentOwner = ownerStillExists ? currentOwner : (owners[0]?.name || null);
+        if (currentOwner) {
+            selectOwner(currentOwner);
+        }
+        return;
+    }
+
+    currentOwner = null;
+    if (currentUser?.role === 'supervisor') {
+        document.getElementById('curadoriaMount').innerHTML =
+            `<div class="col-span-12 py-16 text-center text-on-surface-variant">
+                <span class="material-symbols-outlined text-5xl mb-4 block">group_off</span>
+                <p class="font-body-md text-body-md">Nenhum agente encontrado para a equipe <strong>${escapeHtml(currentUser.vertical)}</strong>.</p>
+            </div>`;
+    } else {
+        document.getElementById('curadoriaMount').innerHTML =
+            `<div class="col-span-12 py-16 text-center text-on-surface-variant">Nenhum registro de curadoria encontrado.</div>`;
+    }
+}
+
+async function refreshCuradoriaData({ showOverlay = false, showButtonLoading = false } = {}) {
+    const overlay = document.getElementById('curadoriaLoadingOverlay');
+    const main = document.getElementById('curadoriaMain');
+    const mount = document.getElementById('curadoriaMount');
+
+    if (showButtonLoading) setCuradoriaRefreshButtonState(true);
+    if (showOverlay) {
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        main.style.visibility = 'hidden';
+    } else if (mount) {
+        mount.style.transition = 'opacity 0.25s ease';
+        mount.style.opacity = '0.15';
+    }
+
+    try {
+        const [user, rows] = await Promise.all([loadPerfCategories().then(() => apiCall('/auth/me')), apiCall('/curadoria')]);
+        currentUser = user;
+        applyCuradoriaRows(rows);
+        const refreshedAt = new Date().toISOString();
+        localStorage.setItem(CURADORIA_REFRESH_STORAGE_KEY, refreshedAt);
+        updateCuradoriaRefreshMeta(refreshedAt);
+    } finally {
+        if (showButtonLoading) setCuradoriaRefreshButtonState(false);
+        if (showOverlay) {
+            overlay.style.transition = 'opacity 0.4s ease';
+            overlay.style.opacity = '0';
+            setTimeout(() => { overlay.style.display = 'none'; }, 400);
+            main.style.visibility = 'visible';
+        } else if (mount) {
+            mount.style.opacity = '';
+            mount.style.transition = '';
+        }
+    }
+}
+
+async function loadCuradoria() {
+    const overlay=document.getElementById('curadoriaLoadingOverlay');
+    const main=document.getElementById('curadoriaMain');
+    try {
+        updateCuradoriaRefreshMeta();
+        await refreshCuradoriaData({ showOverlay: true });
+    } catch(err) {
+        console.error('Erro:',err);
+        document.getElementById('curadoriaMount').innerHTML=
+            `<div class="col-span-12 p-6 bg-red-50 border border-red-200 rounded text-red-800">Erro ao carregar: ${escapeHtml(err.message)}</div>`;
+    } finally {
+        overlay.style.transition='opacity 0.4s ease'; overlay.style.opacity='0';
+        setTimeout(()=>{overlay.style.display='none';},400);
+        main.style.visibility='visible';
+        scheduleCuradoriaDailyRefresh();
+    }
+}
+
+async function manualCuradoriaRefresh() {
+    try {
+        await refreshCuradoriaData({ showButtonLoading: true });
+        scheduleCuradoriaDailyRefresh();
+    } catch (err) {
+        console.error('Erro ao atualizar curadoria manualmente:', err);
+        alert(`Erro ao atualizar curadoria: ${err.message}`);
+    }
+}
+
+// Carga bruta 3x ao dia (manhã, almoço, 19h) — mesmos horários do agendamento no
+// servidor (ver server/server.js) que dispara o enriquecimento (IA, satisfação,
+// módulo x rotina). Isso só recarrega a TELA com o que já estiver no banco; o
+// enriquecimento em si roda no servidor independente da aba estar aberta ou não.
+const CURADORIA_REFRESH_TIMES = [{ h: 8, m: 0 }, { h: 12, m: 0 }, { h: 19, m: 0 }];
+
+function nextCuradoriaRefreshTime(now = new Date()) {
+    const candidates = CURADORIA_REFRESH_TIMES.map(({ h, m }) => {
+        const d = new Date(now);
+        d.setHours(h, m, 0, 0);
+        if (d.getTime() <= now.getTime()) d.setDate(d.getDate() + 1);
+        return d;
+    });
+    return candidates.reduce((min, d) => d.getTime() < min.getTime() ? d : min);
+}
+
+function scheduleCuradoriaDailyRefresh() {
+    clearTimeout(_curadoriaDailyRefreshTimeout);
+    const now = new Date();
+    const nextRun = nextCuradoriaRefreshTime(now);
+    const delay = Math.max(60 * 1000, nextRun.getTime() - now.getTime());
+
+    _curadoriaDailyRefreshTimeout = setTimeout(async () => {
+        try {
+            await refreshCuradoriaData();
+        } catch (err) {
+            console.error('Erro ao atualizar curadoria automaticamente:', err);
+        } finally {
+            scheduleCuradoriaDailyRefresh();
+        }
+    }, delay);
+}
+
+window.addEventListener('load',loadCuradoria);
+</script>
+</body>
+</html>
