@@ -22,6 +22,7 @@ const ALLOWED_FILES = new Set([
   'fechados_data.json',
   'sprint_data.json',
   'issues_raw.json',
+  'qualidade_data.json',
 ]);
 
 router.get('/:file', authMiddleware, requireTabAccess('jira'), async (req, res) => {

@@ -14,6 +14,12 @@ npm-debug.log*
 # Exports de dados reais (chamados, clientes) — não versionar em repo público.
 *.xlsx
 
+# Dados gerados pelo jira_extractor.py (agendado fora do git, escreve em Jira/) —
+# são dumps reais de tarefas/pessoas, não código. O painel só lê o que já
+# estiver na pasta; cada ambiente gera os seus via extrator ou task scheduler.
+Jira/*_data.json
+Jira/issues_raw.json
+
 # Editor/OS
 .DS_Store
 Thumbs.db
