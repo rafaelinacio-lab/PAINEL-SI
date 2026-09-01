@@ -10,4 +10,13 @@ services:
       - .env
     ports:
       - "${PORT:-5000}:${PORT:-5000}"
+    volumes:
+      # server/routes/jira.js resolve JIRA_DATA_DIR (padrão "../Jira") para
+      # /Jira dentro do container (dois níveis acima de server/routes). Sem
+      # este bind mount o caminho fica vazio na imagem e toda a aba Jira
+      # falha com "Arquivo não encontrado" mesmo com o jira_extractor.py
+      # rodando certinho no host — ele escreve em ../Jira (fora do build
+      # context, que é só a pasta Movidesk/), o container nunca vê esses
+      # arquivos. Montado read-only: este serviço só lê os JSONs.
+      - ../Jira:/Jira:ro
     restart: unless-stopped
