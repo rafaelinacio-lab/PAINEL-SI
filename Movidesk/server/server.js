@@ -60,7 +60,11 @@ app.use('/api/config', configRoutes);
 app.use('/api/tickets', ticketsRoutes);
 
 // Rota raiz
-app.get('/', (req, res) => {
+// Também respondemos em /index.html (não só "/"): as páginas em pages/*.html
+// (dashboard, pessoas, movidesk, configuracoes) embutem a view antiga num
+// iframe com src="../index.html?legacyView=...", que o navegador resolve
+// para "/index.html" — sem esta rota extra isso dava "Cannot GET /index.html".
+app.get(['/', '/index.html'], (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
 });
 
