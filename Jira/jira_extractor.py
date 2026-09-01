@@ -21,6 +21,16 @@ import requests, json, time, os, re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
+
+# Horário de Brasília explícito — o servidor que roda o extrator pode estar
+# em UTC (ex: VM Linux) e datetime.now() sem timezone pegaria a hora do
+# sistema, não a de Brasília, fazendo o "Gerado em" do painel aparecer
+# até 3h no futuro em relação ao horário real de quem está olhando.
+TZ_BR = ZoneInfo("America/Sao_Paulo")
+
+def _agora():
+    return datetime.now(TZ_BR)
 
 try:
     from dotenv import load_dotenv
@@ -42,7 +52,7 @@ if not (JIRA_BASE_URL and JIRA_EMAIL and JIRA_API_TOKEN):
 
 # ── Datas dinâmicas ──────────────────────────────────────────────────────────
 import sys
-_hoje = datetime.now()
+_hoje = _agora()
 ANO_ATUAL_INT = _hoje.year
 ANO_ANT_INT   = ANO_ATUAL_INT - 1
 
@@ -1268,7 +1278,7 @@ def main():
         "tarefas_abertas":tarefas_abertas,
         "por_responsavel":por_responsavel,
         "total_aberto":   len(tarefas_abertas),
-        "gerado_em":      datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "gerado_em":      _agora().strftime("%d/%m/%Y %H:%M"),
     }
 
     fname = "dashboard_data.json" if ANO == str(ANO_ATUAL_INT) else f"dashboard_data_{ANO}.json"
@@ -1280,7 +1290,7 @@ def main():
         "bugs":         bugs_tdc,
         "stats":        stats_tdc,
         "total":        len(bugs_tdc),
-        "gerado_em":    datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "gerado_em":    _agora().strftime("%d/%m/%Y %H:%M"),
     }
     with open("tdc_data.json","w",encoding="utf-8") as f:
         json.dump(tdc_output, f, ensure_ascii=False, separators=(',',':'))
@@ -1292,7 +1302,7 @@ def main():
     abertos_output = {
         "itens":     [normalize(i) for i in raw_abertos],
         "total":     len(raw_abertos),
-        "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "gerado_em": _agora().strftime("%d/%m/%Y %H:%M"),
     }
     with open("abertos_data.json","w",encoding="utf-8") as f:
         json.dump(abertos_output, f, ensure_ascii=False, separators=(',',':'))
@@ -1300,7 +1310,7 @@ def main():
     fechados_output = {
         "itens":     [normalize(i) for i in raw_fechados],
         "total":     len(raw_fechados),
-        "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "gerado_em": _agora().strftime("%d/%m/%Y %H:%M"),
     }
     with open("fechados_data.json","w",encoding="utf-8") as f:
         json.dump(fechados_output, f, ensure_ascii=False, separators=(',',':'))
@@ -1367,7 +1377,7 @@ def main():
         "sprints_closed": build_sprint_summary(sprint_itens_cl),
         "total":          len(sprint_itens),
         "total_closed":   len(sprint_itens_cl),
-        "gerado_em":      datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "gerado_em":      _agora().strftime("%d/%m/%Y %H:%M"),
     }
     with open("sprint_data.json","w",encoding="utf-8") as f:
         json.dump(sprint_output, f, ensure_ascii=False, separators=(',',':'))
@@ -1436,7 +1446,7 @@ def main():
         "bug_ranking":        bug_ranking,           # já mesclado/ordenado — usado pelo dashboard
         "tarefas_semana":     tarefas_semana,
         "epic_progress":      epic_progress,
-        "gerado_em":          datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "gerado_em":          _agora().strftime("%d/%m/%Y %H:%M"),
     }
     with open("qualidade_data.json","w",encoding="utf-8") as f:
         json.dump(qualidade_output, f, ensure_ascii=False, separators=(',',':'))
