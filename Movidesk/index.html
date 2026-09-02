@@ -162,6 +162,8 @@
                     </div>
                 </div>
 
+                <!-- Layout com navegação lateral -->
+                <div class="cfg-layout">
                 <!-- Navegação por abas -->
                 <div class="cfg-tabs">
                     <button class="cfg-tab-btn cfg-tab-active" data-tab="movidesk" onclick="switchConfigTab('movidesk')">
@@ -184,6 +186,7 @@
                     </button>
                 </div>
 
+                <div class="cfg-content">
                 <!-- ABA: Movidesk -->
                 <div class="cfg-tab-panel" id="cfgTab-movidesk">
                     <div class="config-card">
@@ -202,6 +205,7 @@
                         <div id="cfgMovideskStatus" class="config-status"></div>
                     </div>
 
+                    <div class="cfg-card-grid">
                     <div class="config-card">
                         <h3 class="config-card-title">Estatisticas de Chamados</h3>
                         <p class="config-card-help">Visao rapida dos chamados sincronizados no banco local.</p>
@@ -228,6 +232,7 @@
                             <span class="config-status-label">Última sincronização:</span>
                             <span id="cfgLastSyncedAt" class="config-token-status config-token-status-off">Consultando...</span>
                         </div>
+                    </div>
                     </div>
 
                     <div class="config-card">
@@ -324,6 +329,7 @@
 
                 <!-- ABA: Curadoria -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-curadoria">
+                    <div class="cfg-card-grid cfg-card-grid-wide">
                     <div class="config-card">
                         <h3 class="config-card-title">Carga Bruta (Todos os Processos)</h3>
                         <p class="config-card-help">Dispara de uma vez os 3 processos abaixo (chamados pendentes, satisfação e módulo x rotina), para que os KPIs e o Foco de Atendimento da Visão Geral reflitam dados atualizados. Roda automaticamente às 08:00, 12:00 e 19:00 todos os dias — use o botão abaixo para forçar uma carga fora desses horários.</p>
@@ -437,6 +443,7 @@
                         </div>
                         <div id="cfgModuloSyncStatus" class="config-status"></div>
                     </div>
+                    </div>
 
                     <div class="config-card">
                         <h3 class="config-card-title">Competências de Curadoria</h3>
@@ -548,6 +555,7 @@
                         <div id="cfgCuradoriaPromptNarrativaStatus" class="config-status"></div>
                     </div>
 
+                    <div class="cfg-card-grid cfg-card-grid-wide">
                     <div class="config-card">
                         <h3 class="config-card-title">Consulta ao Banco — Listagem da Curadoria</h3>
                         <p class="config-card-help">Define quais chamados aparecem na tela de Curadoria. No modo guiado, escolha o limite e a ordenação. Se precisar de uma condição diferente, ative o modo avançado e escreva a condição WHERE (sem <code>;</code>, comentários ou comandos de alteração — apenas a condição booleana).</p>
@@ -597,6 +605,7 @@
                             <button id="cfgResetQueryPendentes" class="config-btn config-btn-muted">Restaurar padrão</button>
                         </div>
                         <div id="cfgQueryPendentesStatus" class="config-status"></div>
+                    </div>
                     </div>
 
                     <div class="config-card">
@@ -753,6 +762,7 @@
                         <div id="cfgDbStatus" class="config-status"></div>
                     </div>
 
+                    <div class="cfg-card-grid">
                     <div class="config-card">
                         <h3 class="config-card-title">Seguranca</h3>
                         <ul class="config-security-list">
@@ -766,6 +776,7 @@
                         <h3 class="config-card-title">Administracao Avancada</h3>
                         <p class="config-card-help">Se quiser manter o fluxo antigo, voce tambem pode abrir a tela de admin legada.</p>
                         <a href="/admin/" target="_blank" rel="noopener noreferrer" class="config-link-btn">Abrir http://localhost:3000/admin/</a>
+                    </div>
                     </div>
                 </div>
 
@@ -834,6 +845,8 @@
                         </div>
                         <div id="cfgTabPermissionsStatus" class="config-status"></div>
                     </div>
+                </div>
+                </div>
                 </div>
 
                 <div id="configAccessDenied" class="config-access-denied" style="display:none;">

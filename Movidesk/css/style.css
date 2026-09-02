@@ -1846,19 +1846,38 @@ body.legacy-view-mode #embeddedPagesView {
     color: var(--muted);
 }
 
+/* ---- Layout de Configurações: navegação lateral + conteúdo ----
+   .cfg-layout coloca a coluna de abas (.cfg-tabs) fixa à esquerda e o
+   conteúdo (.cfg-content) ocupando o restante. Abaixo de 720px a coluna
+   volta a virar uma barra horizontal com scroll (ver media query no
+   final deste bloco). */
+.cfg-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+}
+
+.cfg-content {
+    flex: 1;
+    min-width: 0;
+}
+
 /* ---- Abas internas de Configurações ----
-   Segmented control (cápsula) em vez de underline — o preenchimento ativo
-   nasce direto no CSS a partir da classe .cfg-tab-active que o JS já
-   alterna, sem precisar de indicador animado/JS extra. */
+   Rail vertical fixo — o item ativo ganha fundo tintado na cor de
+   destaque e uma barra de 3px na borda esquerda, a partir da classe
+   .cfg-tab-active que o JS já alterna, sem precisar de indicador
+   animado/JS extra. */
 .cfg-tabs {
     display: flex;
+    flex-direction: column;
+    flex: 0 0 216px;
+    width: 216px;
     gap: 2px;
-    margin-bottom: 24px;
-    padding: 4px;
+    padding: 8px;
     border-radius: 14px;
     border: 1px solid var(--border);
     background: var(--bg);
-    overflow-x: auto;
+    overflow-x: visible;
     scrollbar-width: none;
     position: sticky;
     top: 0;
@@ -1870,22 +1889,26 @@ body.legacy-view-mode #embeddedPagesView {
 .cfg-tab-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 9px 14px;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
     border: none;
+    border-left: 3px solid transparent;
     background: none;
     color: var(--muted);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     border-radius: 10px;
+    text-align: left;
     white-space: nowrap;
-    transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     font-family: inherit;
 }
 
 .cfg-tab-btn .material-symbols-outlined {
     font-size: 18px;
+    flex-shrink: 0;
 }
 
 .cfg-tab-btn:hover {
@@ -1895,12 +1918,13 @@ body.legacy-view-mode #embeddedPagesView {
 
 .cfg-tab-btn.cfg-tab-active {
     color: var(--logo-color);
-    background: var(--surface);
+    background: color-mix(in srgb, var(--logo-color) 12%, var(--surface));
+    border-left-color: var(--logo-color);
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .cfg-tab-btn.cfg-tab-active:hover {
-    background: var(--surface);
+    background: color-mix(in srgb, var(--logo-color) 12%, var(--surface));
 }
 
 .cfg-tab-hidden {
@@ -1910,6 +1934,54 @@ body.legacy-view-mode #embeddedPagesView {
 .cfg-tab-panel {
     display: block;
     scroll-margin-top: 60px;
+}
+
+/* Agrupa cards curtos (status/estatística/toggle) lado a lado em telas
+   largas, em vez de empilhados a 100% de largura. */
+.cfg-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.cfg-card-grid-wide {
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+}
+
+.cfg-card-grid .config-card {
+    margin-bottom: 0;
+}
+
+@media (max-width: 720px) {
+    .cfg-layout {
+        flex-direction: column;
+    }
+
+    .cfg-tabs {
+        flex-direction: row;
+        flex: 0 0 auto;
+        width: 100%;
+        overflow-x: auto;
+        position: sticky;
+        top: 0;
+    }
+
+    .cfg-tab-btn {
+        width: auto;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+    }
+
+    .cfg-tab-btn.cfg-tab-active {
+        border-left-color: transparent;
+        border-bottom-color: var(--logo-color);
+    }
+
+    .cfg-card-grid,
+    .cfg-card-grid-wide {
+        grid-template-columns: 1fr;
+    }
 }
 
 .config-card {
