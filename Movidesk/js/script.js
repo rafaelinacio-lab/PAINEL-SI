@@ -224,6 +224,8 @@ function navigateTo(view) {
         checkSurveySyncOnLoad();
         checkModuloSyncOnLoad();
         checkFullLoadOnLoad();
+        loadDatalakeConfig();
+        loadJiraConfig();
     }
 }
 
