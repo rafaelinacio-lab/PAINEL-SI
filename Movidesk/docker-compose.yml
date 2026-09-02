@@ -10,4 +10,10 @@ services:
       - .env
     ports:
       - "${PORT:-5000}:${PORT:-5000}"
+    volumes:
+      # Pasta Jira/ (sibling de Movidesk/) fica FORA da imagem — é onde o
+      # jira_extractor.py (cron externo) grava os .json que a aba Jira lê via
+      # JIRA_DATA_DIR (default resolve pra /Jira dentro do container, ver
+      # server/routes/jira.js). Sem esse volume o container não a enxerga.
+      - ../Jira:/Jira:ro
     restart: unless-stopped
