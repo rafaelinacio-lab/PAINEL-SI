@@ -742,24 +742,21 @@
                 <!-- ABA: Sistema -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-sistema">
                     <div class="config-card">
-                        <h3 class="config-card-title">Banco de Dados Remoto</h3>
-                        <p class="config-card-help">Salve aqui os dados de conexão do banco que ficará em outra máquina.</p>
-                        <div class="config-form-grid">
-                            <input id="cfgDbHost" type="text" class="config-input" placeholder="Host">
-                            <input id="cfgDbPort" type="text" class="config-input" placeholder="Porta">
-                            <input id="cfgDbName" type="text" class="config-input" placeholder="Nome do banco">
-                            <input id="cfgDbUser" type="text" class="config-input" placeholder="Usuário">
-                            <input id="cfgDbPassword" type="password" class="config-input" placeholder="Senha">
-                            <select id="cfgDbDialect" class="config-input">
-                                <option value="postgres">PostgreSQL</option>
-                                <option value="mysql">MySQL</option>
-                            </select>
+                        <h3 class="config-card-title">Credenciais da API (Datalake)</h3>
+                        <p class="config-card-help">URL e token que o painel usa para buscar os chamados na apidatalake. Se algum dia mudarem, troque aqui — não precisa editar o <code>.env</code> nem reiniciar o servidor.</p>
+                        <div class="config-form-stack">
+                            <div class="config-status-line">
+                                <span class="config-status-label">Status:</span>
+                                <span id="cfgDatalakeTokenStatus" class="config-token-status config-token-status-off">Nao configurado</span>
+                            </div>
+                            <input id="cfgDatalakeUrl" type="text" class="config-input" placeholder="https://apidatalake.viasoftcloud.com.br">
+                            <input id="cfgDatalakeToken" type="password" class="config-input" placeholder="Novo token (deixe em branco para manter o atual)" autocomplete="off">
                         </div>
                         <div class="config-actions">
-                            <button id="cfgSaveDbConfig" class="config-btn">Salvar banco</button>
-                            <button id="cfgReloadDbConfig" class="config-btn config-btn-muted">Carregar salvo</button>
+                            <button id="cfgSaveDatalakeConfig" class="config-btn">Salvar credenciais</button>
+                            <button id="cfgReloadDatalakeConfig" class="config-btn config-btn-muted">Carregar salvo</button>
                         </div>
-                        <div id="cfgDbStatus" class="config-status"></div>
+                        <div id="cfgDatalakeStatus" class="config-status"></div>
                     </div>
 
                     <div class="cfg-card-grid">

@@ -139,9 +139,11 @@ router.post('/gpt-prompt', authMiddleware, requireRole('admin'), (req, res) => {
   });
 });
 
-// GET - Configurações do banco remoto (somente admin)
-router.get('/database', authMiddleware, requireRole('admin'), (req, res) => {
-  const keys = ['db_host', 'db_port', 'db_name', 'db_user', 'db_password', 'db_dialect'];
+// GET - Credenciais da API (apidatalake) salvas no painel (somente admin)
+// Não devolve o token em texto puro (mesmo padrão do /gpt-key) — só se está
+// configurado. A URL não é sensível, então essa sim volta pro form.
+router.get('/datalake', authMiddleware, requireRole('admin'), (req, res) => {
+  const keys = ['datalake_api_url', 'datalake_api_token'];
   const state = {};
   let remaining = keys.length;
   let finished = false;
@@ -152,13 +154,9 @@ router.get('/database', authMiddleware, requireRole('admin'), (req, res) => {
     if (remaining === 0) {
       finished = true;
       res.json({
-        configured: !!(state.db_host && state.db_name && state.db_user),
-        host: state.db_host || '',
-        port: state.db_port || '',
-        name: state.db_name || '',
-        user: state.db_user || '',
-        password: state.db_password || '',
-        dialect: state.db_dialect || 'postgres'
+        configured: !!(state.datalake_api_url && state.datalake_api_token),
+        url: state.datalake_api_url || '',
+        tokenConfigured: !!state.datalake_api_token
       });
     }
   };
@@ -168,7 +166,7 @@ router.get('/database', authMiddleware, requireRole('admin'), (req, res) => {
       if (finished) return;
       if (err) {
         finished = true;
-        return res.status(500).json({ error: 'Erro ao consultar configuracoes do banco' });
+        return res.status(500).json({ error: 'Erro ao consultar credenciais da apidatalake' });
       }
       state[key] = row?.value || '';
       finish();
@@ -176,22 +174,23 @@ router.get('/database', authMiddleware, requireRole('admin'), (req, res) => {
   });
 });
 
-// POST - Salvar configurações do banco remoto (somente admin)
-router.post('/database', authMiddleware, requireRole('admin'), (req, res) => {
-  const { host, port, name, user, password, dialect } = req.body;
+// POST - Salvar credenciais da API (apidatalake) direto pelo painel (somente
+// admin) — troca o que hoje só dava pra mudar editando o .env e reiniciando
+// o container. O token é opcional: se vier em branco, mantém o já salvo (só
+// a URL é atualizada). datalakeClient.js invalida o cache dele logo abaixo,
+// então a mudança já vale na próxima chamada, sem restart.
+router.post('/datalake', authMiddleware, requireRole('admin'), (req, res) => {
+  const { url, token } = req.body;
+  const trimmedUrl = (url || '').trim();
 
-  if (!host || !port || !name || !user || !password) {
-    return res.status(400).json({ error: 'Host, porta, nome, usuário e senha são obrigatórios' });
+  if (!trimmedUrl) {
+    return res.status(400).json({ error: 'URL da apidatalake é obrigatória' });
   }
 
-  const entries = [
-    ['db_host', host.trim()],
-    ['db_port', String(port).trim()],
-    ['db_name', name.trim()],
-    ['db_user', user.trim()],
-    ['db_password', encryptToken(password)],
-    ['db_dialect', (dialect || 'postgres').trim()]
-  ];
+  const entries = [['datalake_api_url', trimmedUrl]];
+  if (token && token.trim()) {
+    entries.push(['datalake_api_token', encryptToken(token.trim())]);
+  }
 
   let remaining = entries.length;
   let failed = false;
@@ -201,11 +200,12 @@ router.post('/database', authMiddleware, requireRole('admin'), (req, res) => {
       if (failed) return;
       if (err) {
         failed = true;
-        return res.status(500).json({ error: 'Erro ao salvar configuracoes do banco' });
+        return res.status(500).json({ error: 'Erro ao salvar credenciais da apidatalake' });
       }
       remaining -= 1;
       if (remaining === 0) {
-        res.json({ success: true, message: 'Configuracoes do banco salvas com sucesso' });
+        require('../utils/datalakeClient').invalidateCredentialsCache();
+        res.json({ success: true, message: 'Credenciais da apidatalake salvas com sucesso' });
       }
     });
   });

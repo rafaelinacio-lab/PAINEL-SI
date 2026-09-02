@@ -8,18 +8,23 @@
 // do Gateway Proxy / "Ponte API" (X-Gateway-Token, apimovidesk.viasoftcloud.com.br)
 // — são três credenciais de sistemas diferentes.
 //
-// DATALAKE_API_URL/DATALAKE_API_TOKEN vêm do .env do painel (não commitados).
+// DATALAKE_API_URL/DATALAKE_API_TOKEN vêm por padrão do .env do painel, mas
+// podem ser sobrescritos em Configurações → Sistema → "Credenciais da API
+// (Datalake)" (tabela `config`, token criptografado com a mesma chave que já
+// protege o token Movidesk) — o admin troca ali sem precisar editar o .env
+// nem reiniciar o servidor. Valor salvo no painel tem prioridade; se não
+// houver nada salvo, cai no .env. Ver invalidateCredentialsCache() abaixo,
+// chamada por server/routes/config.js logo após um POST /config/datalake.
 
 const fetch = require('node-fetch');
-
-const BASE_URL = (process.env.DATALAKE_API_URL || '').replace(/\/+$/, '');
-const API_TOKEN = process.env.DATALAKE_API_TOKEN || '';
+const db = require('../db/remote');
+const { decryptToken } = require('./crypto');
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Erro de configuração (variáveis de ambiente ausentes) — sempre deve
+// Erro de configuração (nem painel nem .env têm URL/token) — sempre deve
 // aparecer explicitamente, nunca deve ser mascarado por um fallback silencioso.
 class DatalakeConfigError extends Error {}
 
@@ -39,16 +44,68 @@ class DatalakeApiError extends Error {
   }
 }
 
-function ensureConfigured() {
-  if (!BASE_URL || !API_TOKEN) {
+// Cache em memória das credenciais efetivas — evita bater no banco a cada
+// chamada (tickets.js chama datalakeGet dezenas de vezes por request). TTL
+// curto como rede de segurança; a troca pelo painel invalida na hora via
+// invalidateCredentialsCache(), então o TTL raramente é o que dispara o reload.
+let credentialsCache = null;
+let credentialsLoadedAt = 0;
+const CREDENTIALS_TTL_MS = 60 * 1000;
+
+function invalidateCredentialsCache() {
+  credentialsCache = null;
+  credentialsLoadedAt = 0;
+}
+
+async function resolveCredentials() {
+  const fresh = credentialsCache && (Date.now() - credentialsLoadedAt) < CREDENTIALS_TTL_MS;
+  if (fresh) return credentialsCache;
+
+  let dbUrl = '';
+  let dbTokenEncrypted = '';
+  try {
+    const result = await db.query(
+      `SELECT key, value FROM config WHERE key IN ('datalake_api_url', 'datalake_api_token')`
+    );
+    for (const row of result.rows || []) {
+      if (row.key === 'datalake_api_url') dbUrl = row.value || '';
+      if (row.key === 'datalake_api_token') dbTokenEncrypted = row.value || '';
+    }
+  } catch (err) {
+    // Banco indisponível na hora de resolver credenciais: não derruba a
+    // chamada, só cai no .env (mesmo comportamento de antes desta mudança).
+    console.warn('[datalakeClient] Falha ao consultar credenciais no banco, usando .env:', err.message);
+  }
+
+  let token = process.env.DATALAKE_API_TOKEN || '';
+  if (dbTokenEncrypted) {
+    try {
+      token = decryptToken(dbTokenEncrypted);
+    } catch (err) {
+      console.warn('[datalakeClient] Falha ao descriptografar token salvo no painel, usando .env:', err.message);
+    }
+  }
+
+  credentialsCache = {
+    baseUrl: (dbUrl || process.env.DATALAKE_API_URL || '').replace(/\/+$/, ''),
+    token,
+  };
+  credentialsLoadedAt = Date.now();
+  return credentialsCache;
+}
+
+async function ensureConfigured() {
+  const creds = await resolveCredentials();
+  if (!creds.baseUrl || !creds.token) {
     throw new DatalakeConfigError(
-      'DATALAKE_API_URL/DATALAKE_API_TOKEN não configurados no .env do painel'
+      'URL/token da apidatalake não configurados (nem em Configurações → Sistema, nem no .env do painel)'
     );
   }
+  return creds;
 }
 
 async function datalakeGet(path, { query = {}, attempt = 0 } = {}) {
-  ensureConfigured();
+  const { baseUrl: BASE_URL, token: API_TOKEN } = await ensureConfigured();
 
   const url = new URL(`${BASE_URL}${path}`);
   for (const [key, value] of Object.entries(query)) {
@@ -192,4 +249,5 @@ module.exports = {
   fetchLegacyCustomFieldsCatalog,
   fetchNativeTicketDetail,
   fetchTicketCamposDatalake,
+  invalidateCredentialsCache,
 };

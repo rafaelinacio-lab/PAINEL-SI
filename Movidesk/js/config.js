@@ -1208,14 +1208,14 @@ async function saveGptPrompt() {
     }
 }
 
-async function loadDbConfig() {
+async function loadDatalakeConfig() {
     if (!isCurrentUserAdmin()) {
-        setCfgStatus('cfgDbStatus', 'Somente admin pode consultar as configurações do banco.', 'error');
+        setCfgStatus('cfgDatalakeStatus', 'Somente admin pode consultar as credenciais da apidatalake.', 'error');
         return;
     }
 
     try {
-        const response = await fetch(`${API_BASE}/config/database`, {
+        const response = await fetch(`${API_BASE}/config/datalake`, {
             headers: authHeaders()
         });
         const raw = await response.text();
@@ -1223,66 +1223,64 @@ async function loadDbConfig() {
         if (raw) {
             try { data = JSON.parse(raw); } catch { data = { error: raw }; }
         }
-        if (!response.ok) throw new Error(data.error || 'Falha ao consultar banco');
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar credenciais');
 
-        const host = document.getElementById('cfgDbHost');
-        const port = document.getElementById('cfgDbPort');
-        const name = document.getElementById('cfgDbName');
-        const user = document.getElementById('cfgDbUser');
-        const password = document.getElementById('cfgDbPassword');
-        const dialect = document.getElementById('cfgDbDialect');
+        const url = document.getElementById('cfgDatalakeUrl');
+        if (url) url.value = data.url || '';
 
-        if (host) host.value = data.host || '';
-        if (port) port.value = data.port || '';
-        if (name) name.value = data.name || '';
-        if (user) user.value = data.user || '';
-        if (password) password.value = data.password || '';
-        if (dialect) dialect.value = data.dialect || 'postgres';
+        const badge = document.getElementById('cfgDatalakeTokenStatus');
+        if (badge) {
+            if (data.tokenConfigured) {
+                badge.textContent = 'Configurado';
+                badge.className = 'config-token-status config-token-status-on';
+            } else {
+                badge.textContent = 'Nao configurado';
+                badge.className = 'config-token-status config-token-status-off';
+            }
+        }
 
-        setCfgStatus('cfgDbStatus', data.configured ? 'Configurações do banco carregadas.' : 'Banco ainda não configurado.');
+        setCfgStatus('cfgDatalakeStatus', data.configured ? 'Credenciais carregadas.' : 'Credenciais ainda não configuradas no painel (usando .env, se houver).');
     } catch (error) {
-        setCfgStatus('cfgDbStatus', `Erro ao consultar banco: ${error.message}`, 'error');
+        setCfgStatus('cfgDatalakeStatus', `Erro ao consultar credenciais: ${error.message}`, 'error');
     }
 }
 
-async function saveDbConfig() {
+async function saveDatalakeConfig() {
     if (!isCurrentUserAdmin()) {
-        setCfgStatus('cfgDbStatus', 'Somente admin pode salvar as configurações do banco.', 'error');
+        setCfgStatus('cfgDatalakeStatus', 'Somente admin pode salvar as credenciais da apidatalake.', 'error');
         return;
     }
 
-    const host = document.getElementById('cfgDbHost')?.value?.trim();
-    const port = document.getElementById('cfgDbPort')?.value?.trim();
-    const name = document.getElementById('cfgDbName')?.value?.trim();
-    const user = document.getElementById('cfgDbUser')?.value?.trim();
-    const password = document.getElementById('cfgDbPassword')?.value?.trim();
-    const dialect = document.getElementById('cfgDbDialect')?.value || 'postgres';
+    const url = document.getElementById('cfgDatalakeUrl')?.value?.trim();
+    const tokenInput = document.getElementById('cfgDatalakeToken');
+    const token = tokenInput?.value?.trim();
 
-    if (!host || !port || !name || !user || !password) {
-        setCfgStatus('cfgDbStatus', 'Preencha host, porta, nome, usuário e senha.', 'error');
+    if (!url) {
+        setCfgStatus('cfgDatalakeStatus', 'Preencha a URL da apidatalake.', 'error');
         return;
     }
 
     try {
-        const response = await fetch(`${API_BASE}/config/database`, {
+        const response = await fetch(`${API_BASE}/config/datalake`, {
             method: 'POST',
             headers: {
                 ...authHeaders(),
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ host, port, name, user, password, dialect })
+            body: JSON.stringify({ url, token })
         });
         const raw = await response.text();
         let data = {};
         if (raw) {
             try { data = JSON.parse(raw); } catch { data = { error: raw }; }
         }
-        if (!response.ok) throw new Error(data.error || 'Falha ao salvar banco');
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar credenciais');
 
-        setCfgStatus('cfgDbStatus', 'Configurações do banco salvas com sucesso.', 'ok');
-        await loadDbConfig();
+        if (tokenInput) tokenInput.value = '';
+        setCfgStatus('cfgDatalakeStatus', 'Credenciais da apidatalake salvas com sucesso.', 'ok');
+        await loadDatalakeConfig();
     } catch (error) {
-        setCfgStatus('cfgDbStatus', `Erro ao salvar banco: ${error.message}`, 'error');
+        setCfgStatus('cfgDatalakeStatus', `Erro ao salvar credenciais: ${error.message}`, 'error');
     }
 }
 

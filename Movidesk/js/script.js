@@ -400,11 +400,11 @@ function setupConfigEvents() {
     const resetPromptBtn = document.getElementById('cfgResetGptPrompt');
     if (resetPromptBtn) resetPromptBtn.addEventListener('click', resetGptPromptToDefault);
 
-    const saveDbBtn = document.getElementById('cfgSaveDbConfig');
-    if (saveDbBtn) saveDbBtn.addEventListener('click', saveDbConfig);
+    const saveDatalakeBtn = document.getElementById('cfgSaveDatalakeConfig');
+    if (saveDatalakeBtn) saveDatalakeBtn.addEventListener('click', saveDatalakeConfig);
 
-    const reloadDbBtn = document.getElementById('cfgReloadDbConfig');
-    if (reloadDbBtn) reloadDbBtn.addEventListener('click', loadDbConfig);
+    const reloadDatalakeBtn = document.getElementById('cfgReloadDatalakeConfig');
+    if (reloadDatalakeBtn) reloadDatalakeBtn.addEventListener('click', loadDatalakeConfig);
 
     const saveMovideskCondBtn = document.getElementById('cfgSaveMovideskConditions');
     if (saveMovideskCondBtn) saveMovideskCondBtn.addEventListener('click', saveMovideskConditions);
@@ -562,7 +562,7 @@ async function initializeApp() {
     setupDashboardFilters();
     setupConfigEvents();
     loadGptPrompt();
-    loadDbConfig();
+    loadDatalakeConfig();
     loadMovideskConditions();
     loadLastSyncedAt();
 
