@@ -406,6 +406,12 @@ function setupConfigEvents() {
     const reloadDatalakeBtn = document.getElementById('cfgReloadDatalakeConfig');
     if (reloadDatalakeBtn) reloadDatalakeBtn.addEventListener('click', loadDatalakeConfig);
 
+    const saveJiraCredsBtn = document.getElementById('cfgSaveJiraConfig');
+    if (saveJiraCredsBtn) saveJiraCredsBtn.addEventListener('click', saveJiraConfig);
+
+    const reloadJiraCredsBtn = document.getElementById('cfgReloadJiraConfig');
+    if (reloadJiraCredsBtn) reloadJiraCredsBtn.addEventListener('click', loadJiraConfig);
+
     const saveMovideskCondBtn = document.getElementById('cfgSaveMovideskConditions');
     if (saveMovideskCondBtn) saveMovideskCondBtn.addEventListener('click', saveMovideskConditions);
 
@@ -563,6 +569,7 @@ async function initializeApp() {
     setupConfigEvents();
     loadGptPrompt();
     loadDatalakeConfig();
+    loadJiraConfig();
     loadMovideskConditions();
     loadLastSyncedAt();
 

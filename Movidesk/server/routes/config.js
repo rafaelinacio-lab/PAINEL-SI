@@ -211,6 +211,86 @@ router.post('/datalake', authMiddleware, requireRole('admin'), (req, res) => {
   });
 });
 
+// GET - Credenciais da API do Jira salvas no painel (somente admin). Mesmo
+// padrão do /datalake — não devolve o token em texto puro, só se está
+// configurado. URL e e-mail não são sensíveis, voltam pro form. Quem
+// realmente usa essas credenciais é o jira_extractor.py (script Python
+// separado, fora deste processo Node, agendado por hora no cron da VM) — ele
+// lê essa mesma tabela `config` direto no Postgres antes de cair no
+// Jira/.env ou nos valores hardcoded no próprio script (ver
+// Jira/jira_credentials.py). Salvar aqui já vale na próxima execução
+// agendada, sem precisar editar nada na VM.
+router.get('/jira', authMiddleware, requireRole('admin'), (req, res) => {
+  const keys = ['jira_base_url', 'jira_email', 'jira_api_token'];
+  const state = {};
+  let remaining = keys.length;
+  let finished = false;
+
+  const finish = () => {
+    if (finished) return;
+    remaining -= 1;
+    if (remaining === 0) {
+      finished = true;
+      res.json({
+        configured: !!(state.jira_base_url && state.jira_email && state.jira_api_token),
+        url: state.jira_base_url || '',
+        email: state.jira_email || '',
+        tokenConfigured: !!state.jira_api_token
+      });
+    }
+  };
+
+  keys.forEach((key) => {
+    getConfigValue(key, (err, row) => {
+      if (finished) return;
+      if (err) {
+        finished = true;
+        return res.status(500).json({ error: 'Erro ao consultar credenciais do Jira' });
+      }
+      state[key] = row?.value || '';
+      finish();
+    });
+  });
+});
+
+// POST - Salvar credenciais da API do Jira direto pelo painel (somente
+// admin). Token opcional: se vier em branco, mantém o já salvo (só URL/e-mail
+// são atualizados).
+router.post('/jira', authMiddleware, requireRole('admin'), (req, res) => {
+  const { url, email, token } = req.body;
+  const trimmedUrl = (url || '').trim();
+  const trimmedEmail = (email || '').trim();
+
+  if (!trimmedUrl || !trimmedEmail) {
+    return res.status(400).json({ error: 'URL e e-mail do Jira são obrigatórios' });
+  }
+
+  const entries = [
+    ['jira_base_url', trimmedUrl],
+    ['jira_email', trimmedEmail]
+  ];
+  if (token && token.trim()) {
+    entries.push(['jira_api_token', encryptToken(token.trim())]);
+  }
+
+  let remaining = entries.length;
+  let failed = false;
+
+  entries.forEach(([key, value]) => {
+    saveConfigValue(key, value, (err) => {
+      if (failed) return;
+      if (err) {
+        failed = true;
+        return res.status(500).json({ error: 'Erro ao salvar credenciais do Jira' });
+      }
+      remaining -= 1;
+      if (remaining === 0) {
+        res.json({ success: true, message: 'Credenciais do Jira salvas com sucesso' });
+      }
+    });
+  });
+});
+
 function getPrompt(callback) {
   getConfigValue('openai_executive_prompt', (err, row) => {
     if (err) {

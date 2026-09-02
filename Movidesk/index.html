@@ -741,6 +741,7 @@
 
                 <!-- ABA: Sistema -->
                 <div class="cfg-tab-panel cfg-tab-hidden" id="cfgTab-sistema">
+                    <div class="cfg-card-grid cfg-card-grid-wide">
                     <div class="config-card">
                         <h3 class="config-card-title">Credenciais da API (Datalake)</h3>
                         <p class="config-card-help">URL e token que o painel usa para buscar os chamados na apidatalake. Se algum dia mudarem, troque aqui — não precisa editar o <code>.env</code> nem reiniciar o servidor.</p>
@@ -757,6 +758,26 @@
                             <button id="cfgReloadDatalakeConfig" class="config-btn config-btn-muted">Carregar salvo</button>
                         </div>
                         <div id="cfgDatalakeStatus" class="config-status"></div>
+                    </div>
+
+                    <div class="config-card">
+                        <h3 class="config-card-title">Credenciais da API (Jira)</h3>
+                        <p class="config-card-help">URL, e-mail e token que o <code>jira_extractor.py</code> (script agendado por hora fora deste servidor) usa para consultar o Jira. Troque aqui — vale já na próxima execução agendada, sem editar nada na VM.</p>
+                        <div class="config-form-stack">
+                            <div class="config-status-line">
+                                <span class="config-status-label">Status:</span>
+                                <span id="cfgJiraTokenStatus" class="config-token-status config-token-status-off">Nao configurado</span>
+                            </div>
+                            <input id="cfgJiraUrl" type="text" class="config-input" placeholder="https://sua-empresa.atlassian.net">
+                            <input id="cfgJiraEmail" type="text" class="config-input" placeholder="E-mail da conta usada no token">
+                            <input id="cfgJiraToken" type="password" class="config-input" placeholder="Novo token (deixe em branco para manter o atual)" autocomplete="off">
+                        </div>
+                        <div class="config-actions">
+                            <button id="cfgSaveJiraConfig" class="config-btn">Salvar credenciais</button>
+                            <button id="cfgReloadJiraConfig" class="config-btn config-btn-muted">Carregar salvo</button>
+                        </div>
+                        <div id="cfgJiraStatus" class="config-status"></div>
+                    </div>
                     </div>
 
                     <div class="cfg-card-grid">

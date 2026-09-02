@@ -1284,6 +1284,85 @@ async function saveDatalakeConfig() {
     }
 }
 
+async function loadJiraConfig() {
+    if (!isCurrentUserAdmin()) {
+        setCfgStatus('cfgJiraStatus', 'Somente admin pode consultar as credenciais do Jira.', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/config/jira`, {
+            headers: authHeaders()
+        });
+        const raw = await response.text();
+        let data = {};
+        if (raw) {
+            try { data = JSON.parse(raw); } catch { data = { error: raw }; }
+        }
+        if (!response.ok) throw new Error(data.error || 'Falha ao consultar credenciais');
+
+        const url = document.getElementById('cfgJiraUrl');
+        if (url) url.value = data.url || '';
+        const email = document.getElementById('cfgJiraEmail');
+        if (email) email.value = data.email || '';
+
+        const badge = document.getElementById('cfgJiraTokenStatus');
+        if (badge) {
+            if (data.tokenConfigured) {
+                badge.textContent = 'Configurado';
+                badge.className = 'config-token-status config-token-status-on';
+            } else {
+                badge.textContent = 'Nao configurado';
+                badge.className = 'config-token-status config-token-status-off';
+            }
+        }
+
+        setCfgStatus('cfgJiraStatus', data.configured ? 'Credenciais carregadas.' : 'Credenciais ainda não configuradas no painel (jira_extractor.py usa o fallback dele).');
+    } catch (error) {
+        setCfgStatus('cfgJiraStatus', `Erro ao consultar credenciais: ${error.message}`, 'error');
+    }
+}
+
+async function saveJiraConfig() {
+    if (!isCurrentUserAdmin()) {
+        setCfgStatus('cfgJiraStatus', 'Somente admin pode salvar as credenciais do Jira.', 'error');
+        return;
+    }
+
+    const url = document.getElementById('cfgJiraUrl')?.value?.trim();
+    const email = document.getElementById('cfgJiraEmail')?.value?.trim();
+    const tokenInput = document.getElementById('cfgJiraToken');
+    const token = tokenInput?.value?.trim();
+
+    if (!url || !email) {
+        setCfgStatus('cfgJiraStatus', 'Preencha a URL e o e-mail do Jira.', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/config/jira`, {
+            method: 'POST',
+            headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url, email, token })
+        });
+        const raw = await response.text();
+        let data = {};
+        if (raw) {
+            try { data = JSON.parse(raw); } catch { data = { error: raw }; }
+        }
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar credenciais');
+
+        if (tokenInput) tokenInput.value = '';
+        setCfgStatus('cfgJiraStatus', 'Credenciais do Jira salvas com sucesso.', 'ok');
+        await loadJiraConfig();
+    } catch (error) {
+        setCfgStatus('cfgJiraStatus', `Erro ao salvar credenciais: ${error.message}`, 'error');
+    }
+}
+
 function resetGptPromptToDefault() {
     const input = document.getElementById('cfgGptPrompt');
     if (!input) return;
