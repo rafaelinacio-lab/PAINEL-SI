@@ -828,6 +828,97 @@ body.legacy-view-mode #embeddedPagesView {
     flex-shrink: 0;
 }
 
+/* ===== Aba Movidesk — refresh visual (escopado a #movideskView pra não
+   mexer nos mesmos componentes compartilhados com Dashboard/Pessoas) ===== */
+
+#movideskView .pessoas-filters {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+#movideskView .pessoas-filter-select {
+    border-radius: 9px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#movideskView .pessoas-filter-select:focus {
+    border-color: var(--logo-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--logo-color) 18%, transparent);
+}
+
+#movideskView .pessoas-filter-clear {
+    border-radius: 9px;
+}
+
+#movideskView .pessoas-filter-clear:hover {
+    border-color: color-mix(in srgb, var(--logo-color) 30%, var(--border));
+    color: var(--logo-color);
+}
+
+/* KPIs com uma barra colorida no topo (mesma linguagem dos cards de
+   estatística de Configurações) em vez de só a cor do número. */
+#movideskView .summary-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+}
+
+#movideskView .summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+}
+
+#movideskView .summary-total::before   { background: var(--logo-color); }
+#movideskView .summary-new::before     { background: var(--grn-mid); }
+#movideskView .summary-inattendance::before { background: var(--blu-mid); }
+#movideskView .summary-stopped::before { background: var(--amb-mid); }
+
+/* Total usava um roxo avulso, sem ligação com a marca — alinhado ao
+   verde-esmeralda usado no resto do painel. */
+#movideskView .summary-total .summary-count { color: var(--logo-color); }
+
+#movideskView .movidesk-chart-card {
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+#movideskView .movidesk-chart-card-clickable:hover {
+    border-color: color-mix(in srgb, var(--logo-color) 25%, var(--border));
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+}
+
+#movideskView .movidesk-chart-card h4 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+#movideskView .movidesk-chart-card h4::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--logo-color);
+}
+
+/* Barras de ranking na cor da marca em vez do indigo avulso. */
+#movideskView .md-rank-fill {
+    background: linear-gradient(90deg, var(--logo-color), color-mix(in srgb, var(--logo-color) 55%, #fff));
+}
+
+#movideskView .md-donut-hole {
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+
 /* ===== Section & Cards ===== */
 .section {
     background: linear-gradient(135deg, var(--surface) 0%, var(--surface) 100%);
