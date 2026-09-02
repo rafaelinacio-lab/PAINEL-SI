@@ -63,6 +63,13 @@ app.use('/api/tickets', ticketsRoutes);
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
 });
+// Alias explícito — as abas legadas (Movidesk/Pessoas/Dashboard/Configurações)
+// embutem um iframe apontando pra "../index.html?legacyView=..." a partir de
+// /pages/, que resolve pro path literal /index.html (não só "/"). Sem esse
+// alias, essas abas quebram com "Cannot GET /index.html".
+app.get('/index.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '../index.html'));
+});
 
 
 // Rota login
