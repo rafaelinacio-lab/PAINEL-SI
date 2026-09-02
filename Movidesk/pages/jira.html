@@ -52,6 +52,7 @@
 #view-aberto{display:none}
 #view-fluxo{display:none}
 #view-sprint{display:none}
+#view-qualidade{display:none}
 
 /* ── Sprint ── */
 .sp-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
@@ -243,6 +244,7 @@ tr.sel td{background:var(--info-bg)!important}
 .dkv{font-size:16px;font-weight:700}
 .charts-row{display:grid;grid-template-columns:1fr 210px;gap:10px;margin-bottom:10px}
 .cbox{background:var(--bg3);border-radius:8px;padding:10px;border:1px solid var(--border)}
+.qa-chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:12px}
 .ctitle{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px}
 .task-bar{display:flex;gap:8px;margin:10px 0 6px;flex-wrap:wrap;align-items:center}
 .task-bar input,.task-bar select{font-size:11px;padding:5px 9px}
@@ -327,6 +329,10 @@ tr.sel td{background:var(--info-bg)!important}
         <button class="nav-tab" onclick="setView('sprint',this)">
           <svg class="nav-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>
           <span>Sprint</span>
+        </button>
+        <button class="nav-tab" onclick="setView('qualidade',this)">
+          <svg class="nav-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+          <span>Qualidade</span>
         </button>
       </div>
     </div>
@@ -461,6 +467,9 @@ tr.sel td{background:var(--info-bg)!important}
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-modulo" onclick="toggleMS('ab-modulo',event)">Módulo: Todos</div><div class="ms-dropdown" id="ms-ab-modulo"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('ab-modulo',this.value)"></div><div id="ms-ab-modulo-list"></div><div class="ms-actions"><button onclick="clearMS('ab-modulo')">Limpar</button><button onclick="selectAllMS('ab-modulo')">Todos</button></div></div></div>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-rotina" onclick="toggleMS('ab-rotina',event)">Rotina: Todos</div><div class="ms-dropdown" id="ms-ab-rotina"><div id="ms-ab-rotina-list"></div><div class="ms-actions"><button onclick="clearMS('ab-rotina')">Limpar</button><button onclick="selectAllMS('ab-rotina')">Todos</button></div></div></div>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-cliente" onclick="toggleMS('ab-cliente',event)">Cliente: Todos</div><div class="ms-dropdown" id="ms-ab-cliente"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('ab-cliente',this.value)"></div><div id="ms-ab-cliente-list"></div><div class="ms-actions"><button onclick="clearMS('ab-cliente')">Limpar</button><button onclick="selectAllMS('ab-cliente')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-classbug" onclick="toggleMS('ab-classbug',event)">Classificação de Bug: Todos</div><div class="ms-dropdown" id="ms-ab-classbug"><div id="ms-ab-classbug-list"></div><div class="ms-actions"><button onclick="clearMS('ab-classbug')">Limpar</button><button onclick="selectAllMS('ab-classbug')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-classmel" onclick="toggleMS('ab-classmel',event)">Classificação de Melhoria: Todos</div><div class="ms-dropdown" id="ms-ab-classmel"><div id="ms-ab-classmel-list"></div><div class="ms-actions"><button onclick="clearMS('ab-classmel')">Limpar</button><button onclick="selectAllMS('ab-classmel')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-ab-gut" onclick="toggleMS('ab-gut',event)">GUT: Todos</div><div class="ms-dropdown" id="ms-ab-gut"><div id="ms-ab-gut-list"></div><div class="ms-actions"><button onclick="clearMS('ab-gut')">Limpar</button><button onclick="selectAllMS('ab-gut')">Todos</button></div></div></div>
         <select id="fil-prazo-aberto" onchange="renderAberto()" style="padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11px;background:var(--bg2);color:var(--text)">
           <option value="">Prazo: Todos</option>
           <option value="vencido">Vencido</option>
@@ -499,7 +508,39 @@ tr.sel td{background:var(--info-bg)!important}
       </div>
     </div>
 
-    <div id="resp-list"><p style="color:var(--text3);text-align:center;padding:20px">Carregando tarefas em aberto...</p></div>
+    <!-- Lista detalhada de Issues — Backlog -->
+    <div class="panel" style="padding:10px;margin-top:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;flex-wrap:wrap">
+        <div style="font-size:11px;font-weight:600;color:var(--text2)">🗂️ Issues — Detalhamento</div>
+        <span id="ab-detail-count" style="font-size:11px;color:var(--text3);white-space:nowrap"></span>
+      </div>
+      <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
+        <table class="ttbl" id="ab-detail-table">
+          <thead style="position:sticky;top:0;z-index:2"><tr>
+            <th onclick="sortAbDetail('chave')"          style="cursor:pointer;white-space:nowrap;user-select:none">Chave <span id="abd-sort-chave"></span></th>
+            <th onclick="sortAbDetail('summary')"        style="cursor:pointer;white-space:nowrap;user-select:none">Resumo <span id="abd-sort-summary"></span></th>
+            <th onclick="sortAbDetail('status')"         style="cursor:pointer;white-space:nowrap;user-select:none">Status <span id="abd-sort-status"></span></th>
+            <th onclick="sortAbDetail('tipo')"           style="cursor:pointer;white-space:nowrap;user-select:none">Tipo do Item <span id="abd-sort-tipo"></span></th>
+            <th onclick="sortAbDetail('class_bug')"      style="cursor:pointer;white-space:nowrap;user-select:none">Classificação de Bug <span id="abd-sort-class_bug"></span></th>
+            <th onclick="sortAbDetail('class_melhoria')" style="cursor:pointer;white-space:nowrap;user-select:none">Classificação de Melhoria <span id="abd-sort-class_melhoria"></span></th>
+            <th onclick="sortAbDetail('responsavel')"    style="cursor:pointer;white-space:nowrap;user-select:none">Responsável <span id="abd-sort-responsavel"></span></th>
+            <th onclick="sortAbDetail('gut')"            style="cursor:pointer;white-space:nowrap;user-select:none">GUT <span id="abd-sort-gut"></span></th>
+            <th onclick="sortAbDetail('modulo')"         style="cursor:pointer;white-space:nowrap;user-select:none">Módulo <span id="abd-sort-modulo"></span></th>
+            <th onclick="sortAbDetail('rotina')"         style="cursor:pointer;white-space:nowrap;user-select:none">Rotina <span id="abd-sort-rotina"></span></th>
+            <th onclick="sortAbDetail('cliente')"        style="cursor:pointer;white-space:nowrap;user-select:none">Cliente <span id="abd-sort-cliente"></span></th>
+            <th onclick="sortAbDetail('prazo')"          style="cursor:pointer;white-space:nowrap;user-select:none">Prazo <span id="abd-sort-prazo"></span></th>
+            <th onclick="sortAbDetail('dias_prazo')"     style="cursor:pointer;white-space:nowrap;user-select:none">Dias p/ Prazo <span id="abd-sort-dias_prazo"></span></th>
+            <th onclick="sortAbDetail('criado')"         style="cursor:pointer;white-space:nowrap;user-select:none">Criado em <span id="abd-sort-criado"></span></th>
+            <th onclick="sortAbDetail('dias_aberto')"    style="cursor:pointer;white-space:nowrap;user-select:none">Dias em aberto <span id="abd-sort-dias_aberto"></span></th>
+          </tr></thead>
+          <tbody id="ab-detail-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="resp-list-wrap" style="max-height:620px;overflow-y:auto;padding-right:4px;margin-top:16px">
+      <div id="resp-list"><p style="color:var(--text3);text-align:center;padding:20px">Carregando tarefas em aberto...</p></div>
+    </div>
   </div><!-- /view-aberto -->
 
   <!-- ── ANÁLISE TDC ── -->
@@ -674,6 +715,10 @@ tr.sel td{background:var(--info-bg)!important}
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-tipo" onclick="toggleMS('sup-tipo',event)">Tipo: Todos</div><div class="ms-dropdown" id="ms-sup-tipo"><div id="ms-sup-tipo-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-tipo')">Limpar</button><button onclick="selectAllMSSup('sup-tipo')">Todos</button></div></div></div>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-squad" onclick="toggleMS('sup-squad',event)">Squad: Todos</div><div class="ms-dropdown" id="ms-sup-squad"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('sup-squad',this.value)"></div><div id="ms-sup-squad-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-squad')">Limpar</button><button onclick="selectAllMSSup('sup-squad')">Todos</button></div></div></div>
         <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-prod" onclick="toggleMS('sup-prod',event)">Produto: Todos</div><div class="ms-dropdown" id="ms-sup-prod"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('sup-prod',this.value)"></div><div id="ms-sup-prod-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-prod')">Limpar</button><button onclick="selectAllMSSup('sup-prod')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-classbug" onclick="toggleMS('sup-classbug',event)">Classificação de Bug: Todos</div><div class="ms-dropdown" id="ms-sup-classbug"><div id="ms-sup-classbug-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-classbug')">Limpar</button><button onclick="selectAllMSSup('sup-classbug')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-classmel" onclick="toggleMS('sup-classmel',event)">Classificação de Melhoria: Todos</div><div class="ms-dropdown" id="ms-sup-classmel"><div id="ms-sup-classmel-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-classmel')">Limpar</button><button onclick="selectAllMSSup('sup-classmel')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-status" onclick="toggleMS('sup-status',event)">Status: Todos</div><div class="ms-dropdown" id="ms-sup-status"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('sup-status',this.value)"></div><div id="ms-sup-status-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-status')">Limpar</button><button onclick="selectAllMSSup('sup-status')">Todos</button></div></div></div>
+        <div class="ms-wrap"><div class="ms-btn" id="ms-btn-sup-cliente" onclick="toggleMS('sup-cliente',event)">Cliente: Todos</div><div class="ms-dropdown" id="ms-sup-cliente"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMS('sup-cliente',this.value)"></div><div id="ms-sup-cliente-list"></div><div class="ms-actions"><button onclick="clearMSSup('sup-cliente')">Limpar</button><button onclick="selectAllMSSup('sup-cliente')">Todos</button></div></div></div>
         <button onclick="resetSupFilters()" style="padding:5px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg2);color:var(--text2);cursor:pointer;font-size:11px" onmouseover="this.style.borderColor='var(--indigo)'" onmouseout="this.style.borderColor='var(--border)'">✕ Limpar</button>
       </div>
     </div>
@@ -917,6 +962,102 @@ tr.sel td{background:var(--info-bg)!important}
 
   </div><!-- /view-sprint -->
 
+  <!-- ── QUALIDADE ── -->
+  <div id="view-qualidade" style="display:none">
+    <div class="controls">
+      <div class="ms-wrap"><div class="ms-btn" id="ms-btn-qa-dev" onclick="toggleMSQa('qa-dev',event)">Desenvolvedor: Todos</div><div class="ms-dropdown" id="ms-qa-dev"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMSQa('qa-dev',this.value)"></div><div id="ms-qa-dev-list"></div><div class="ms-actions"><button onclick="clearMSQa('qa-dev')">Limpar</button><button onclick="selectAllMSQa('qa-dev')">Todos</button></div></div></div>
+      <div class="ms-wrap"><div class="ms-btn" id="ms-btn-qa-squad" onclick="toggleMSQa('qa-squad',event)">Squad: Todos</div><div class="ms-dropdown" id="ms-qa-squad"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMSQa('qa-squad',this.value)"></div><div id="ms-qa-squad-list"></div><div class="ms-actions"><button onclick="clearMSQa('qa-squad')">Limpar</button><button onclick="selectAllMSQa('qa-squad')">Todos</button></div></div></div>
+      <div class="ms-wrap"><div class="ms-btn" id="ms-btn-qa-proj" onclick="toggleMSQa('qa-proj',event)">Projeto: Todos</div><div class="ms-dropdown" id="ms-qa-proj"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMSQa('qa-proj',this.value)"></div><div id="ms-qa-proj-list"></div><div class="ms-actions"><button onclick="clearMSQa('qa-proj')">Limpar</button><button onclick="selectAllMSQa('qa-proj')">Todos</button></div></div></div>
+      <div class="ms-wrap"><div class="ms-btn" id="ms-btn-qa-prod" onclick="toggleMSQa('qa-prod',event)">Produto: Todos</div><div class="ms-dropdown" id="ms-qa-prod"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMSQa('qa-prod',this.value)"></div><div id="ms-qa-prod-list"></div><div class="ms-actions"><button onclick="clearMSQa('qa-prod')">Limpar</button><button onclick="selectAllMSQa('qa-prod')">Todos</button></div></div></div>
+      <div class="ms-wrap"><div class="ms-btn" id="ms-btn-qa-mes" onclick="toggleMSQa('qa-mes',event)">Mês (finalizada): Todos</div><div class="ms-dropdown" id="ms-qa-mes"><div class="ms-search"><input type="text" placeholder="Buscar..." oninput="filterMSQa('qa-mes',this.value)"></div><div id="ms-qa-mes-list"></div><div class="ms-actions"><button onclick="clearMSQa('qa-mes')">Limpar</button><button onclick="selectAllMSQa('qa-mes')">Todos</button></div></div></div>
+      <button onclick="resetQaFiltros()" style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text2);cursor:pointer;font-size:12px;white-space:nowrap" onmouseover="this.style.borderColor='var(--indigo)';this.style.color='var(--indigo)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">✕ Limpar filtros</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin:-4px 0 10px 2px">Os filtros acima se aplicam a todos os quadros desta página (Índices, Ranking de Bugs e Epic). O filtro de Mês considera o mês em que a tarefa foi finalizada, e recalcula os índices só com base nas tarefas daquele(s) mês(es).</div>
+
+    <div class="kpi-row" id="qa-kpi-row"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="cbox"><div class="ctitle">🧪 Índice de Qualidade de Código — Top 10 (qtd. reprovações revisão de código)</div><div style="position:relative;height:260px"><canvas id="qaChartCodigo"></canvas><div id="qaChartCodigo-empty" class="qa-chart-empty" style="display:none">Sem dados neste ano</div></div></div>
+      <div class="cbox"><div class="ctitle">🔬 Índice de Qualidade Interna — Top 10 (qtd. reprovações em teste)</div><div style="position:relative;height:260px"><canvas id="qaChartInterna"></canvas><div id="qaChartInterna-empty" class="qa-chart-empty" style="display:none">Sem dados neste ano</div></div></div>
+      <div class="cbox"><div class="ctitle">🐛 Índice de Qualidade Externa — Top 10 (qtd. bugs por falha de programação)</div><div style="position:relative;height:260px"><canvas id="qaChartExterna"></canvas><div id="qaChartExterna-empty" class="qa-chart-empty" style="display:none">Sem dados neste ano</div></div></div>
+    </div>
+
+    <div class="panel" style="padding:10px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2)">📋 Índices de Qualidade por Desenvolvedor</div>
+        <span id="qa-count" style="font-size:11px;color:var(--text3)"></span>
+      </div>
+      <div style="overflow-x:auto;overflow-y:auto;max-height:320px">
+        <table class="sp-tbl" id="qa-table">
+          <thead style="position:sticky;top:0;z-index:2"><tr>
+            <th onclick="qaSortBy('nome')">Desenvolvedor</th>
+            <th onclick="qaSortBy('qtd_tarefas')">Tarefas</th>
+            <th onclick="qaSortBy('rep_codigo')">Reprov. Revisão Código</th>
+            <th onclick="qaSortBy('tx_qualidade_codigo')">Índice Qualid. Código</th>
+            <th onclick="qaSortBy('rep_interna')">Reprov. Teste Interno</th>
+            <th onclick="qaSortBy('tx_qualidade_interna')">Índice Qualid. Interna</th>
+            <th onclick="qaSortBy('bugs_prog')">Bugs Falha Programação</th>
+            <th onclick="qaSortBy('tx_qualidade_externa')">Índice Qualid. Externa</th>
+          </tr></thead>
+          <tbody id="qa-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="padding:10px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">🎯 Tarefa com Mais Número de Bugs (Tarefa Origem Inconsistência)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="cbox">
+          <div class="ctitle">Top 10 — Tarefas que mais geraram bugs</div>
+          <div style="position:relative;height:280px"><canvas id="devChartBugRank"></canvas><div id="devChartBugRank-empty" class="qa-chart-empty" style="display:none">Sem dados</div></div>
+        </div>
+        <div style="overflow-x:auto;overflow-y:auto;max-height:320px">
+          <table class="sp-tbl" id="dev-bugrank-table">
+            <thead style="position:sticky;top:0;z-index:2"><tr>
+              <th>Tarefa Origem</th><th>Resumo</th><th>Qtd. Bugs Gerados</th><th>Fix Version(s)</th>
+            </tr></thead>
+            <tbody id="dev-bugrank-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="padding:14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2)">📅 Tarefas Feitas na Semana (status "Desenvolvida")</div>
+        <span id="dev-semana-sel-tag" style="display:none;font-size:11px;color:var(--indigo)">
+          Filtrado: <b id="dev-semana-sel-nome"></b>
+          <button onclick="devSemanaSelectDev(devSemanaSelDev)" style="margin-left:6px;padding:2px 8px;border:1px solid var(--indigo);border-radius:10px;background:none;color:var(--indigo);cursor:pointer;font-size:10px">✕ limpar</button>
+        </span>
+      </div>
+      <div style="position:relative;height:240px">
+        <canvas id="devChartSemana"></canvas>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin:8px 0">Últimas semanas com base nas transições de status registradas no changelog (janela de 180 dias). Clique num desenvolvedor na tabela abaixo para filtrar o gráfico só por ele.</div>
+      <input type="text" id="dev-semana-srch" placeholder="🔍 Buscar desenvolvedor..." oninput="renderDevWeeklyTable()"
+             style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg2);color:var(--text);margin-bottom:8px">
+      <div style="overflow-x:auto;overflow-y:auto;max-height:320px">
+        <table class="ttbl"><thead><tr><th onclick="qaSemSortBy('dev')">Desenvolvedor</th><th class="r" onclick="qaSemSortBy('qtd')">Qtd. Total</th></tr></thead>
+        <tbody id="dev-semana-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <div class="panel" style="padding:10px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2)">📈 Progresso da Epic</div>
+        <span id="dev-epic-count" style="font-size:11px;color:var(--text3)"></span>
+      </div>
+      <div style="overflow-x:auto;overflow-y:auto;max-height:320px">
+        <table class="sp-tbl" id="dev-epic-table">
+          <thead style="position:sticky;top:0;z-index:2"><tr>
+            <th>Epic</th><th>Resumo</th><th>Status</th><th>Projeto</th><th>Filhos</th><th>Concluídos</th><th>Progresso</th>
+          </tr></thead>
+          <tbody id="dev-epic-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /view-qualidade -->
+
   </div><!-- /conteudo -->
 
   <!-- ══ Modal Sprint Detail ══ -->
@@ -1000,7 +1141,7 @@ document.addEventListener('DOMContentLoaded', function(){
   if (typeof _bootTDCData === 'function') _bootTDCData();
 });
 
-// ─── Indicador roxo elástico das abas TDC/Indicadores/Backlog/Fluxo/Sprint ──
+// ─── Indicador roxo elástico das abas TDC/Indicadores/Backlog/Fluxo/Sprint/Qualidade ──
 // Em vez de só trocar a classe .active na hora do clique, a cápsula roxa
 // "viaja" de uma aba pra outra: alonga em direção ao destino, atravessa como
 // uma gota elástica e contrai de volta com um pequeno overshoot na chegada
@@ -1094,11 +1235,7 @@ function renderSupLista(){
     'Tecnologia','Voors','Nimitz','CRM','Agrotitan Fazendas','Testes Automatizados',
     'zViasuper - inativo','zAutomação Comercial - inativo']);
 
-  const fMes   = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size  ?MS_SUP_SEL['sup-mes']  :null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size  ?MS_SUP_SEL['sup-seg']  :null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size ?MS_SUP_SEL['sup-tipo'] :null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size?MS_SUP_SEL['sup-squad']:null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size ?MS_SUP_SEL['sup-prod'] :null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
   const q      = (document.getElementById('sup-srch-lista')||{value:''}).value.toLowerCase();
 
   const MES_LABEL={'Jan':'2026-01','Fev':'2026-02','Mar':'2026-03','Abr':'2026-04','Mai':'2026-05'};
@@ -1216,6 +1353,7 @@ Promise.allSettled([
   jiraFetch('abertos_data.json').then(r=>r.json()),
   jiraFetch('fechados_data.json').then(r=>r.json()),
   jiraFetch('sprint_data.json').then(r=>r.json()),
+  jiraFetch('qualidade_data.json').then(r=>r.json()),
 ]).then(results=>{
   results.forEach(r=>{ if(r.status==='fulfilled') setGlobalGeradoEm(r.value?.gerado_em); });
 });
@@ -1274,7 +1412,7 @@ jiraFetch('dashboard_data.json')
     // ── Auto-reload: detecta mudança nos JSONs e recarrega tudo automaticamente ──
     const POLL_FILES = [
       'dashboard_data.json','tdc_data.json','abertos_data.json',
-      'fechados_data.json','sprint_data.json'
+      'fechados_data.json','sprint_data.json','qualidade_data.json'
     ];
     let _lastSignature = '';
 
@@ -1362,6 +1500,21 @@ jiraFetch('dashboard_data.json')
             if(document.getElementById('view-sprint').style.display==='block') renderSprint();
           }
         }
+        // Qualidade
+        if(QA_INIT){
+          const qaRes = await jiraFetch('qualidade_data.json');
+          if(qaRes.ok){
+            const json = await qaRes.json();
+            setGlobalGeradoEm(json.gerado_em);
+            QA_POR_ANO     = json.por_ano || {};
+            QA_BUG_RANKING = json.bug_ranking || [];
+            QA_TAREFAS_SEMANA = json.tarefas_semana || [];
+            QA_EPIC_PROGRESS  = json.epic_progress || [];
+            qaBuildFilterOptions();
+            if(document.getElementById('view-qualidade').style.display==='block'){ renderQualidade(); renderDevBugRanking(); }
+          }
+        }
+
       } catch(e){ console.warn('Auto-reload error:', e); }
 
       if(geradoEl) geradoEl.style.opacity='1';
@@ -1680,11 +1833,7 @@ function renderIndCharts(){
   if(!all.length) return;
 
   // Aplicar os mesmos filtros ativos do Fluxo sobre os itens fechados
-  const fMes   = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size  ?MS_SUP_SEL['sup-mes']  :null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size  ?MS_SUP_SEL['sup-seg']  :null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size ?MS_SUP_SEL['sup-tipo'] :null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size?MS_SUP_SEL['sup-squad']:null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size ?MS_SUP_SEL['sup-prod'] :null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
 
   const raw = all.filter(x=>{
     if(fMes){
@@ -2035,21 +2184,22 @@ function updateMSBtnIndResp(){
 
 // ── Multiselect state Backlog ──
 const MS_AB_STATE = {};
-['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status'].forEach(k=>{ MS_AB_STATE[k]=new Set(); });
+['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status','ab-classbug','ab-classmel','ab-gut'].forEach(k=>{ MS_AB_STATE[k]=new Set(); });
 const MS_AB_LABELS = {
   'ab-resp':'Responsável','ab-proj':'Projetos','ab-squad':'Squads','ab-tipo':'Tipos',
   'ab-prod':'Produtos','ab-modulo':'Módulos','ab-rotina':'Rotinas',
-  'ab-cliente':'Clientes','ab-status':'Status'
+  'ab-cliente':'Clientes','ab-status':'Status',
+  'ab-classbug':'Classificação de Bug','ab-classmel':'Classificação de Melhoria','ab-gut':'GUT'
 };
 const MS_AB_ALL_VALS = {};
-['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status'].forEach(k=>{ MS_AB_ALL_VALS[k]=[]; });
+['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status','ab-classbug','ab-classmel','ab-gut'].forEach(k=>{ MS_AB_ALL_VALS[k]=[]; });
 
 // ── Multiselect state TDC ──
 const MS_STATE = { seg:new Set(), produto:new Set(), squad:new Set(), 'bug-gerado':new Set(), crit:new Set() };
 const MS_LABELS = { seg:'Segmento', produto:'Produtos', squad:'Squad', 'bug-gerado':'Bug Gerado', crit:'Criticidade' };
 const MS_ALL_VALS = { seg:[], produto:[], squad:[], 'bug-gerado':['3 Últimas Versões','Última Versão','Últimos 12 Meses'], crit:[] };
 
-const AB_KEYS = new Set(['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status','ind-resp']);
+const AB_KEYS = new Set(['ab-resp','ab-proj','ab-squad','ab-tipo','ab-prod','ab-modulo','ab-rotina','ab-cliente','ab-status','ab-classbug','ab-classmel','ab-gut','ind-resp']);
 
 const MS_VALS_MAP = {};
 
@@ -2109,9 +2259,11 @@ function filterMS(key, q){
   const all = key==='ind-resp'    ? MS_IND_RESP_ALL :
               AB_KEYS.has(key)    ? (MS_AB_ALL_VALS[key]||[]) :
               key.startsWith('sp-')? (MS_SP_ALL[key]||[]) :
+              key.startsWith('sup-')? (MS_SUP_ALL[key]||[]) :
               (MS_ALL_VALS[key]||[]);
   const filtered = all.filter(v=>v.toLowerCase().includes(q.toLowerCase()));
   if(key.startsWith('sp-')) buildMSListSp(key, filtered);
+  else if(key.startsWith('sup-')) buildMSListSup(key, filtered);
   else buildMSList(key, filtered);
 }
 
@@ -2156,6 +2308,7 @@ function setView(view, btn){
   document.getElementById('view-tdc').style.display         = view==='tdc'?'block':'none';
   document.getElementById('view-fluxo').style.display       = view==='fluxo'?'block':'none';
   document.getElementById('view-sprint').style.display      = view==='sprint'?'block':'none';
+  document.getElementById('view-qualidade').style.display   = view==='qualidade'?'block':'none';
   if(view==='indicadores') render();
   if(view==='aberto'){
     if(ABERTO.length > 0) renderAberto();
@@ -2182,6 +2335,10 @@ function setView(view, btn){
   if(view==='sprint'){
     if(!SP_INIT) initSprint();
     else renderSprint();
+  }
+  if(view==='qualidade'){
+    if(!QA_INIT) initQualidade().then(()=>{ renderQualidade(); renderDevBugRanking(); });
+    else { renderQualidade(); renderDevBugRanking(); }
   }
 }
 
@@ -2222,14 +2379,14 @@ function buildSupData(itens_ab, itens_fe, backlog) {
   };
   const PROJS=new Set(itens_ab.map(x=>x.projeto));
   const agg={};
-  const key=(mc,mr,p,sq,pr,ti,ca)=>[mc,mr,p,sq,pr,ti,ca].join('|');
+  const key=(mc,mr,p,sq,pr,ti,ca,cb,cm,st)=>[mc,mr,p,sq,pr,ti,ca,cb,cm,st].join('|');
   const get=k=>{if(!agg[k])agg[k]={ab:0,res:0,pend:0,rep:0};return agg[k];};
 
   itens_ab.forEach(x=>{
     const mc=(x.criado||'').slice(0,7);
     if(!mc.startsWith('2026'))return;
     const ca=catBug(x.tipo,x.status,x.class_bug)||catMel(x.tipo,x.status)||'other';
-    get(key(mc,'',x.projeto,x.squad||'',x.produto||'',x.tipo,ca)).ab++;
+    get(key(mc,'',x.projeto,x.squad||'',x.produto||'',x.tipo,ca,x.class_bug||'',x.class_melhoria||'',x.status||'')).ab++;
   });
 
   itens_fe.forEach(x=>{
@@ -2237,7 +2394,7 @@ function buildSupData(itens_ab, itens_fe, backlog) {
     if(!mr.startsWith('2026'))return;
     const mc=(x.criado||'').slice(0,7);
     const ca=catBug(x.tipo,x.status,x.class_bug)||catMel(x.tipo,x.status)||'other';
-    const r=get(key(mc,mr,x.projeto,x.squad||'',x.produto||'',x.tipo,ca));
+    const r=get(key(mc,mr,x.projeto,x.squad||'',x.produto||'',x.tipo,ca,x.class_bug||'',x.class_melhoria||'',x.status||''));
     r.res++;
     if(x.status==='Análise Reprovada')r.rep++;
   });
@@ -2245,12 +2402,12 @@ function buildSupData(itens_ab, itens_fe, backlog) {
   (backlog||[]).filter(x=>PROJS.has(x.projeto)).forEach(x=>{
     const mc=(x.criado||'').slice(0,7);
     const ca=catBug(x.tipo,x.status,x.class_bug)||catMel(x.tipo,x.status)||'other';
-    get(key(mc,'',x.projeto,x.squad||'',(x.produto||(x.produtos||[])[0])||'',x.tipo,ca)).pend++;
+    get(key(mc,'',x.projeto,x.squad||'',(x.produto||(x.produtos||[])[0])||'',x.tipo,ca,x.class_bug||'',x.class_melhoria||'',x.status||'')).pend++;
   });
 
   const rows=Object.entries(agg).map(([k,v])=>{
-    const[mc,mr,p,sq,pr,ti,ca]=k.split('|');
-    return{mc,mr,p,sq,pr,ti,ca,...v};
+    const[mc,mr,p,sq,pr,ti,ca,cb,cm,st]=k.split('|');
+    return{mc,mr,p,sq,pr,ti,ca,cb,cm,st,...v};
   });
 
   // Semanal
@@ -2324,6 +2481,26 @@ async function initSup(){
   fill('sup-tipo', vals(r=>r.ti));
   fill('sup-squad',vals(r=>r.sq));
   fill('sup-prod', Object.keys(window._PROD_PROJETOS||{}).sort());
+  fill('sup-classbug', vals(r=>r.cb));
+  fill('sup-classmel', vals(r=>r.cm));
+  fill('sup-status',   vals(r=>r.st));
+  const clienteSet = new Set();
+  [...(window._ABERTOS_ITENS||[]), ...(window._FECHADOS_ITENS||[]), ...(window._BACKLOG_ITENS||[])].forEach(x=>{
+    (x.clientes||[]).forEach(c=>{ if(c) clienteSet.add(c); });
+  });
+  fill('sup-cliente', [...clienteSet].sort());
+}
+
+// Trata "todos selecionados" (ou nenhum marcado) como equivalente a "sem filtro".
+// Isso evita que registros com o campo vazio/nulo (ex.: squad ou produto em
+// branco) sejam indevidamente excluídos quando o usuário clica em "Todos" —
+// causa da divergência entre "Total em aberto" (Backlog) e "Pendentes" (Fluxo).
+function supActiveFilter(key){
+  const sel = MS_SUP_SEL[key];
+  if(!sel || sel.size===0) return null;
+  const all = MS_SUP_ALL[key]||[];
+  if(all.length && sel.size>=all.length) return null;
+  return sel;
 }
 
 function buildMSListSup(key,vals){
@@ -2353,14 +2530,14 @@ function selectAllMSSup(key){
 function updateMSBtnSup(key){
   const sel=MS_SUP_SEL[key]||new Set();
   const all=MS_SUP_ALL[key]||[];
-  const labels={'sup-mes':'Mês','sup-seg':'Segmento','sup-tipo':'Tipo','sup-squad':'Squad','sup-prod':'Produto'};
+  const labels={'sup-mes':'Mês','sup-seg':'Segmento','sup-tipo':'Tipo','sup-squad':'Squad','sup-prod':'Produto','sup-classbug':'Classificação de Bug','sup-classmel':'Classificação de Melhoria','sup-status':'Status','sup-cliente':'Cliente'};
   const btn=document.getElementById('ms-btn-'+key);
   if(!btn) return;
   if(sel.size===0||sel.size===all.length){btn.textContent=(labels[key]||key)+': Todos';btn.classList.remove('active');}
   else{btn.textContent=(labels[key]||key)+': '+sel.size+' sel.';btn.classList.add('active');}
 }
 function resetSupFilters(){
-  ['sup-mes','sup-seg','sup-tipo','sup-squad','sup-prod'].forEach(k=>{
+  ['sup-mes','sup-seg','sup-tipo','sup-squad','sup-prod','sup-classbug','sup-classmel','sup-status','sup-cliente'].forEach(k=>{
     MS_SUP_SEL[k]=new Set();
     buildMSListSup(k,MS_SUP_ALL[k]||[]);
     updateMSBtnSup(k);
@@ -2369,16 +2546,15 @@ function resetSupFilters(){
 }
 
 function getSupFiltered(){
-  const fMes    = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size  ?MS_SUP_SEL['sup-mes']  :null;
-  const fSeg    = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size  ?MS_SUP_SEL['sup-seg']  :null;
-  const fTipo   = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size ?MS_SUP_SEL['sup-tipo'] :null;
-  const fSquad  = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size?MS_SUP_SEL['sup-squad']:null;
-  const fProd   = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size ?MS_SUP_SEL['sup-prod'] :null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
   return SUP_DATA.filter(r=>{
     if(fMes   && !fMes.has(SUP_MES_LABEL[r.mc]||r.mc) && !fMes.has(SUP_MES_LABEL[r.mr]||r.mr)) return false;
     if(fSeg   && !fSeg.has(r.p))   return false;
     if(fTipo  && !fTipo.has(r.ti)) return false;
     if(fSquad && !fSquad.has(r.sq))return false;
+    if(fClassBug && !fClassBug.has(r.cb)) return false;
+    if(fClassMel && !fClassMel.has(r.cm)) return false;
+    if(fStatus   && !fStatus.has(r.st))   return false;
     if(fProd){
       // Se o item tem pr preenchido, filtra direto; senão filtra pelo projeto via mapeamento
       if(r.pr){
@@ -2403,11 +2579,7 @@ function renderSupChartSemana(){
   const tc=dark?'#9ba3bf':'#888';
   const gc=dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)';
 
-  const fMes   = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size   ? MS_SUP_SEL['sup-mes']   : null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size   ? MS_SUP_SEL['sup-seg']   : null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size  ? MS_SUP_SEL['sup-tipo']  : null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size ? MS_SUP_SEL['sup-squad'] : null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size  ? MS_SUP_SEL['sup-prod']  : null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
 
   // Recalcula semanal dos itens brutos com filtros aplicados
   const wk=d=>{if(!d||d.length<10)return null;const dt=new Date(d.slice(0,10));dt.setDate(dt.getDate()-dt.getDay()+1);return dt.toISOString().slice(0,10);};
@@ -2416,6 +2588,10 @@ function renderSupChartSemana(){
     if(fSeg   && ![...fSeg].includes(x.projeto||''))   return false;
     if(fTipo  && ![...fTipo].includes(x.tipo||''))     return false;
     if(fSquad && ![...fSquad].includes(x.squad||''))   return false;
+    if(fClassBug && !fClassBug.has(x.class_bug||''))   return false;
+    if(fClassMel && !fClassMel.has(x.class_melhoria||''))return false;
+    if(fStatus   && !fStatus.has(x.status||''))        return false;
+    if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
     if(fProd){
       const prods=(x.produtos||[]).concat(x.produto?[x.produto]:[]);
       if(![...fProd].some(p=>prods.includes(p)||(window._PROD_PROJETOS||{})[p]?.has(x.projeto))) return false;
@@ -2487,11 +2663,7 @@ function renderSup(){
 let FX_SORT={col:'criado', dir:-1};
 
 function getFluxoIssuesFiltered(){
-  const fMes   = MS_SUP_SEL['sup-mes']  &&MS_SUP_SEL['sup-mes'].size  ?MS_SUP_SEL['sup-mes']  :null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size  ?MS_SUP_SEL['sup-seg']  :null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size ?MS_SUP_SEL['sup-tipo'] :null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size?MS_SUP_SEL['sup-squad']:null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size ?MS_SUP_SEL['sup-prod'] :null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
   const itens  = window._FLUXO_ITENS_MERGED||[];
 
   let out = itens.filter(x=>{
@@ -2503,6 +2675,10 @@ function getFluxoIssuesFiltered(){
     if(fSeg   && !fSeg.has(x.projeto||''))  return false;
     if(fTipo  && !fTipo.has(x.tipo||''))    return false;
     if(fSquad && !fSquad.has(x.squad||''))  return false;
+    if(fClassBug && !fClassBug.has(x.class_bug||''))     return false;
+    if(fClassMel && !fClassMel.has(x.class_melhoria||''))return false;
+    if(fStatus   && !fStatus.has(x.status||''))          return false;
+    if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
     if(fProd){
       if(x.produto){ if(!fProd.has(x.produto)) return false; }
       else { if(![...fProd].some(p=>(window._PROD_PROJETOS||{})[p]?.has(x.projeto))) return false; }
@@ -2569,11 +2745,7 @@ function renderFluxoIssuesTable(){
 
 function renderSupKPIs(data){
   const fmt=n=>n.toLocaleString('pt-BR');
-  const fMes = MS_SUP_SEL['sup-mes']&&MS_SUP_SEL['sup-mes'].size ? MS_SUP_SEL['sup-mes'] : null;
-  const fSeg   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size   ? MS_SUP_SEL['sup-seg']   : null;
-  const fTipo  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size  ? MS_SUP_SEL['sup-tipo']  : null;
-  const fSquad = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size ? MS_SUP_SEL['sup-squad'] : null;
-  const fProd  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size  ? MS_SUP_SEL['sup-prod']  : null;
+  const fMes=supActiveFilter('sup-mes'), fSeg=supActiveFilter('sup-seg'), fTipo=supActiveFilter('sup-tipo'), fSquad=supActiveFilter('sup-squad'), fProd=supActiveFilter('sup-prod'), fClassBug=supActiveFilter('sup-classbug'), fClassMel=supActiveFilter('sup-classmel'), fStatus=supActiveFilter('sup-status'), fCliente=supActiveFilter('sup-cliente');
 
   let ab=0, res=0, rep=0;
   data.forEach(r=>{
@@ -2584,16 +2756,20 @@ function renderSupKPIs(data){
     if(!fMes || fMes.has(mrLbl)) rep += r.rep;
   });
 
-  // Pendentes: filtra backlog por Segmento/Tipo/Squad/Produto — ignora Mês
+  // Pendentes: filtra backlog por Segmento/Tipo/Squad/Produto/Classificação/GUT/Status/Cliente — ignora Mês
   let pend = 0;
   const bl = window._BACKLOG_ITENS || [];
-  if(!fSeg && !fTipo && !fSquad && !fProd){
+  if(!fSeg && !fTipo && !fSquad && !fProd && !fClassBug && !fClassMel && !fStatus && !fCliente){
     pend = window._PEND_TOTAL || bl.length;
   } else {
     pend = bl.filter(x=>{
       if(fSeg   && ![...fSeg].includes(x.projeto||''))    return false;
       if(fTipo  && ![...fTipo].includes(x.tipo||''))      return false;
       if(fSquad && ![...fSquad].includes(x.squad||''))    return false;
+      if(fClassBug && !fClassBug.has(x.class_bug||''))    return false;
+      if(fClassMel && !fClassMel.has(x.class_melhoria||''))return false;
+        if(fStatus   && !fStatus.has(x.status||''))         return false;
+      if(fCliente  && !(x.clientes||[]).some(c=>fCliente.has(c))) return false;
       if(fProd){
         const prods = x.produtos||[];
         if(x.produto) prods.push(x.produto);
@@ -2614,19 +2790,23 @@ function renderSupChartMes(data){
   const tc=dark?'#9ba3bf':'#888';
   const gc=dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.05)';
 
-  const fMes=MS_SUP_SEL['sup-mes']&&MS_SUP_SEL['sup-mes'].size?MS_SUP_SEL['sup-mes']:null;
+  const fMes=supActiveFilter('sup-mes');
   const activeMeses=fMes ? SUP_MESES.filter(m=>fMes.has(SUP_MES_LABEL[m])) : SUP_MESES;
 
   // Usa data (já filtrado por seg/tipo/squad/prod) mas sem filtro de mês
   // para cada registro: ab conta por mc, res/rep conta por mr
-  const fSeg2   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size   ? MS_SUP_SEL['sup-seg']   : null;
-  const fTipo2  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size  ? MS_SUP_SEL['sup-tipo']  : null;
-  const fSquad2 = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size ? MS_SUP_SEL['sup-squad'] : null;
-  const fProd2  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size  ? MS_SUP_SEL['sup-prod']  : null;
+  const fSeg2   = supActiveFilter('sup-seg');
+  const fTipo2  = supActiveFilter('sup-tipo');
+  const fSquad2 = supActiveFilter('sup-squad');
+  const fProd2  = supActiveFilter('sup-prod');
+  const fClassBug2 = supActiveFilter('sup-classbug');
+  const fClassMel2 = supActiveFilter('sup-classmel');
   const baseData = SUP_DATA.filter(r=>{
     if(fSeg2   && !fSeg2.has(r.p))    return false;
     if(fTipo2  && !fTipo2.has(r.ti))  return false;
     if(fSquad2 && !fSquad2.has(r.sq)) return false;
+    if(fClassBug2 && !fClassBug2.has(r.cb)) return false;
+    if(fClassMel2 && !fClassMel2.has(r.cm)) return false;
     if(fProd2){
       if(r.pr){ if(!fProd2.has(r.pr)) return false; }
       else { if(![...fProd2].some(p=>(window._PROD_PROJETOS||{})[p]?.has(r.p))) return false; }
@@ -2718,15 +2898,19 @@ function renderSupChartTipo(data){
 }
 
 function renderSupTable(data){
-  const fMes = MS_SUP_SEL['sup-mes']&&MS_SUP_SEL['sup-mes'].size ? MS_SUP_SEL['sup-mes'] : null;
-  const fSeg2   = MS_SUP_SEL['sup-seg']  &&MS_SUP_SEL['sup-seg'].size   ? MS_SUP_SEL['sup-seg']   : null;
-  const fTipo2  = MS_SUP_SEL['sup-tipo'] &&MS_SUP_SEL['sup-tipo'].size  ? MS_SUP_SEL['sup-tipo']  : null;
-  const fSquad2 = MS_SUP_SEL['sup-squad']&&MS_SUP_SEL['sup-squad'].size ? MS_SUP_SEL['sup-squad'] : null;
-  const fProd2  = MS_SUP_SEL['sup-prod'] &&MS_SUP_SEL['sup-prod'].size  ? MS_SUP_SEL['sup-prod']  : null;
+  const fMes = supActiveFilter('sup-mes');
+  const fSeg2   = supActiveFilter('sup-seg');
+  const fTipo2  = supActiveFilter('sup-tipo');
+  const fSquad2 = supActiveFilter('sup-squad');
+  const fProd2  = supActiveFilter('sup-prod');
+  const fClassBug2 = supActiveFilter('sup-classbug');
+  const fClassMel2 = supActiveFilter('sup-classmel');
   const baseData = SUP_DATA.filter(r=>{
     if(fSeg2   && !fSeg2.has(r.p))    return false;
     if(fTipo2  && !fTipo2.has(r.ti))  return false;
     if(fSquad2 && !fSquad2.has(r.sq)) return false;
+    if(fClassBug2 && !fClassBug2.has(r.cb)) return false;
+    if(fClassMel2 && !fClassMel2.has(r.cm)) return false;
     if(fProd2){
       if(r.pr){ if(!fProd2.has(r.pr)) return false; }
       else { if(![...fProd2].some(p=>(window._PROD_PROJETOS||{})[p]?.has(r.p))) return false; }
@@ -2828,6 +3012,21 @@ function initAberto(json){
   fillAB('ab-modulo', [...new Set(ABERTO.map(t=>t.modulo).filter(Boolean))].sort());
   fillAB('ab-rotina', [...new Set(ABERTO.map(t=>t.rotina).filter(Boolean))].sort());
   fillAB('ab-cliente',[...new Set(ABERTO.flatMap(t=>t.clientes||[]).filter(Boolean))].sort());
+  fillAB('ab-classbug',[...new Set(ABERTO.map(t=>t.class_bug).filter(Boolean))].sort());
+  fillAB('ab-classmel',[...new Set(ABERTO.map(t=>t.class_melhoria).filter(Boolean))].sort());
+  fillAB('ab-gut',[...new Set(ABERTO.map(t=>t.gut_resultado ?? t.gut).filter(v=>v!=null&&v!==''))]
+    .map(String).sort((a,b)=>(parseFloat(a)||0)-(parseFloat(b)||0)));
+}
+
+// Trata "todos selecionados" (ou nenhum) como equivalente a "sem filtro" — evita
+// que itens com valor nulo/vazio no campo sejam excluídos indevidamente quando
+// o usuário clica em "Selecionar Todos".
+function abActiveFilter(key){
+  const sel = MS_AB_STATE[key];
+  if(!sel || sel.size===0) return null;
+  const all = MS_AB_ALL_VALS[key]||[];
+  if(all.length && sel.size>=all.length) return null;
+  return sel;
 }
 
 function abSort(col){
@@ -2880,16 +3079,32 @@ function renderAberto(){
   const q     = (document.getElementById('srch-aberto').value||'').toLowerCase();
   const prazo = document.getElementById('fil-prazo-aberto')?.value||'';
 
+  const fResp  = abActiveFilter('ab-resp');
+  const fProj  = abActiveFilter('ab-proj');
+  const fSquadA= abActiveFilter('ab-squad');
+  const fTipoA = abActiveFilter('ab-tipo');
+  const fStat  = abActiveFilter('ab-status');
+  const fMod   = abActiveFilter('ab-modulo');
+  const fRot   = abActiveFilter('ab-rotina');
+  const fProdA = abActiveFilter('ab-prod');
+  const fCli   = abActiveFilter('ab-cliente');
+  const fClassBugA = abActiveFilter('ab-classbug');
+  const fClassMelA = abActiveFilter('ab-classmel');
+  const fGutA = abActiveFilter('ab-gut');
+
   const filtradas = ABERTO.filter(t=>{
-    if(MS_AB_STATE['ab-resp'].size   && !MS_AB_STATE['ab-resp'].has(t.responsavel))   return false;
-    if(MS_AB_STATE['ab-proj'].size   && !MS_AB_STATE['ab-proj'].has(t.projeto))       return false;
-    if(MS_AB_STATE['ab-squad'].size  && !MS_AB_STATE['ab-squad'].has(t.squad))        return false;
-    if(MS_AB_STATE['ab-tipo'].size   && !MS_AB_STATE['ab-tipo'].has(t.tipo))          return false;
-    if(MS_AB_STATE['ab-status'].size && !MS_AB_STATE['ab-status'].has(t.status))      return false;
-    if(MS_AB_STATE['ab-modulo'].size && !MS_AB_STATE['ab-modulo'].has(t.modulo))      return false;
-    if(MS_AB_STATE['ab-rotina'].size && !MS_AB_STATE['ab-rotina'].has(t.rotina))      return false;
-    if(MS_AB_STATE['ab-prod'].size   && !(t.produtos||[]).some(p=>MS_AB_STATE['ab-prod'].has(p)))     return false;
-    if(MS_AB_STATE['ab-cliente'].size && !(t.clientes||[]).some(c=>MS_AB_STATE['ab-cliente'].has(c))) return false;
+    if(fResp  && !fResp.has(t.responsavel))   return false;
+    if(fProj  && !fProj.has(t.projeto))       return false;
+    if(fSquadA&& !fSquadA.has(t.squad))       return false;
+    if(fTipoA && !fTipoA.has(t.tipo))         return false;
+    if(fStat  && !fStat.has(t.status))        return false;
+    if(fMod   && !fMod.has(t.modulo))         return false;
+    if(fRot   && !fRot.has(t.rotina))         return false;
+    if(fProdA && !(t.produtos||[]).some(p=>fProdA.has(p)))     return false;
+    if(fCli   && !(t.clientes||[]).some(c=>fCli.has(c)))       return false;
+    if(fClassBugA && !fClassBugA.has(t.class_bug)) return false;
+    if(fClassMelA && !fClassMelA.has(t.class_melhoria)) return false;
+    if(fGutA  && !fGutA.has(String(t.gut_resultado ?? t.gut ?? ''))) return false;
     if(prazo==='vencido'   && !t.prazo_vencido)  return false;
     if(prazo==='hoje'      && !(t.dias_prazo!=null && t.dias_prazo>=0 && t.dias_prazo<=1)) return false;
     if(prazo==='sem_prazo' && t.prazo!=null)      return false;
@@ -3000,6 +3215,82 @@ function renderAberto(){
         }).join('')}</tbody></table>
       </div>
     </div>`).join('');
+
+  window._AB_FILTRADAS = filtradas;
+  renderAbDetailTable();
+}
+
+// ── Backlog: tabela detalhada de issues (todas as tarefas filtradas, sem agrupar por responsável) ──
+let ABD_SORT = {col:'dias_aberto', dir:-1};
+
+function sortAbDetail(col){
+  if(ABD_SORT.col===col) ABD_SORT.dir*=-1;
+  else { ABD_SORT.col=col; ABD_SORT.dir=-1; }
+  renderAbDetailTable();
+}
+
+function renderAbDetailTable(){
+  const tbody=document.getElementById('ab-detail-tbody');
+  if(!tbody) return;
+  const filtradas = window._AB_FILTRADAS||[];
+
+  const {col,dir}=ABD_SORT;
+  const val=(t)=>{
+    if(col==='cliente') return (t.clientes||[]).join(', ');
+    if(col==='gut') return t.gut_resultado ?? t.gut ?? '';
+    if(col==='dias_aberto') return t.criado ? Math.floor((new Date()-new Date(t.criado))/(1000*60*60*24)) : -1;
+    if(col==='dias_prazo') return t.dias_prazo ?? 99999;
+    if(col==='prazo') return t.prazo || '9999';
+    return t[col]||'';
+  };
+  const sorted=[...filtradas].sort((a,b)=>{
+    const av=val(a), bv=val(b);
+    if(typeof av==='number'&&typeof bv==='number') return (av-bv)*dir;
+    return av.toString().localeCompare(bv.toString(),'pt-BR',{numeric:true})*dir;
+  });
+
+  ['chave','summary','tipo','status','class_bug','class_melhoria','responsavel','gut','modulo','rotina','cliente','prazo','dias_prazo','criado','dias_aberto'].forEach(c=>{
+    const el=document.getElementById('abd-sort-'+c);
+    if(el) el.textContent = c===col ? (dir===1?'▲':'▼') : '';
+  });
+
+  const fmtData=d=>d?d.slice(0,10).split('-').reverse().join('/'):'—';
+  const LIMIT=500;
+  tbody.innerHTML = sorted.slice(0,LIMIT).map(t=>{
+    let diasHtml='<span class="dias-na">—</span>';
+    if(t.dias_prazo!=null){
+      if(t.prazo_vencido)      diasHtml=`<span class="dias-dn">⚠ ${Math.abs(t.dias_prazo)}d vencido</span>`;
+      else if(t.dias_prazo<=1) diasHtml=`<span class="dias-wn">${t.dias_prazo===0?'Hoje':'Amanhã'}</span>`;
+      else if(t.dias_prazo<=7) diasHtml=`<span class="dias-wn">${t.dias_prazo}d</span>`;
+      else                     diasHtml=`<span class="dias-ok">${t.dias_prazo}d</span>`;
+    }
+    let diasAberto = '—';
+    if(t.criado){
+      const diff = Math.floor((new Date()-new Date(t.criado))/(1000*60*60*24));
+      diasAberto = diff + 'd';
+    }
+    const prazoFmt = t.prazo ? t.prazo.split('-').reverse().join('/') : '—';
+    return `<tr>
+    <td style="font-family:monospace;font-size:10px"><a href="https://nimitz.atlassian.net/browse/${t.chave}" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${t.chave}</a></td>
+    <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px" title="${(t.summary||'').replace(/"/g,'')}">${t.summary||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.status||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.tipo||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.class_bug||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.class_melhoria||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${t.responsavel||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${(t.gut_resultado ?? t.gut ?? '—')}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${(t.modulo||'').replace(/"/g,'')}">${t.modulo||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="${(t.rotina||'').replace(/"/g,'')}">${t.rotina||'—'}</td>
+    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${(t.clientes||[]).join(', ')||'—'}</td>
+    <td style="font-size:11px;color:var(--text3);white-space:nowrap">${prazoFmt}</td>
+    <td style="font-size:11px;white-space:nowrap">${diasHtml}</td>
+    <td style="font-size:11px;color:var(--text3);white-space:nowrap">${fmtData(t.criado)}</td>
+    <td style="font-size:11px;color:var(--text3);white-space:nowrap">${diasAberto}</td>
+  </tr>`;
+  }).join('') + (sorted.length>LIMIT?`<tr><td colspan="15" style="text-align:center;color:var(--text3);padding:8px;font-size:11px">... e mais ${(sorted.length-LIMIT).toLocaleString('pt-BR')} issues (refine os filtros ou a busca)</td></tr>`:'');
+
+  const countEl=document.getElementById('ab-detail-count');
+  if(countEl) countEl.textContent = sorted.length.toLocaleString('pt-BR')+' issue(s)';
 }
 
 function toggleResp(idx){
@@ -3932,7 +4223,7 @@ function saveFilters(){
       // Aba ativa e view ativa
       activeTab,
       activeView: (() => {
-        const views = ['indicadores','aberto','tdc','fluxo','sprint'];
+        const views = ['indicadores','aberto','tdc','fluxo','sprint','qualidade'];
         return views.find(v => document.getElementById('view-'+v)?.style.display !== 'none') || 'tdc';
       })(),
 
@@ -4247,6 +4538,599 @@ function renderSpModal(){
       <td style="text-align:center;font-weight:600;color:var(--text2)">${dias!=null?dias+'d':'—'}</td>
     </tr>`;
   }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// QUALIDADE — painel de índices de qualidade por desenvolvedor
+// Filtro de ano dinâmico: sempre lista de 2025 até o ano atual (client-side),
+// igual ao padrão dos demais filtros — não é hardcoded.
+// ══════════════════════════════════════════════════════════════════
+let QA_INIT = false;
+let QA_POR_ANO = {};          // { "2025": [...], "2026": [...] }
+let QA_BUG_RANKING = [];
+let QA_TAREFAS_SEMANA = [];   // [{semana:"2026-W32", dev:"Ana", qtd:2}, ...]
+let QA_EPIC_PROGRESS = [];
+let qaSortKey = 'qtd_tarefas', qaSortAsc = false;
+
+// Filtros Desenvolvedor/Squad/Projeto/Produto — um único conjunto no topo,
+// aplicado a todos os quadros da página (Índices, Ranking de Bugs, Epic).
+const QA_MS_STATE = { 'qa-dev': new Set(), 'qa-squad': new Set(), 'qa-proj': new Set(), 'qa-prod': new Set(), 'qa-mes': new Set() };
+const QA_MS_ALL   = { 'qa-dev': [], 'qa-squad': [], 'qa-proj': [], 'qa-prod': [], 'qa-mes': [] };
+const QA_MS_LABEL = { 'qa-dev': 'Desenvolvedor', 'qa-squad': 'Squad', 'qa-proj': 'Projeto', 'qa-prod': 'Produto', 'qa-mes': 'Mês (finalizada)' };
+function qaMesLabel(m){
+  // "2026-03" -> "Mar/2026"
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mt = /^(\d{4})-(\d{2})$/.exec(m);
+  if(!mt) return m;
+  const idx = parseInt(mt[2],10) - 1;
+  return `${meses[idx]||mt[2]}/${mt[1]}`;
+}
+function qaRenderForKey(key){
+  // Qualquer filtro do topo afeta os 3 quadros (renderDevBugRanking já
+  // encadeia renderDevEpicProgress + renderDevWeekly no final).
+  renderQualidade();
+  renderDevBugRanking();
+}
+
+function qaBuildFilterOptions(){
+  // União das opções vindas dos 4 datasets (Índices, Ranking de Bugs, Epic,
+  // Tarefas na Semana) — um único filtro no topo cobre todos os quadros.
+  const listaQa   = qaCurrentList();
+  const listaBug  = QA_BUG_RANKING || [];
+  const listaEpic = QA_EPIC_PROGRESS || [];
+  const listaSem  = QA_TAREFAS_SEMANA || [];
+  QA_MS_ALL['qa-dev']   = [...new Set([...listaQa.map(d=>d.nome), ...listaSem.map(r=>r.dev)].filter(Boolean))].sort();
+  QA_MS_ALL['qa-squad'] = [...new Set([...listaQa.flatMap(d=>d.squads||[]), ...listaBug.map(b=>b.squad), ...listaSem.map(r=>r.squad)].filter(Boolean))].sort();
+  QA_MS_ALL['qa-proj']  = [...new Set([...listaQa.flatMap(d=>d.projetos||[]), ...listaBug.map(b=>b.projeto), ...listaEpic.map(e=>e.projeto), ...listaSem.map(r=>r.projeto)].filter(Boolean))].sort();
+  QA_MS_ALL['qa-prod']  = [...new Set([...listaBug.map(b=>b.produto), ...listaSem.map(r=>r.produto)].filter(Boolean))].sort();
+  // Mês em que a tarefa foi finalizada — vem do campo "mes" de cada tarefa
+  // individual (d.tarefas[].mes) e dos bugs atribuídos (d.bugs_tarefas[].mes).
+  const mesesSet = new Set();
+  listaQa.forEach(d=>{
+    (d.tarefas||[]).forEach(t=>{ if(t.mes) mesesSet.add(t.mes); });
+    (d.bugs_tarefas||[]).forEach(b=>{ if(b.mes) mesesSet.add(b.mes); });
+  });
+  QA_MS_ALL['qa-mes'] = [...mesesSet].sort();
+  buildMSListQa('qa-dev',   QA_MS_ALL['qa-dev']);
+  buildMSListQa('qa-squad', QA_MS_ALL['qa-squad']);
+  buildMSListQa('qa-proj',  QA_MS_ALL['qa-proj']);
+  buildMSListQa('qa-prod',  QA_MS_ALL['qa-prod']);
+  buildMSListQa('qa-mes',   QA_MS_ALL['qa-mes']);
+}
+
+function buildMSListQa(key, vals){
+  const list = document.getElementById(`ms-${key}-list`);
+  if(!list) return;
+  const stateSet = QA_MS_STATE[key];
+  const fmtLabel = key === 'qa-mes' ? qaMesLabel : (v=>v);
+  list.innerHTML = vals.map(v=>{
+    const safe = v.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    const shown = fmtLabel(v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    return `<label class="ms-item"><input type="checkbox" data-qamskey="${key}" data-qamsval="${safe}" ${stateSet.has(v)?'checked':''}><span> ${shown}</span></label>`;
+  }).join('');
+}
+document.addEventListener('change', function(e){
+  const cb = e.target;
+  if(cb.type !== 'checkbox' || !cb.dataset.qamskey) return;
+  const key = cb.dataset.qamskey, val = cb.dataset.qamsval;
+  if(cb.checked) QA_MS_STATE[key].add(val); else QA_MS_STATE[key].delete(val);
+  updateMSBtnQa(key); qaRenderForKey(key);
+});
+function updateMSBtnQa(key){
+  const btn = document.getElementById(`ms-btn-${key}`);
+  if(!btn) return;
+  const sel = QA_MS_STATE[key];
+  const label = QA_MS_LABEL[key];
+  const fmtLabel = key === 'qa-mes' ? qaMesLabel : (v=>v);
+  if(sel.size===0) btn.textContent = `${label}: Todos`;
+  else if(sel.size===1) btn.textContent = `${label}: ${fmtLabel([...sel][0])}`;
+  else btn.textContent = `${label}: ${sel.size} selecionados`;
+  btn.classList.toggle('active', sel.size>0);
+}
+function toggleMSQa(key, event){
+  if(event) event.stopPropagation();
+  const dd = document.getElementById(`ms-${key}`);
+  document.querySelectorAll('.ms-dropdown').forEach(d=>{ if(d.id!==`ms-${key}`) d.classList.remove('open'); });
+  dd.classList.toggle('open');
+}
+function filterMSQa(key, q){
+  const fmtLabel = key === 'qa-mes' ? qaMesLabel : (v=>v);
+  const filtered = (QA_MS_ALL[key]||[]).filter(v=>fmtLabel(v).toLowerCase().includes(q.toLowerCase()));
+  buildMSListQa(key, filtered);
+}
+function clearMSQa(key){
+  QA_MS_STATE[key].clear(); buildMSListQa(key, QA_MS_ALL[key]||[]); updateMSBtnQa(key); qaRenderForKey(key);
+}
+function selectAllMSQa(key){
+  (QA_MS_ALL[key]||[]).forEach(v=>QA_MS_STATE[key].add(v));
+  buildMSListQa(key, QA_MS_ALL[key]||[]); updateMSBtnQa(key); qaRenderForKey(key);
+}
+function resetQaFiltros(){
+  QA_MS_STATE['qa-dev'].clear(); QA_MS_STATE['qa-squad'].clear();
+  QA_MS_STATE['qa-proj'].clear(); QA_MS_STATE['qa-prod'].clear(); QA_MS_STATE['qa-mes'].clear();
+  qaBuildFilterOptions();
+  updateMSBtnQa('qa-dev'); updateMSBtnQa('qa-squad'); updateMSBtnQa('qa-proj'); updateMSBtnQa('qa-prod'); updateMSBtnQa('qa-mes');
+  renderQualidade();
+  renderDevBugRanking();
+}
+
+async function initQualidade(){
+  QA_INIT = true;
+  try{
+    const res = await jiraFetch('qualidade_data.json');
+    if(!res.ok) throw new Error('não encontrado');
+    const json = await res.json();
+    QA_POR_ANO       = json.por_ano || {};
+    QA_BUG_RANKING   = json.bug_ranking || [];
+    QA_TAREFAS_SEMANA= json.tarefas_semana || [];
+    QA_EPIC_PROGRESS = json.epic_progress || [];
+    setGlobalGeradoEm(json.gerado_em);
+  }catch(e){
+    console.warn('qualidade_data.json não encontrado ou inválido:', e);
+    QA_POR_ANO = {}; QA_BUG_RANKING = []; QA_TAREFAS_SEMANA = []; QA_EPIC_PROGRESS = [];
+  }
+  qaBuildFilterOptions();
+}
+
+function qaCurrentList(){
+  // Sem seletor de ano na UI: usa sempre o ano mais recente disponível nos
+  // dados (o ano atual, se houver; senão o mais recente que existir).
+  const anos = Object.keys(QA_POR_ANO).map(Number).filter(n=>!isNaN(n));
+  if(!anos.length) return [];
+  const anoAtual = new Date().getFullYear();
+  const ano = anos.includes(anoAtual) ? anoAtual : Math.max(...anos);
+  return QA_POR_ANO[String(ano)] || [];
+}
+
+function qaSortBy(key){
+  if(qaSortKey === key) qaSortAsc = !qaSortAsc;
+  else { qaSortKey = key; qaSortAsc = (key==='nome'); }
+  renderQualidade();
+}
+
+function qaApplyMesFilter(lista){
+  // Recalcula os índices por desenvolvedor considerando só as tarefas (e bugs)
+  // cujo mês de finalização está selecionado. Sem filtro de mês, usa os totais
+  // já vindos do backend (mais rápido).
+  const selMes = QA_MS_STATE['qa-mes'];
+  if(!selMes.size) return lista;
+  return lista.map(d => {
+    const tarefasMes = (d.tarefas||[]).filter(t => selMes.has(t.mes));
+    const bugsMes = (d.bugs_tarefas||[]).filter(b => selMes.has(b.mes));
+    const qtd = tarefasMes.length;
+    const denom = qtd || 1;
+    const repCodigo = tarefasMes.reduce((s,t)=>s+(t.reprov_codigo||0), 0);
+    const repInterna = tarefasMes.reduce((s,t)=>s+(t.reprov_interna||0), 0);
+    const bugsProg = bugsMes.length;
+    return { ...d,
+      qtd_tarefas: qtd,
+      rep_codigo: repCodigo,
+      tx_qualidade_codigo: Math.round(repCodigo/denom*1000)/10,
+      rep_interna: repInterna,
+      tx_qualidade_interna: Math.round(repInterna/denom*1000)/10,
+      bugs_prog: bugsProg,
+      tx_qualidade_externa: Math.round(bugsProg/denom*1000)/10,
+      tarefas: tarefasMes,
+      bugs_tarefas: bugsMes,
+    };
+  }).filter(d => d.qtd_tarefas > 0 || d.bugs_prog > 0);  // esconde quem não teve nada nos meses selecionados
+}
+
+function renderQualidade(){
+  if(!document.getElementById('view-qualidade')) return;
+  let lista = qaCurrentList();
+  const selDev = QA_MS_STATE['qa-dev'], selSquad = QA_MS_STATE['qa-squad'], selProj = QA_MS_STATE['qa-proj'];
+  if(selDev.size)   lista = lista.filter(d => selDev.has(d.nome));
+  if(selSquad.size) lista = lista.filter(d => (d.squads||[]).some(s=>selSquad.has(s)));
+  if(selProj.size)  lista = lista.filter(d => (d.projetos||[]).some(p=>selProj.has(p)));
+  lista = qaApplyMesFilter(lista);
+
+  lista = [...lista].sort((a,b)=>{
+    const av=a[qaSortKey], bv=b[qaSortKey];
+    let cmp;
+    if(typeof av === 'string') cmp = av.localeCompare(bv);
+    else cmp = (av||0) - (bv||0);
+    return qaSortAsc ? cmp : -cmp;
+  });
+
+  // KPIs
+  const totalTarefas = lista.reduce((s,d)=>s+d.qtd_tarefas,0);
+  const totalRepCodigo = lista.reduce((s,d)=>s+d.rep_codigo,0);
+  const totalRepInterna = lista.reduce((s,d)=>s+d.rep_interna,0);
+  const totalBugsProg = lista.reduce((s,d)=>s+d.bugs_prog,0);
+  document.getElementById('qa-kpi-row').innerHTML = `
+    <div class="kpi"><div class="kl">Desenvolvedores</div><div class="kv">${lista.length}</div></div>
+    <div class="kpi"><div class="kl">Reprovadas Revisão de Código</div><div class="kv" style="color:var(--red)">${totalRepCodigo}</div></div>
+    <div class="kpi"><div class="kl">Reprov. Testes</div><div class="kv" style="color:var(--red)">${totalRepInterna}</div></div>
+    <div class="kpi"><div class="kl">Bugs Falha Programação</div><div class="kv" style="color:var(--orange)">${totalBugsProg}</div></div>`;
+
+  document.getElementById('qa-count').textContent = `${lista.length} desenvolvedor(es)`;
+  QA_LAST_LISTA = lista;
+
+  document.getElementById('qa-tbody').innerHTML = lista.map(d => {
+    const isOpen = qaSelNome === d.nome;
+    return `<tr onclick="qaSel('${d.nome.replace(/'/g,"\\'")}')" class="${isOpen?'sel':''}" style="cursor:pointer">
+      <td style="font-weight:600">
+        <span style="margin-right:4px;font-size:10px;color:var(--text3);display:inline-block;transform:${isOpen?'rotate(90deg)':'rotate(0deg)'}">▶</span>
+        ${d.nome}</td>
+      <td style="text-align:right">${d.qtd_tarefas}</td>
+      <td style="text-align:right">${d.rep_codigo}</td>
+      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_codigo>20?'var(--red)':d.tx_qualidade_codigo>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_codigo,1)}%</td>
+      <td style="text-align:right">${d.rep_interna}</td>
+      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_interna>20?'var(--red)':d.tx_qualidade_interna>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_interna,1)}%</td>
+      <td style="text-align:right">${d.bugs_prog}</td>
+      <td style="text-align:right;font-weight:600;color:${d.tx_qualidade_externa>20?'var(--red)':d.tx_qualidade_externa>10?'var(--orange)':'var(--green)'}">${fmtN(d.tx_qualidade_externa,1)}%</td>
+    </tr>${isOpen ? qaRenderDetail(d) : ''}`;
+  }).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:16px">Nenhum dado para o filtro selecionado.</td></tr>`;
+
+  renderQaCharts(lista);
+}
+
+let qaSelNome = null;
+let QA_LAST_LISTA = [];
+
+function qaSafeId(nome){ return (nome||'').replace(/[^a-zA-Z0-9]/g,'_'); }
+
+function qaSel(nome){
+  qaSelNome = (qaSelNome===nome) ? null : nome;
+  renderQualidade();
+}
+
+let qaTaskSortKey = 'mes', qaTaskSortAsc = false;
+
+function qaRenderTaskRow(t){
+  return `<tr>
+    <td><a href="https://nimitz.atlassian.net/browse/${t.chave}" target="_blank" style="color:var(--blue);text-decoration:none;font-family:monospace;font-size:10px;font-weight:600" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${t.chave}</a></td>
+    <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${(t.summary||'').replace(/"/g,'&quot;')}">${t.summary||'—'}</td>
+    <td style="font-size:10px">${t.status||'—'}</td>
+    <td style="text-align:right">${t.reprov_codigo||0}</td>
+    <td style="text-align:right">${t.reprov_interna||0}</td>
+  </tr>`;
+}
+
+function qaSortTarefas(tarefas){
+  return [...tarefas].sort((a,b)=>{
+    const av=a[qaTaskSortKey], bv=b[qaTaskSortKey];
+    let cmp;
+    if(typeof av === 'string') cmp = (av||'').localeCompare(bv||'');
+    else cmp = (av||0) - (bv||0);
+    return qaTaskSortAsc ? cmp : -cmp;
+  });
+}
+
+function qaRenderDetail(d){
+  const safeId = qaSafeId(d.nome);
+  const tarefas = qaSortTarefas(d.tarefas || []);
+  const bugs = d.bugs_tarefas || [];
+  const nomeEsc = d.nome.replace(/'/g,"\\'");
+  const arrow = (key) => qaTaskSortKey===key ? (qaTaskSortAsc?' ▲':' ▼') : '';
+  const th = (label, key, extraClass='') => `<th class="${extraClass}" style="cursor:pointer;user-select:none" onclick="qaTaskSortBy('${nomeEsc}','${key}')">${label}${arrow(key)}</th>`;
+
+  return `<tr><td colspan="8" style="padding:0;border-bottom:2px solid var(--indigo)">
+    <div style="background:var(--bg2);padding:14px;animation:accFade .2s ease">
+      <div class="cbox" style="margin-bottom:${bugs.length?'10px':'0'}">
+        <div class="ctitle">📋 Tarefas de ${d.nome} — ${d.qtd_tarefas} no ano</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input type="text" id="qa-tsrch-${safeId}" placeholder="Filtrar chave ou resumo..." oninput="qaFilterTarefas('${nomeEsc}')"
+                 style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg2);color:var(--text)">
+        </div>
+        <div style="overflow-x:auto;max-height:280px;overflow-y:auto">
+          <table class="ttbl"><thead><tr>
+            ${th('Chave','chave')}${th('Resumo','summary')}${th('Status','status')}
+            ${th('Rep. Código','reprov_codigo','r')}${th('Rep. Interna','reprov_interna','r')}
+          </tr></thead><tbody id="qa-tasks-tbody-${safeId}">${tarefas.map(qaRenderTaskRow).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:12px">Nenhuma tarefa encontrada.</td></tr>'}</tbody></table>
+        </div>
+      </div>
+      ${bugs.length ? `
+      <div class="cbox bugs-section">
+        <div class="bugs-title">🐛 Bugs por Falha de Programação (Cliente/externo)<span class="bug-count">${bugs.length}</span></div>
+        ${bugs.map(b=>`
+          <div class="bug-card" style="border-left-color:#7c3aed">
+            <a href="https://nimitz.atlassian.net/browse/${b.chave}" target="_blank" class="bug-chave" style="text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${b.chave}</a>
+            <div class="bug-info">
+              <div style="font-weight:500;color:var(--text)">${b.summary||'—'}</div>
+              <div style="font-size:10px;margin-top:2px;color:var(--text3)">
+                ${b.projeto||''}${b.squad?' · '+b.squad:''} · ${b.mes||'—'}${b.crit_bug?' · <b>'+b.crit_bug+'</b>':''}
+              </div>
+            </div>
+            <span class="bug-tipo">${b.tipo_falha||''}</span>
+          </div>`).join('')}
+      </div>` : ''}
+    </div>
+  </td></tr>`;
+}
+
+function qaTaskSortBy(nome, key){
+  if(qaTaskSortKey === key) qaTaskSortAsc = !qaTaskSortAsc;
+  else { qaTaskSortKey = key; qaTaskSortAsc = (key==='chave'||key==='summary'||key==='status'); }
+  renderQualidade();  // precisa re-renderizar a linha inteira (cabeçalhos mudam a seta ▲▼)
+}
+
+function qaFilterTarefas(nome){
+  const d = (QA_LAST_LISTA||[]).find(x=>x.nome===nome);
+  if(!d) return;
+  const safeId = qaSafeId(nome);
+  const busca = (document.getElementById(`qa-tsrch-${safeId}`)?.value || '').toLowerCase();
+  let tarefas = qaSortTarefas(d.tarefas || []);
+  if(busca) tarefas = tarefas.filter(t => (t.chave+' '+(t.summary||'')).toLowerCase().includes(busca));
+  const tbody = document.getElementById(`qa-tasks-tbody-${safeId}`);
+  if(tbody) tbody.innerHTML = tarefas.map(qaRenderTaskRow).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:12px">Nenhuma tarefa encontrada.</td></tr>';
+}
+
+let qaChartCodigo=null, qaChartInterna=null, qaChartExterna=null;
+function renderQaCharts(lista){
+  if(typeof Chart === 'undefined'){ console.warn('Chart.js não carregado — gráficos de Qualidade indisponíveis'); return; }
+  try{
+  // Cores literais (não CSS var — canvas não resolve var() em fillStyle),
+  // no mesmo padrão usado pelos demais gráficos do dashboard.
+  const dark = document.documentElement.getAttribute('data-theme')==='dark';
+  const tc = dark ? '#9ba3bf' : '#888';
+  const gc = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)';
+
+  const top = (key) => [...lista].sort((a,b)=>b[key]-a[key]).slice(0,10);
+  const mkBarData = (key, color) => {
+    const t = top(key);
+    return { labels: t.map(d=>d.nome), values: t.map(d=>d[key]), color };
+  };
+  const opts = (label='Reprov.') => ({
+    indexAxis:'y',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false},
+      tooltip:{ callbacks:{ label:(ctx)=>` ${label}: ${ctx.parsed.x}` } } },
+    scales:{ x:{ beginAtZero:true, ticks:{color:tc, font:{size:10}, precision:0}, grid:{color:gc} },
+             y:{ ticks:{color:tc, font:{size:10}}, grid:{display:false} } }
+  });
+
+  // Gráficos mostram a CONTAGEM absoluta (não %) — o % fica só na tabela.
+  const dCod = mkBarData('rep_codigo', '#dc2626');
+  const dInt = mkBarData('rep_interna', '#d97706');
+  const dExt = mkBarData('bugs_prog', '#7c3aed');
+
+  const renderOrEmpty = (canvasId, data, prevRef, tooltipLabel) => {
+    const canvas = document.getElementById(canvasId);
+    const empty  = document.getElementById(`${canvasId}-empty`);
+    const semDados = !data.values.length || data.values.every(v => !v);
+    if(prevRef) prevRef.destroy();
+    if(semDados){
+      if(canvas) canvas.style.display = 'none';
+      if(empty)  empty.style.display  = 'flex';
+      return null;
+    }
+    if(canvas) canvas.style.display = 'block';
+    if(empty)  empty.style.display  = 'none';
+    return new Chart(canvas, {
+      type:'bar', data:{ labels:data.labels, datasets:[{data:data.values, backgroundColor:data.color, borderRadius:4}] },
+      options: opts(tooltipLabel)
+    });
+  };
+
+  qaChartCodigo   = renderOrEmpty('qaChartCodigo',   dCod, qaChartCodigo,  'Reprov. Código');
+  qaChartInterna  = renderOrEmpty('qaChartInterna',  dInt, qaChartInterna, 'Reprov. Teste');
+  qaChartExterna  = renderOrEmpty('qaChartExterna',  dExt, qaChartExterna, 'Bugs');
+  }catch(e){ console.warn('Erro ao renderizar gráficos de Qualidade:', e); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PAINÉIS DEV — ranking de "Tarefa com mais número de bugs"
+// ══════════════════════════════════════════════════════════════════
+function renderDevBugRanking(){
+  const tbody = document.getElementById('dev-bugrank-tbody');
+  if(!tbody) return;
+  let lista = QA_BUG_RANKING || [];
+  const selSquad = QA_MS_STATE['qa-squad'], selProd = QA_MS_STATE['qa-prod'], selProj = QA_MS_STATE['qa-proj'];
+  if(selSquad.size) lista = lista.filter(b => selSquad.has(b.squad));
+  if(selProd.size)  lista = lista.filter(b => selProd.has(b.produto));
+  if(selProj.size)  lista = lista.filter(b => selProj.has(b.projeto));
+
+  if(!lista.length){
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:16px">Nenhum dado encontrado para o filtro selecionado.</td></tr>`;
+  } else {
+    tbody.innerHTML = lista.map(b => `
+      <tr>
+        <td><a href="https://nimitz.atlassian.net/browse/${b.chave_origem}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${b.chave_origem}</a></td>
+        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${(b.summary||'').replace(/"/g,'&quot;')}">${b.summary||'—'}</td>
+        <td style="text-align:center;font-weight:700;color:var(--red)">${b.qtd_bugs}</td>
+        <td>${(b.fix_versions&&b.fix_versions.length) ? b.fix_versions.join(', ') : '—'}</td>
+      </tr>`).join('');
+  }
+  renderDevBugRankChart(lista);
+  renderDevEpicProgress();
+  renderDevWeekly();
+}
+
+let devChartBugRank = null;
+function renderDevBugRankChart(lista){
+  const canvas = document.getElementById('devChartBugRank');
+  if(!canvas) return;
+  const empty = document.getElementById('devChartBugRank-empty');
+  const top = [...lista].sort((a,b)=>b.qtd_bugs-a.qtd_bugs).slice(0,10);
+  if(!top.length){
+    if(devChartBugRank){ devChartBugRank.destroy(); devChartBugRank=null; }
+    if(canvas) canvas.style.display='none';
+    if(empty)  empty.style.display='flex';
+    return;
+  }
+  if(typeof Chart === 'undefined'){ console.warn('Chart.js não carregado — gráfico de ranking de bugs indisponível'); return; }
+  try{
+    const dark = document.documentElement.getAttribute('data-theme')==='dark';
+    const tc = dark ? '#9ba3bf' : '#888';
+    const gc = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)';
+    if(canvas) canvas.style.display='block';
+    if(empty)  empty.style.display='none';
+    if(devChartBugRank) devChartBugRank.destroy();
+    devChartBugRank = new Chart(canvas, {
+      type:'bar',
+      data:{ labels: top.map(b=>b.chave_origem), datasets:[{ data: top.map(b=>b.qtd_bugs), backgroundColor:'#dc2626', borderRadius:4 }] },
+      options:{
+        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false},
+          tooltip:{ callbacks:{
+            title:(items)=> top[items[0].dataIndex].summary || items[0].label,
+            label:(ctx)=> ` ${ctx.parsed.x} bug(s)`
+          } } },
+        scales:{ x:{ beginAtZero:true, ticks:{color:tc, font:{size:10}, precision:0}, grid:{color:gc} },
+                 y:{ ticks:{color:tc, font:{size:10}}, grid:{display:false} } }
+      }
+    });
+  }catch(e){ console.warn('Erro ao renderizar gráfico de ranking de bugs:', e); }
+}
+
+let devChartSemana = null;
+function isoWeekStartDate(semana){
+  // "2026-W32" -> data de segunda-feira daquela semana ISO
+  const m = /^(\d{4})-W(\d{2})$/.exec(semana);
+  if(!m) return null;
+  const year = +m[1], week = +m[2];
+  const jan4 = new Date(year, 0, 4);
+  const jan4Day = jan4.getDay() || 7; // Monday=1..Sunday=7
+  const week1Monday = new Date(jan4);
+  week1Monday.setDate(jan4.getDate() - jan4Day + 1);
+  const target = new Date(week1Monday);
+  target.setDate(week1Monday.getDate() + (week - 1) * 7);
+  return target;
+}
+function fmtSemanaLabel(semana){
+  const d = isoWeekStartDate(semana);
+  if(!d) return semana;
+  return d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
+}
+function qaUltimasSemanas(n=12){
+  return [...new Set(QA_TAREFAS_SEMANA.map(r=>r.semana))].sort().slice(-n);
+}
+
+function qaFilteredSemana(){
+  // Aplica os MESMOS filtros do topo (Desenvolvedor/Squad/Projeto/Produto)
+  // usados pelos outros quadros da página.
+  let lista = QA_TAREFAS_SEMANA || [];
+  const selDev = QA_MS_STATE['qa-dev'], selSquad = QA_MS_STATE['qa-squad'],
+        selProj = QA_MS_STATE['qa-proj'], selProd = QA_MS_STATE['qa-prod'];
+  if(selDev.size)   lista = lista.filter(r => selDev.has(r.dev));
+  if(selSquad.size) lista = lista.filter(r => selSquad.has(r.squad));
+  if(selProj.size)  lista = lista.filter(r => selProj.has(r.projeto));
+  if(selProd.size)  lista = lista.filter(r => selProd.has(r.produto));
+  return lista;
+}
+
+let devSemanaSelDev = null;
+function devSemanaSelectDev(dev){
+  devSemanaSelDev = (devSemanaSelDev===dev) ? null : dev;
+  renderDevWeekly();
+}
+
+function renderDevWeekly(){
+  renderDevWeeklyTable();  // independe do Chart.js — roda sempre
+
+  const tag = document.getElementById('dev-semana-sel-tag');
+  const nomeEl = document.getElementById('dev-semana-sel-nome');
+  if(tag){
+    if(devSemanaSelDev){ tag.style.display='inline'; if(nomeEl) nomeEl.textContent = devSemanaSelDev; }
+    else tag.style.display='none';
+  }
+
+  const canvas = document.getElementById('devChartSemana');
+  if(!canvas) return;
+  if(!QA_TAREFAS_SEMANA.length){
+    if(devChartSemana){ devChartSemana.destroy(); devChartSemana=null; }
+    return;
+  }
+  if(typeof Chart === 'undefined'){ console.warn('Chart.js não carregado — gráfico de tarefas na semana indisponível'); return; }
+  try{
+  const dark = document.documentElement.getAttribute('data-theme')==='dark';
+  const tc = dark ? '#9ba3bf' : '#888';
+  const gc = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)';
+  const semanas = qaUltimasSemanas(12);  // últimas 12 semanas (~90 dias) — eixo fixo, independente do filtro
+  let filtrada = qaFilteredSemana();
+  if(devSemanaSelDev) filtrada = filtrada.filter(r => r.dev === devSemanaSelDev);
+  // Total por semana (sem quebra por pessoa — com 100+ devs, empilhado fica ilegível).
+  // O detalhe por pessoa fica na tabela abaixo, com busca.
+  const totais = semanas.map(sem => filtrada.filter(r=>r.semana===sem).length);
+  const barColor = devSemanaSelDev ? '#22c55e' : '#6366f1';
+  if(devChartSemana) devChartSemana.destroy();
+  devChartSemana = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: semanas.map(fmtSemanaLabel), datasets: [{ label: devSemanaSelDev || 'Tarefas', data: totais, backgroundColor: barColor, borderRadius:4 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{
+          title:(items)=>`Semana de ${items[0].label}`,
+          label:(ctx)=>` ${ctx.parsed.y} tarefa(s)`
+        } } },
+      scales:{
+        x:{ ticks:{color:tc, font:{size:10}}, grid:{display:false} },
+        y:{ beginAtZero:true, ticks:{color:tc, font:{size:10}, precision:0}, grid:{color:gc} }
+      }
+    }
+  });
+  }catch(e){ console.warn('Erro ao renderizar gráfico de tarefas na semana:', e); }
+}
+
+let qaSemSortKey = 'qtd', qaSemSortAsc = false;
+function qaSemSortBy(key){
+  if(qaSemSortKey === key) qaSemSortAsc = !qaSemSortAsc;
+  else { qaSemSortKey = key; qaSemSortAsc = (key==='dev'); }
+  renderDevWeeklyTable();
+}
+
+function renderDevWeeklyTable(){
+  const tbody = document.getElementById('dev-semana-tbody');
+  if(!tbody) return;
+  const busca = (document.getElementById('dev-semana-srch')?.value || '').toLowerCase();
+  const semanasValidas = new Set(qaUltimasSemanas(12));
+  let registros = qaFilteredSemana().filter(r => semanasValidas.has(r.semana));
+  if(busca) registros = registros.filter(r => r.dev.toLowerCase().includes(busca));
+
+  // Agrega só por desenvolvedor (total no período de 12 semanas exibido no
+  // gráfico acima) — sem quebra por semana, igual pedido.
+  const agregados = {};
+  for(const r of registros){
+    agregados[r.dev] = agregados[r.dev] || { dev: r.dev, qtd: 0 };
+    agregados[r.dev].qtd++;
+  }
+  const lista = Object.values(agregados).sort((a,b)=>{
+    const cmp = qaSemSortKey==='dev' ? a.dev.localeCompare(b.dev) : a.qtd - b.qtd;
+    return qaSemSortAsc ? cmp : -cmp;
+  });
+
+  tbody.innerHTML = lista.map(r => {
+    const isSel = devSemanaSelDev === r.dev;
+    const nomeEsc = r.dev.replace(/'/g,"\\'");
+    return `<tr onclick="devSemanaSelectDev('${nomeEsc}')" style="cursor:pointer${isSel?';background:rgba(99,102,241,.15)':''}">
+      <td style="${isSel?'font-weight:700;color:var(--indigo)':''}">${r.dev}</td>
+      <td style="text-align:right;font-weight:600">${r.qtd}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="2" style="text-align:center;color:var(--text3);padding:12px">Nenhum resultado para o filtro selecionado.</td></tr>';
+}
+
+function renderDevEpicProgress(){
+  const tbody = document.getElementById('dev-epic-tbody');
+  const count = document.getElementById('dev-epic-count');
+  if(!tbody) return;
+  let lista = QA_EPIC_PROGRESS || [];
+  const selProj = QA_MS_STATE['qa-proj'];
+  if(selProj.size) lista = lista.filter(e => selProj.has(e.projeto));
+  if(count) count.textContent = `${lista.length} epic(s)`;
+  if(!lista.length){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:16px">Nenhum dado encontrado para o filtro selecionado.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map(e => `
+    <tr>
+      <td><a href="https://nimitz.atlassian.net/browse/${e.chave}" target="_blank" style="color:var(--indigo);font-weight:600;text-decoration:none">${e.chave}</a></td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis" title="${(e.summary||'').replace(/"/g,'&quot;')}">${e.summary||'—'}</td>
+      <td>${e.status||'—'}</td>
+      <td style="font-size:10px">${e.projeto||'—'}</td>
+      <td style="text-align:center">${e.total_filhos}</td>
+      <td style="text-align:center">${e.filhos_concluidos}</td>
+      <td style="min-width:140px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${e.progresso_pct}%;background:${e.progresso_pct>=80?'#22c55e':e.progresso_pct>=40?'#d97706':'#dc2626'};border-radius:4px"></div>
+          </div>
+          <span style="font-size:10px;font-weight:600;white-space:nowrap">${fmtN(e.progresso_pct,1)}%</span>
+        </div>
+      </td>
+    </tr>`).join('');
 }
 
 </script>
