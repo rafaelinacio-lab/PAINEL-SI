@@ -1313,7 +1313,7 @@ function setGlobalGeradoEm(gerado_em){
   if(!current || parse(gerado_em) >= parse(current)){
     el.dataset.raw = gerado_em;
 
-    // O jira_extractor.py roda de hora em hora (Task Scheduler) — a próxima
+    // O jira_extractor.py roda de hora em hora (cron da VM) — a próxima
     // atualização é sempre gerado_em + 1h.
     const ts = parse(gerado_em);
     let proximaHtml = '';
@@ -1324,7 +1324,18 @@ function setGlobalGeradoEm(gerado_em){
       proximaHtml = `<br>⏭️ Próxima atualização: ${proximaStr} (de hora em hora)`;
     }
 
-    el.innerHTML = '🕐 ' + gerado_em + proximaHtml;
+    // Aviso visual se o dado estiver "velho" — o cron roda de hora em hora,
+    // então passar de 2h sem atualizar (2 execuções perdidas) é sinal de que
+    // o jira_extractor.py parou de rodar na VM (já aconteceu — ver
+    // Jira/jira_extractor.py sumindo do disco). Sem isso, o painel continua
+    // mostrando os últimos dados coletados como se nada estivesse errado.
+    const STALE_MS = 2 * 60 * 60 * 1000;
+    const isStale = ts && (Date.now() - ts) > STALE_MS;
+    const staleHtml = isStale
+      ? `<br><span style="color:var(--red,#dc2626);font-weight:700">⚠️ Dados desatualizados há mais de 2h — verifique se o jira_extractor.py está rodando na VM (cron do usuário rafael.silva).</span>`
+      : '';
+
+    el.innerHTML = '🕐 ' + gerado_em + proximaHtml + staleHtml;
   }
 }
 
