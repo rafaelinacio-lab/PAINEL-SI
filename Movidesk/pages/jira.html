@@ -1664,6 +1664,20 @@ function render(){
       </div>
     </td></tr>`:''}`;
   }).join('');
+
+  // Se havia um profissional com o detalhe aberto, o bloco acima recria o HTML do
+  // acordeão vazio (nome, KPIs, gráficos e tarefas). Precisamos repopular esse
+  // conteúdo sempre que a tabela é re-renderizada (busca, ordenação, filtros, abas),
+  // senão o painel de detalhe fica em branco.
+  if(selNome){
+    if(rows.some(x=>x.nome===selNome)){
+      const raw=DATA.find(x=>x.nome===selNome);
+      if(raw) requestAnimationFrame(()=>openDet(raw, false));
+    } else {
+      // O profissional selecionado não está mais nos resultados filtrados
+      selNome=null;
+    }
+  }
 }
 
 function sel(nome){
@@ -1671,12 +1685,35 @@ function sel(nome){
   selNome=nome; render();
   requestAnimationFrame(()=>{
     requestAnimationFrame(()=>{
-      openDet(DATA.find(x=>x.nome===nome));
+      openDet(DATA.find(x=>x.nome===nome), true);
     });
   });
 }
 
-function openDet(d){
+function openDet(dRaw, doScroll){
+  // Reaplica o filtro de meses ativo no topo (o mesmo usado na tabela principal),
+  // para que os KPIs, gráficos e listas do detalhe fiquem consistentes com a linha da tabela.
+  const mesFiltro = (MES_SEL.size>0 && MES_SEL.size<MK.length) ? [...MES_SEL] : null;
+  let d = dRaw;
+  if(mesFiltro){
+    const getMk = t => (t.mes||'').slice(5,7) || (t.mes||'').slice(0,2) || '';
+    const tarefasF = (dRaw.tarefas||[]).filter(t=>mesFiltro.includes(getMk(t)));
+    const pontosF = tarefasF.reduce((a,t)=>a+(t.pontos||0),0);
+    const finalizadasF = tarefasF.filter(t=>t.status==='Finalizada').length;
+    const reprovadasF  = tarefasF.filter(t=>t.status==='Análise Reprovada').length;
+    const tipoCountsF = {};
+    tarefasF.forEach(t=>{ const tp=t.tipo||'Outro'; tipoCountsF[tp]=(tipoCountsF[tp]||0)+1; });
+    const filtraBugs = arr => (arr||[]).filter(b=>mesFiltro.includes(getMk(b)));
+    const bugReqF=filtraBugs(dRaw.tarefas_bug_req), bugTestF=filtraBugs(dRaw.tarefas_bug_test), bugDevF=filtraBugs(dRaw.tarefas_bug_dev);
+    d = {...dRaw,
+      pontos:pontosF, qtd_tarefas:tarefasF.length,
+      finalizadas:finalizadasF, reprovadas:reprovadasF,
+      tarefas:tarefasF, tipo_counts:tipoCountsF,
+      bugs_falha_req:bugReqF.length, bugs_falha_test:bugTestF.length, bugs_falha_dev:bugDevF.length,
+      tarefas_bug_req:bugReqF, tarefas_bug_test:bugTestF, tarefas_bug_dev:bugDevF
+    };
+  }
+
   curCargo=d.cargo;
   const col=CC[d.cargo];
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
@@ -1684,7 +1721,8 @@ function openDet(d){
   const tc=dark?'#9ba3bf':'#888';
 
   document.getElementById('det-name').innerHTML=`${d.nome} <span class="bdg bdg-${d.cargo}">${CL[d.cargo]}</span>`;
-  document.getElementById('det-sub').textContent=`${d.qtd_tarefas} tarefas · ${d.finalizadas} finalizadas · ${d.reprovadas} reprovadas`;
+  const filtroTxt = mesFiltro ? ` · Meses: ${mesFiltro.map(m=>ML[m]).join(', ')}` : '';
+  document.getElementById('det-sub').textContent=`${d.qtd_tarefas} tarefas · ${d.finalizadas} finalizadas · ${d.reprovadas} reprovadas${filtroTxt}`;
 
   const bugMain=d.cargo==='AR'?(d.bugs_falha_req||0):d.cargo==='AT'?(d.bugs_falha_test||0):(d.bugs_falha_dev||0);
   const txBug=d.qtd_tarefas>0?bugMain/d.qtd_tarefas*100:0;
@@ -1702,13 +1740,14 @@ function openDet(d){
       <div class="dkv">${d.bugs_falha_req||0} / ${d.bugs_falha_test||0} / ${d.bugs_falha_dev||0}</div>
     </div>`;
 
-  const vals=MK.map(m=>d.monthly?.[m]||0);
+  const vals=MK.map(m=>dRaw.monthly?.[m]||0);
   const avg=vals.reduce((a,v)=>a+v,0)/(MK.length||1);
+  const barColors = MK.map(m => (!mesFiltro || mesFiltro.includes(m)) ? col+'99' : (dark?'rgba(255,255,255,.12)':'rgba(0,0,0,.08)'));
   if(cM)cM.destroy();
   cM=new Chart(document.getElementById('chartM'),{
     type:'bar',
     data:{labels:MESES,datasets:[
-      {label:'Pontuação',data:vals,backgroundColor:col+'99',borderColor:col,borderWidth:1,borderRadius:3}
+      {label:'Pontuação',data:vals,backgroundColor:barColors,borderColor:col,borderWidth:1,borderRadius:3}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtN(c.raw)}}},
@@ -1746,15 +1785,24 @@ function openDet(d){
   curTasks=d.tarefas||[];
   document.getElementById('tsrch').value='';
   document.getElementById('tstat').value='';
-  document.getElementById('tmes').value='';
+  // Repopula o seletor de mês da tabela de tarefas: se houver filtro de meses ativo no topo,
+  // só mostra (e permite selecionar) os meses que estão dentro do filtro.
+  const tmesEl=document.getElementById('tmes');
+  const mesesParaMostrar = mesFiltro ? MK.filter(m=>mesFiltro.includes(m)) : MK;
+  tmesEl.innerHTML = '<option value="">Todos meses</option>' +
+    mesesParaMostrar.map(m=>`<option value="2026-${m}">${ML[m]}</option>`).join('');
+  tmesEl.value='';
   document.getElementById('tproj').value='';
   document.getElementById('tsquad').value='';
   renderTasks();
   renderBugs(d);
 
-  // Scroll accordion row into view smoothly
-  const accRow=document.querySelector('.acc-row');
-  if(accRow) accRow.scrollIntoView({behavior:'smooth',block:'nearest'});
+  // Scroll accordion row into view smoothly — apenas quando o detalhe está sendo
+  // aberto pela primeira vez (clique na linha), não em cada re-render por filtro.
+  if(doScroll){
+    const accRow=document.querySelector('.acc-row');
+    if(accRow) accRow.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
 }
 
 function renderTasks(){
@@ -2156,8 +2204,10 @@ function applyMesFiltro(d){
 function resetFiltrosIndicadores(){
   MS_IND_RESP.clear(); buildMSList('ind-resp', MS_IND_RESP_ALL); updateMSBtnIndResp();
   clearMesSel();
+  const srch = document.getElementById('srch');
   const fp = document.getElementById('fil-projeto');
   const fs = document.getElementById('fil-squad');
+  if(srch) srch.value='';
   if(fp) fp.value='';
   if(fs) fs.value='';
   render();
